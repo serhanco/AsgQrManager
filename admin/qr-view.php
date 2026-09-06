@@ -129,7 +129,7 @@ function previewUrl(string $base, string $slug, string $fmt, string $ecc, int $s
       <div>
         <label class="form-label" style="font-size:.8rem">Hata Düzeltme</label>
         <select class="form-control" style="font-size:.85rem"
-                onchange="location.href=<?= json_encode(BASE_URL . '/admin/qr-view.php?slug=' . $slug . '&ecc=') ?>+this.value+'&margin=<?= $margin ?>&logo=<?= urlencode($logoFile) ?>'">
+                onchange="location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&ecc=' + this.value + '&margin=<?= $margin ?>&logo=<?= urlencode($logoFile) ?>'">
           <?php foreach (['L','M','Q','H'] as $lvl): ?>
             <option value="<?= $lvl ?>" <?= $ecc === $lvl ? 'selected' : '' ?>><?= $lvl ?></option>
           <?php endforeach; ?>
@@ -138,7 +138,7 @@ function previewUrl(string $base, string $slug, string $fmt, string $ecc, int $s
       <div>
         <label class="form-label" style="font-size:.8rem">Kenar Boşluğu</label>
         <select class="form-control" style="font-size:.85rem"
-                onchange="location.href=<?= json_encode(BASE_URL . '/admin/qr-view.php?slug=' . $slug . '&ecc=' . $ecc . '&margin=') ?>+this.value+'&logo=<?= urlencode($logoFile) ?>'">
+                onchange="location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&ecc=<?= $ecc ?>&margin=' + this.value + '&logo=<?= urlencode($logoFile) ?>'">
           <?php foreach (range(0, 8) as $m): ?>
             <option value="<?= $m ?>" <?= $margin === $m ? 'selected' : '' ?>><?= $m ?> modül</option>
           <?php endforeach; ?>
@@ -151,14 +151,14 @@ function previewUrl(string $base, string $slug, string $fmt, string $ecc, int $s
       <label class="form-label" style="font-size:.8rem">Logo</label>
       <div class="form-check mb-2">
         <input type="checkbox" id="use-logo-page-cb" <?= $logoFile ? 'checked' : '' ?>
-               onchange="if(!this.checked)location.href=<?= json_encode(BASE_URL . '/admin/qr-view.php?slug=' . $slug . '&ecc=' . $ecc . '&margin=' . $margin . '&logo=') ?>+''">
+               onchange="if(!this.checked)location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&ecc=<?= $ecc ?>&margin=<?= $margin ?>&logo='">
         <span style="font-size:.85rem">Logo Ekle</span>
       </div>
       <div class="logo-gallery" id="view-logo-gallery">
         <?php foreach ($logos as $lf): ?>
           <div class="logo-item <?= $logoFile === $lf ? 'selected' : '' ?>"
                style="cursor:pointer"
-               onclick="location.href=<?= json_encode(BASE_URL . '/admin/qr-view.php?slug=' . $slug . '&ecc=H&margin=' . $margin . '&logo=') ?>+encodeURIComponent('<?= addslashes(e($lf)) ?>')">
+               onclick="location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&ecc=H&margin=<?= $margin ?>&logo=' + encodeURIComponent('<?= addslashes($lf) ?>')">
             <img src="<?= BASE_URL ?>/logo/<?= rawurlencode($lf) ?>" alt="<?= e($lf) ?>" loading="lazy">
             <span><?= e($lf) ?></span>
           </div>
