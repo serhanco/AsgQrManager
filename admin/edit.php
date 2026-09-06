@@ -32,8 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $isActive  = isset($_POST['is_active']) ? 1 : 0;
     $useLogo   = !empty($_POST['use_logo']);
     $logoFile  = $useLogo ? trim($_POST['logo_file'] ?? '') : '';
-    $ecc       = in_array(strtoupper($_POST['ecc'] ?? 'M'), ['L','M','Q','H'])
-                 ? strtoupper($_POST['ecc']) : 'M';
+    $eccRaw    = strtoupper($_POST['ecc'] ?? '');
+    $ecc       = in_array($eccRaw, ['L','M','Q','H']) ? $eccRaw : 'M';
 
     if (!isValidUrl($targetUrl)) {
         $errors[] = 'Geçerli bir URL girin (http:// veya https://).';

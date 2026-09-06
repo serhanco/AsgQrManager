@@ -22,7 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customSlug  = sanitizeCustomSlug($_POST['custom_slug'] ?? '');
     $useLogo     = !empty($_POST['use_logo']);
     $logoFile    = $useLogo ? (trim($_POST['logo_file'] ?? '')) : '';
-    $ecc         = in_array(strtoupper($_POST['ecc'] ?? 'M'), ['L','M','Q','H']) ? strtoupper($_POST['ecc']) : 'M';
+    $eccRaw      = strtoupper($_POST['ecc'] ?? '');
+    $ecc         = in_array($eccRaw, ['L','M','Q','H']) ? $eccRaw : 'M';
     $margin      = max(0, min(10, (int)($_POST['margin'] ?? 4)));
 
     // Doğrulama
