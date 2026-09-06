@@ -24,10 +24,15 @@ if (!$link) {
 }
 
 // Parametreler
-$fmt    = in_array($_GET['fmt'] ?? 'svg', ['svg','png']) ? $_GET['fmt'] : 'svg';
-$ecc    = in_array(strtoupper($_GET['ecc'] ?? ($link['logo'] ? 'H' : 'M')), ['L','M','Q','H'])
-          ? strtoupper($_GET['ecc'] ?? 'M') : 'M';
-$size   = in_array((int)($_GET['size'] ?? 600), [600, 1200, 2000]) ? (int)$_GET['size'] : 600;
+$fmtRaw = $_GET['fmt']  ?? '';
+$fmt    = in_array($fmtRaw, ['svg','png']) ? $fmtRaw : 'svg';
+
+$eccRaw = strtoupper($_GET['ecc'] ?? '');
+$ecc    = in_array($eccRaw, ['L','M','Q','H']) ? $eccRaw : ($link['logo'] ? 'H' : 'M');
+
+$sizeRaw = (int)($_GET['size'] ?? 0);
+$size    = in_array($sizeRaw, [600, 1200, 2000]) ? $sizeRaw : 600;
+
 $margin = max(0, min(10, (int)($_GET['margin'] ?? 4)));
 $logoFile = $_GET['logo'] ?? $link['logo'] ?? '';
 
