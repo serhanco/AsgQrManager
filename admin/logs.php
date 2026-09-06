@@ -27,13 +27,26 @@ $fileSize   = null;
 if ($selYear && $selMon && $selFile) {
     $relPath    = "{$selYear}/{$selMon}/{$selFile}";
     $fullPath   = $baseDir . '/' . $relPath;
-    $realBase   = realpath($baseDir);
-    $realFull   = realpath($fullPath);
+    // Path traversal koruması
+    $realBase = realpath($baseDir);
+    $realFull = realpath($fullPath);
 
-    // Path traversal koruması (Logger::readLogFile zaten yapar ama burada da gösterim)
-    if ($realFull && $realBase && str_starts_with($realFull, $realBase)) {
-        $fileSize   = is_file($realFull) ? filesize($realFull) : 0;
-        $logContent = Logger::readLogFile($baseDir, $relPath);
+    $safe = false;
+    if ($realFull && $realBase) {
+        // İkisi de çözülebildi — kesin karşılaştır
+        $safe = str_starts_with($realFull, $realBase . DIRECTORY_SEPARATOR)
+             || $realFull === $realBase;
+    } elseif ($realBase === false && is_dir($baseDir)) {
+        // realpath çözümleyemedi (symlink vs.) ama dizin var — normalize ederek karşılaştır
+        $normBase = rtrim(str_replace('\\', '/', $baseDir), '/');
+        $normFull = str_replace('\\', '/', $fullPath);
+        $safe = str_starts_with($normFull, $normBase . '/') && !str_contains($normFull, '/../');
+    }
+
+    if ($safe && is_file($fullPath)) {
+        $resolvedPath = $realFull ?: $fullPath;
+        $fileSize     = filesize($resolvedPath) ?: 0;
+        $logContent   = Logger::readLogFile($baseDir, $relPath);
         if ($logContent === null) $logError = 'Dosya okunamadı veya izin reddedildi.';
     } else {
         $logError = 'Geçersiz dosya yolu.';
