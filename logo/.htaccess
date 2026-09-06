@@ -1,0 +1,6 @@
+Options -Indexes
+# Yalnızca izinli resim uzantılarına izin ver
+<FilesMatch "\.(?!png$|jpg$|jpeg$|svg$|webp$)[^.]+$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>

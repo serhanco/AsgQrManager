@@ -1,0 +1,43 @@
+Options -Indexes
+RewriteEngine On
+RewriteBase /
+
+# ─── Güvenlik: hassas dosyalara erişimi engelle ───────────────────────────────
+<FilesMatch "^(config|install|schema)\.php$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# install.php'yi yalnızca localhost'tan erişime aç (kurulum sonrası silin)
+<Files "install.php">
+    Order Deny,Allow
+    Deny from all
+    Allow from 127.0.0.1 ::1
+</Files>
+
+# ─── Yönlendirme kuralları ────────────────────────────────────────────────────
+# Var olan dosya/klasöre dokunma
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# /r/{slug} → r.php
+RewriteRule ^r/([A-Za-z0-9_-]+)/?$ r.php?c=$1 [L,QSA]
+
+# admin/ altındaki clean URL'ler (gelecekte ihtiyaç olursa)
+# RewriteRule ^admin/(.+)$ admin/$1 [L]
+
+# Kök isteği → index.php
+RewriteRule ^$ index.php [L]
+
+# ─── HTTP Güvenlik Başlıkları ─────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ─── PHP hata gösterimini kapat (log dosyasına yazılacak) ─────────────────────
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>

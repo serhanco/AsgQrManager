@@ -1,0 +1,31 @@
+# Hassas yapılandırma dosyası (Örnek için config.example.php kullanın)
+config.php
+
+# Önbellek ve geçici dosyalar
+cache/qr/*
+!cache/qr/.gitkeep
+!cache/.htaccess
+
+# Log kayıtları
+logs/app/*
+logs/scans/*
+!logs/app/.gitkeep
+!logs/scans/.gitkeep
+!logs/.htaccess
+
+# Yüklenen logolar (Varsayılan .htaccess hariç)
+logo/*
+!logo/.htaccess
+!logo/.gitkeep
+
+# Arşiv ve yedek dosyaları
+*.zip
+*.tar.gz
+qr-manager.zip
+
+# İşletim sistemi ve editör dosyaları
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

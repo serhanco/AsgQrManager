@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QR Yöneticisi — JS Standalone</title>
+<style>
+/* ─── Tek dosya, harici CSS yok ─────────────────────────────────────────── */
+:root {
+  --bg: #f1f5f9; --surface: #fff; --surface2: #f8fafc; --border: #e2e8f0;
+  --text: #0f172a; --muted: #64748b; --accent: #6366f1; --accent-h: #4f46e5;
+  --success: #22c55e; --danger: #ef4444; --warning: #f59e0b;
+  --radius: .75rem; --font: system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#0f172a; --surface:#1e293b; --surface2:#162032; --border:#334155;
+          --text:#f1f5f9; --muted:#94a3b8; }
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+a    { color: var(--accent); }
+
+/* Layout */
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: .85rem 1.5rem; display: flex; align-items: center; gap: 1rem;
+  position: sticky; top: 0; z-index: 10;
+}
+.brand { font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: .5rem; }
+.note  { font-size: .75rem; color: var(--muted); background: var(--surface2);
+          border: 1px solid var(--border); border-radius: 999px; padding: .15rem .6rem; }
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem;
+             display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+@media (max-width: 700px) { .container { grid-template-columns: 1fr; } }
+
+/* Kart */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+        padding: 1.5rem; }
+.card-title { font-weight: 700; font-size: 1rem; margin-bottom: 1rem;
+              display: flex; align-items: center; gap: .4rem; }
+
+/* Form */
+label  { display: block; font-size: .875rem; font-weight: 600; margin-bottom: .3rem; margin-top: 1rem; }
+label:first-child { margin-top: 0; }
+input[type=text], input[type=url], select, textarea {
+  display: block; width: 100%; padding: .6rem .85rem; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: .4rem; color: var(--text);
+  font-size: .9rem; font-family: var(--font); transition: border-color .15s;
+}
+input:focus, select:focus { outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,.2); }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+
+/* Buton */
+.btn { display: inline-flex; align-items: center; gap: .35rem; padding: .55rem 1.1rem;
+       border-radius: .4rem; font-size: .875rem; font-weight: 600; cursor: pointer;
+       border: 1px solid transparent; transition: all .15s; font-family: var(--font); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); }
+.btn-ghost   { background: transparent; color: var(--text); border-color: var(--border); }
+.btn-ghost:hover { background: var(--surface2); }
+.btn-danger  { background: var(--danger); color: #fff; }
+.btn-sm      { padding: .3rem .7rem; font-size: .8rem; }
+.btn-group   { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .75rem; }
+
+/* QR önizleme */
+.qr-box { background: #fff; border: 2px solid var(--border); border-radius: var(--radius);
+          min-height: 220px; display: flex; align-items: center; justify-content: center;
+          padding: 1rem; margin-bottom: 1rem; }
+.qr-box > * { max-width: 100%; max-height: 220px; }
+
+/* Badge, Alert */
+.badge { display: inline-block; padding: .15rem .5rem; border-radius: 999px; font-size: .7rem; font-weight: 600; }
+.badge-success { background: color-mix(in srgb,var(--success) 15%,transparent); color: var(--success); }
+.badge-danger  { background: color-mix(in srgb,var(--danger) 15%,transparent); color: var(--danger); }
+.alert { padding: .7rem 1rem; border-radius: .4rem; font-size: .85rem; margin-bottom:.75rem; }
+.alert-info    { background: color-mix(in srgb,var(--accent) 10%,var(--surface)); color: var(--accent); }
+.alert-warning { background: color-mix(in srgb,var(--warning) 10%,var(--surface)); color: #b45309; }
+
+/* Tablo */
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+thead { background: var(--surface2); }
+th { padding: .6rem 1rem; text-align: left; font-weight: 600; font-size: .72rem;
+     text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+     border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: .65rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface2); }
+.mono { font-family: 'Courier New', monospace; }
+
+/* Toggle */
+.toggle { position: relative; width: 40px; height: 22px; display: inline-block; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; background: var(--border); border-radius: 999px; cursor: pointer; transition: .2s; }
+.slider::before { content:''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px;
+                  background: #fff; border-radius: 50%; transition: .2s; }
+.toggle input:checked + .slider { background: var(--accent); }
+.toggle input:checked + .slider::before { transform: translateX(18px); }
+
+/* Copy input */
+.copy-row { display: flex; gap: .4rem; align-items: center; }
+.copy-row input { font-size: .8rem; color: var(--muted); flex: 1; }
+.copy-row button { flex-shrink: 0; }
+
+.empty-state { text-align: center; padding: 2rem; color: var(--muted); }
+.empty-state .icon { font-size: 3rem; margin-bottom: .75rem; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">📱 QR Manager <span class="note">JS Standalone — PHP Gereksiz</span></div>
+  <div style="flex:1"></div>
+  <small style="color:var(--muted)">Veriler LocalStorage'da saklanır</small>
+</header>
+
+<div class="container">
+
+<!-- Sol: Oluştur -->
+<div>
+  <div class="card">
+    <div class="card-title">➕ Yeni QR Kodu</div>
+
+    <div class="alert alert-info">
+      ℹ️ Bu sürüm tamamen tarayıcıda çalışır. Gerçek yönlendirme için PHP sürümünü kullanın.
+    </div>
+
+    <label>Hedef URL *</label>
+    <input type="url" id="target-url" placeholder="https://example.com/uzun-adres" required>
+
+    <label>Başlık <small style="font-weight:400;color:var(--muted)">(isteğe bağlı)</small></label>
+    <input type="text" id="link-title" placeholder="Ürün kataloğu…">
+
+    <label>Özel Slug <small style="font-weight:400;color:var(--muted)">(boş = otomatik)</small></label>
+    <input type="text" id="custom-slug" placeholder="brosur-2025" pattern="[A-Za-z0-9_-]{0,16}" maxlength="16">
+
+    <div class="row" style="margin-top:1rem">
+      <div>
+        <label>Hata Düzeltme</label>
+        <select id="ecc-level">
+          <option value="M" selected>M — Orta</option>
+          <option value="Q">Q — Yüksek</option>
+          <option value="H">H — En Yüksek</option>
+          <option value="L">L — Düşük</option>
+        </select>
+      </div>
+      <div>
+        <label>QR Boyutu (px)</label>
+        <select id="qr-size">
+          <option value="200">200px</option>
+          <option value="300" selected>300px</option>
+          <option value="400">400px</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" id="create-btn">🚀 QR Oluştur</button>
+    </div>
+  </div>
+
+  <!-- QR Önizleme -->
+  <div class="card" style="margin-top:1rem" id="preview-card" hidden>
+    <div class="card-title">📱 QR Önizleme</div>
+    <div class="qr-box" id="qr-box"></div>
+    <div class="copy-row">
+      <input type="text" id="qr-short-url" readonly>
+      <button class="btn btn-ghost btn-sm" id="copy-url-btn">📋</button>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary btn-sm" id="download-png-btn">⬇️ PNG İndir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sağ: Liste -->
+<div>
+  <div class="card">
+    <div class="card-title" style="justify-content:space-between">
+      <span>🔗 Kaydedilen Linkler</span>
+      <span id="link-count" class="badge badge-success">0</span>
+    </div>
+
+    <div id="links-empty" class="empty-state">
+      <div class="icon">📭</div>
+      <p>Henüz link yok. Soldaki formu doldurun.</p>
+    </div>
+
+    <div class="table-wrap" id="links-table-wrap" hidden>
+      <table>
+        <thead>
+          <tr>
+            <th>Slug</th>
+            <th>Başlık / URL</th>
+            <th>Durum</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="links-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- QR kütüphanesi — qrcodejs (MIT) CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
+        integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSe1oRlWFqcT0M7L3VqfEZPG1G7s+bHRBAAQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+'use strict';
+/* ─── LocalStorage veri yönetimi ───────────────────────────────────────────── */
+const STORE_KEY = 'qrmanager_links';
+
+function loadLinks() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveLinks(links) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(links));
+}
+
+/* ─── Slug üretici ─────────────────────────────────────────────────────────── */
+function randomSlug(len = 7) {
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  let r = '';
+  for (let i = 0; i < len; i++) r += chars[Math.floor(Math.random() * 62)];
+  return r;
+}
+
+/* ─── DOM referansları ─────────────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const targetInput  = $('target-url');
+const titleInput   = $('link-title');
+const slugInput    = $('custom-slug');
+const eccSel       = $('ecc-level');
+const sizeSel      = $('qr-size');
+const createBtn    = $('create-btn');
+const previewCard  = $('preview-card');
+const qrBox        = $('qr-box');
+const shortUrlInput= $('qr-short-url');
+const copyBtn      = $('copy-url-btn');
+const dlPngBtn     = $('download-png-btn');
+const linksEmpty   = $('links-empty');
+const linksWrap    = $('links-table-wrap');
+const linksTbody   = $('links-tbody');
+const linkCount    = $('link-count');
+
+let currentQR  = null;
+let currentSlug= null;
+
+/* ─── QR üretici (qrcodejs) ────────────────────────────────────────────────── */
+function renderQR(url, slug) {
+  qrBox.innerHTML = '';
+  currentQR = null;
+  const size = parseInt(sizeSel.value, 10) || 300;
+  const eccMap = { L: QRCode.CorrectLevel.L, M: QRCode.CorrectLevel.M,
+                   Q: QRCode.CorrectLevel.Q, H: QRCode.CorrectLevel.H };
+
+  currentQR = new QRCode(qrBox, {
+    text: url, width: size, height: size,
+    colorDark: '#000', colorLight: '#fff',
+    correctLevel: eccMap[eccSel.value] || QRCode.CorrectLevel.M,
+  });
+  currentSlug = slug;
+}
+
+/* ─── Link oluştur ─────────────────────────────────────────────────────────── */
+createBtn.addEventListener('click', () => {
+  const url = targetInput.value.trim();
+  if (!url || !/^https?:\/\/.+/.test(url)) {
+    alert('Geçerli bir URL girin (http:// veya https://).');
+    return;
+  }
+
+  const links   = loadLinks();
+  let slug = slugInput.value.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 16) || randomSlug(7);
+
+  // Slug benzersiz mi?
+  while (links.some(l => l.slug === slug)) slug = randomSlug(7);
+
+  const link = {
+    id: Date.now(),
+    slug,
+    title: titleInput.value.trim() || '',
+    target_url: url,
+    is_active: true,
+    scan_count: 0,
+    ecc: eccSel.value,
+    created_at: new Date().toISOString().slice(0, 10),
+  };
+  links.unshift(link);
+  saveLinks(links);
+
+  // Önizleme
+  const fakeShortUrl = `${location.origin}/qr/r/${slug}`;
+  shortUrlInput.value = fakeShortUrl;
+  previewCard.hidden = false;
+  renderQR(fakeShortUrl, slug);
+  renderTable();
+
+  // Formu temizle
+  targetInput.value = '';
+  titleInput.value  = '';
+  slugInput.value   = '';
+});
+
+/* ─── Kopyala ──────────────────────────────────────────────────────────────── */
+copyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(shortUrlInput.value).then(() => {
+    copyBtn.textContent = '✓';
+    setTimeout(() => copyBtn.textContent = '📋', 1500);
+  });
+});
+
+/* ─── PNG İndir ────────────────────────────────────────────────────────────── */
+dlPngBtn.addEventListener('click', () => {
+  const canvas = qrBox.querySelector('canvas');
+  if (!canvas) return;
+  const a = document.createElement('a');
+  a.href     = canvas.toDataURL('image/png');
+  a.download = `qr-${currentSlug || 'code'}.png`;
+  a.click();
+});
+
+/* ─── Tablo render ─────────────────────────────────────────────────────────── */
+function renderTable() {
+  const links = loadLinks();
+  linkCount.textContent = links.length;
+  if (links.length === 0) {
+    linksEmpty.hidden = false;
+    linksWrap.hidden  = true;
+    return;
+  }
+  linksEmpty.hidden = true;
+  linksWrap.hidden  = false;
+
+  linksTbody.innerHTML = links.map(link => `
+    <tr>
+      <td class="mono">${esc(link.slug)}</td>
+      <td>
+        <div style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(link.title||'—')}</div>
+        <div style="font-size:.75rem;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(link.target_url)}</div>
+      </td>
+      <td>
+        <label class="toggle" title="Aktif/Pasif">
+          <input type="checkbox" ${link.is_active?'checked':''} onchange="toggleLink(${link.id},this.checked)">
+          <span class="slider"></span>
+        </label>
+      </td>
+      <td style="display:flex;gap:.3rem;align-items:center">
+        <button class="btn btn-ghost btn-sm" onclick="editTarget(${link.id})" title="URL güncelle">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="showQR('${esc(link.slug)}','${esc(link.target_url)}','${link.ecc||'M'}')" title="QR Göster">📱</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteLink(${link.id})" title="Sil">🗑</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+/* ─── Yardımcı fonksiyonlar ────────────────────────────────────────────────── */
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+window.toggleLink = function(id, active) {
+  const links = loadLinks().map(l => l.id === id ? {...l, is_active: active} : l);
+  saveLinks(links); renderTable();
+};
+
+window.editTarget = function(id) {
+  const links = loadLinks();
+  const link  = links.find(l => l.id === id);
+  if (!link) return;
+  const newUrl = prompt('Yeni hedef URL:', link.target_url);
+  if (!newUrl || !/^https?:\/\/.+/.test(newUrl)) return;
+  const updated = links.map(l => l.id === id ? {...l, target_url: newUrl} : l);
+  saveLinks(updated); renderTable();
+  alert('URL güncellendi! QR kodu değişmedi — yeni hedef: ' + newUrl);
+};
+
+window.showQR = function(slug, url, ecc) {
+  eccSel.value = ecc || 'M';
+  const fakeUrl = `${location.origin}/qr/r/${slug}`;
+  shortUrlInput.value = fakeUrl;
+  previewCard.hidden = false;
+  renderQR(fakeUrl, slug);
+  previewCard.scrollIntoView({ behavior: 'smooth' });
+};
+
+window.deleteLink = function(id) {
+  if (!confirm('Bu linki silmek istediğinizden emin misiniz?')) return;
+  saveLinks(loadLinks().filter(l => l.id !== id));
+  renderTable();
+};
+
+/* ─── Başlangıç ────────────────────────────────────────────────────────────── */
+renderTable();
+</script>
+</body>
+</html>
