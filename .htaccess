@@ -1,19 +1,14 @@
 Options -Indexes
 RewriteEngine On
-RewriteBase /
+# RewriteBase / (Alt klasörlerde otomatik/bağıl çalışması için iptal edildi)
 
 # ─── Güvenlik: hassas dosyalara erişimi engelle ───────────────────────────────
-<FilesMatch "^(config|install|schema)\.php$">
+<FilesMatch "^(config|schema)\.php$">
     Order Deny,Allow
     Deny from all
 </FilesMatch>
 
-# install.php'yi yalnızca localhost'tan erişime aç (kurulum sonrası silin)
-<Files "install.php">
-    Order Deny,Allow
-    Deny from all
-    Allow from 127.0.0.1 ::1
-</Files>
+# install.php güvenliği, PHP içerisindeki installed.lock kontrolü ile sağlanır.
 
 # ─── Yönlendirme kuralları ────────────────────────────────────────────────────
 # Var olan dosya/klasöre dokunma

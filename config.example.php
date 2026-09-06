@@ -12,13 +12,45 @@ define('DB_USER',     'root');
 define('DB_PASS',     '');
 define('DB_CHARSET',  'utf8mb4');
 
-// ─── Uygulama URL & Yol ──────────────────────────────────────────────────────
-// Sonda / OLMADAN (Örn: https://example.com/qr veya http://localhost/QrManager)
-define('BASE_URL',  'http://localhost/QrManager');
-// Alt klasör yolu (Apache RewriteBase ile eşleşmeli, kök dizindeyse boş bırakın veya '/')
-define('BASE_PATH', '/QrManager');
 // Fiziksel kök (bu dosyanın bulunduğu klasör)
 define('ROOT_DIR',  __DIR__);
+
+// ─── Otomatik URL ve Klasör Algılama ─────────────────────────────────────────
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['SERVER_PORT'] ?? 80) == 443 || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$basePath = '';
+
+// Script filename ve SCRIPT_NAME ilişkisinden alt klasörü bul
+$scriptFilename = str_replace('\\', '/', $_SERVER['SCRIPT_FILENAME'] ?? '');
+$scriptName     = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$rootDir        = str_replace('\\', '/', ROOT_DIR);
+
+if ($scriptFilename && $scriptName && str_starts_with($scriptFilename, $rootDir)) {
+    $subFromRoot = substr(dirname($scriptFilename), strlen($rootDir)); // örn: /admin veya boş
+    $scriptDir = dirname($scriptName);
+    if ($subFromRoot !== '' && str_ends_with($scriptDir, $subFromRoot)) {
+        $basePath = substr($scriptDir, 0, -strlen($subFromRoot));
+    } else {
+        $basePath = $scriptDir;
+    }
+} elseif (!empty($_SERVER['DOCUMENT_ROOT'])) {
+    $docRoot = rtrim(str_replace('\\', '/', realpath($_SERVER['DOCUMENT_ROOT']) ?: $_SERVER['DOCUMENT_ROOT']), '/');
+    if (str_starts_with($rootDir, $docRoot)) {
+        $basePath = substr($rootDir, strlen($docRoot));
+    }
+}
+
+$basePath = '/' . trim(str_replace('\\', '/', $basePath), '/');
+if ($basePath === '/') $basePath = '';
+$autoBaseUrl = $scheme . '://' . $host . $basePath;
+
+// ─── Uygulama URL & Yol ──────────────────────────────────────────────────────
+// Manuel belirlemek isterseniz 'https://domain.com/qr' şeklinde yazın.
+// Boş (veya null) bırakılırsa bulunduğu dizine göre OTOMATİK çalışır.
+define('CUSTOM_BASE_URL', null); 
+
+define('BASE_URL',  CUSTOM_BASE_URL ?: $autoBaseUrl);
+define('BASE_PATH', CUSTOM_BASE_URL ? parse_url(CUSTOM_BASE_URL, PHP_URL_PATH) ?? '' : $basePath);
 
 // ─── Klasörler (fiziksel yol) ─────────────────────────────────────────────────
 define('CACHE_DIR',    ROOT_DIR . '/cache/qr');

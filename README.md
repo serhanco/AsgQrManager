@@ -36,14 +36,15 @@ chown -R www-data:www-data /var/www/html/qr/
 
 ### 2. config.php'yi Düzenleyin
 
-```php
 // config.php
 define('DB_HOST',    'localhost');
 define('DB_NAME',    'qrmanager');
 define('DB_USER',    'veritabani_kullanicisi');
 define('DB_PASS',    'sifre');
-define('BASE_URL',   'https://internationalapp.net/qr');   // sonda / YOK
-define('BASE_PATH',  '/qr');
+
+// Uygulama adresini sabitlemek isterseniz doldurun.
+// Boş bırakılırsa (null) sistem URL'yi ve alt klasörü OTOMATİK algılar!
+define('CUSTOM_BASE_URL', null); 
 ```
 
 ### 3. Kurulum Sihirbazını Çalıştırın
@@ -58,8 +59,9 @@ http://localhost/qr/install.php
 
 ### 4. Giriş Yapın
 
+Kurulum yaptığınız adrese göre panele erişin, örn:
 ```
-https://internationalapp.net/qr/admin/login.php
+https://siteniz.com/qr/admin/login.php
 ```
 
 ---
@@ -187,9 +189,9 @@ define('DB_NAME', 'qrmanager');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 
-// URL (sonda / olmadan)
-define('BASE_URL',  'https://internationalapp.net/qr');
-define('BASE_PATH', '/qr');
+// URL
+// Sabitlemek isterseniz 'https://siteniz.com/qr' yazın. Boş bırakırsanız OTOMATİK algılanır.
+define('CUSTOM_BASE_URL', null);
 
 // Özellikler
 define('ANALYTICS_ENABLED',  true);   // false → tarama loglaması durur
@@ -228,14 +230,14 @@ Dashboard'daki toggle, `config.php`'deki `ANALYTICS_ENABLED` değerini anında d
 
 ## QR Yönlendirme Detayları
 
-- **URL formatı:** `https://internationalapp.net/qr/r/{slug}`
+- **URL formatı:** `https://siteniz.com/qr/r/{slug}`
 - **HTTP kodu:** `302` (geçici — tarayıcı cache'lemez)
 - **Cache-Control:** `no-store, no-cache, must-revalidate`
 - **301 kullanılmaz** — hedef değiştiğinde eski cache geçersiz olur
 
 ### mod_rewrite yoksa fallback:
 ```
-https://internationalapp.net/qr/r.php?c={slug}
+https://siteniz.com/qr/r.php?c={slug}
 ```
 Bu URL doğrudan da çalışır.
 
@@ -281,8 +283,7 @@ Bu URL doğrudan da çalışır.
 
 ## Sorun Giderme
 
-**QR tarandığında 404:** `.htaccess`'deki `RewriteBase /qr/` değerini ve
-mod_rewrite'ın açık olduğunu kontrol edin (`a2enmod rewrite`).
+**QR tarandığında 404:** `.htaccess` dosyasının projenin ana klasöründe olduğundan ve mod_rewrite'ın açık olduğundan emin olun (`a2enmod rewrite`). Alt klasöre kurduğunuzda kural otomatik olarak o klasöre göre çalışır.
 
 **PNG logosuz üretiliyor:** `php -m | grep -i gd` ve `php -m | grep -i imagick`
 komutlarıyla eklentilerin yüklü olduğunu kontrol edin.

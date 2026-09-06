@@ -6,11 +6,11 @@
  * .htaccess'de yalnızca localhost'a izin verilmiştir.
  */
 
-// Basit IP kısıtlaması (ek güvenlik katmanı)
-$allowedIps = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
-if (!in_array($_SERVER['REMOTE_ADDR'] ?? '', $allowedIps, true)) {
+// Güvenlik kilit dosyası kontrolü
+$lockFile = __DIR__ . '/installed.lock';
+if (file_exists($lockFile)) {
     http_response_code(403);
-    exit('Bu sayfaya yalnızca localhost üzerinden erişilebilir.');
+    exit('Kurulum zaten yapıldı. Tekrar kurmak için ana dizindeki "installed.lock" dosyasını silin veya install.php dosyasını kaldırın.');
 }
 
 require_once __DIR__ . '/config.php';
@@ -93,6 +93,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 2) {
                 $success[] = "✅ Klasör mevcut: " . str_replace(ROOT_DIR, '.', $dir);
             }
         }
+        
+        // Kurulumun bittiğini belirten kilit dosyasını oluştur
+        file_put_contents($lockFile, 'Kurulum Tarihi: ' . date('Y-m-d H:i:s'));
     }
 }
 ?>
@@ -125,8 +128,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 2) {
   <p>Kurulum Sihirbazı — <code>install.php</code></p>
 
   <div class="warn">
-    ⚠️ Bu dosya <strong>sadece kurulum sırasında</strong> çalıştırılmalıdır.
-    Kurulum sonrası bu dosyayı sunucudan silin!
+    ⚠️ Kurulum tamamlandığında otomatik olarak <code>installed.lock</code> dosyası oluşturulacak ve bu sayfa kilitlenecektir. Güvenlik için yine de sunucudan bu dosyayı silebilirsiniz.
+  </div>
+
+  <div class="msg" style="background:#e0f2fe; color:#0369a1; margin-bottom:1.25rem;">
+    📍 <strong>Algılanan Kurulum Adresi:</strong> <?= htmlspecialchars(BASE_URL) ?><br>
+    📂 <strong>Alt Klasör Yolu:</strong> <code><?= htmlspecialchars(BASE_PATH !== '' ? BASE_PATH : '/') ?></code>
   </div>
 
   <?php foreach ($errors as $err): ?>
@@ -144,9 +151,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 2) {
       ➡️ <a href="<?= htmlspecialchars(BASE_URL . '/admin/login.php') ?>" style="color:var(--accent)">
         Admin paneline git
       </a>
-    </p>
-    <p style="color:var(--danger);margin-top:.75rem;font-size:.85rem">
-      ⚠️ install.php dosyasını sunucudan silin: <code>rm install.php</code>
     </p>
   <?php else: ?>
     <form method="POST" action="">
