@@ -9,7 +9,7 @@ Auth::startSession();
 Auth::requireLogin();
 
 // Log türü: 'scans' | 'app'
-$type    = in_array($_GET['type'] ?? 'scans', ['scans', 'app']) ? $_GET['type'] : 'scans';
+$type    = in_array($_GET['type'] ?? '', ['scans', 'app']) ? $_GET['type'] : 'scans';
 $baseDir = $type === 'scans' ? LOG_SCAN_DIR : LOG_APP_DIR;
 
 // Dosya listesi
