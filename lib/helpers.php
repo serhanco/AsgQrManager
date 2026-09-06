@@ -203,7 +203,7 @@ function getDashboardStats(PDO $pdo): array {
  */
 function getTopLinks(PDO $pdo, int $limit = 10): array {
     $stmt = $pdo->prepare(
-        'SELECT id, slug, title, target_url, scan_count FROM links ORDER BY scan_count DESC LIMIT ?'
+        'SELECT id, slug, title, target_url, scan_count, is_active FROM links ORDER BY scan_count DESC LIMIT ?'
     );
     $stmt->bindValue(1, $limit, PDO::PARAM_INT);
     $stmt->execute();
