@@ -70,7 +70,7 @@ define('LOG_LEVEL', 'DEBUG');
 
 // ─── QR Varsayılanları ────────────────────────────────────────────────────────
 define('QR_DEFAULT_ECC',    'M');   // L / M / Q / H
-define('QR_DEFAULT_SIZE',   600);   // px (PNG)
+define('QR_DEFAULT_SIZE',   1200);  // px (PNG) Baskı kalitesi için
 define('QR_DEFAULT_MARGIN', 4);     // modül (quiet zone)
 
 // ─── Güvenlik ─────────────────────────────────────────────────────────────────

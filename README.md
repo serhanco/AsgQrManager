@@ -202,7 +202,7 @@ define('LOG_LEVEL', 'INFO');
 
 // QR varsayılanları
 define('QR_DEFAULT_ECC',    'M');     // L / M / Q / H
-define('QR_DEFAULT_SIZE',   600);     // PNG px
+define('QR_DEFAULT_SIZE',   1200);    // PNG px (Baskı kalitesi için)
 define('QR_DEFAULT_MARGIN', 4);       // modül (quiet zone)
 
 // Güvenlik
