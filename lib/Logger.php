@@ -172,16 +172,25 @@ class Logger {
         $fullPath = $baseDir . '/' . $relPath;
         $real     = realpath($fullPath);
         $baseReal = realpath($baseDir);
-        if ($real === false || $baseReal === false) return null;
-        if (strncmp($real, $baseReal, strlen($baseReal)) !== 0) return null;
-        if (!is_file($real) || !is_readable($real)) return null;
 
-        $size = filesize($real);
+        // realpath, hosting symlink/yetki kısıtı nedeniyle dosya için false dönebilir.
+        // Hem kesin (realpath) hem normalize fallback desteklenir.
+        $normBase = rtrim(str_replace('\\', '/', $baseReal ?: $baseDir), '/');
+        $normFull = str_replace('\\', '/', $fullPath);
+        $inBase   = str_starts_with($normFull, $normBase . '/')
+                 && !str_contains($normFull, '/../')
+                 && !str_contains($normFull, '/./');
+        if (!$inBase) return null;
+
+        $resolved = $real ?: $fullPath;
+        if (!is_file($resolved) || !is_readable($resolved)) return null;
+
+        $size = filesize($resolved);
         if ($size <= $maxBytes) {
-            return file_get_contents($real);
+            return file_get_contents($resolved);
         }
         // Büyük dosya: son $maxBytes byte
-        $fh = fopen($real, 'rb');
+        $fh = fopen($resolved, 'rb');
         fseek($fh, -$maxBytes, SEEK_END);
         $data = fread($fh, $maxBytes);
         fclose($fh);

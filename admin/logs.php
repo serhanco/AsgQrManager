@@ -28,20 +28,18 @@ if ($selYear && $selMon && $selFile) {
     $relPath    = "{$selYear}/{$selMon}/{$selFile}";
     $fullPath   = $baseDir . '/' . $relPath;
     // Path traversal koruması
+    // Paylaşımlı hosting'de realpath, symlink veya yetki kısıtı nedeniyle
+    // dosya için false dönse bile dizin için çözülebilir; her iki durum da karşılanmalı.
     $realBase = realpath($baseDir);
     $realFull = realpath($fullPath);
 
-    $safe = false;
-    if ($realFull && $realBase) {
-        // İkisi de çözülebildi — kesin karşılaştır
-        $safe = str_starts_with($realFull, $realBase . DIRECTORY_SEPARATOR)
-             || $realFull === $realBase;
-    } elseif ($realBase === false && is_dir($baseDir)) {
-        // realpath çözümleyemedi (symlink vs.) ama dizin var — normalize ederek karşılaştır
-        $normBase = rtrim(str_replace('\\', '/', $baseDir), '/');
-        $normFull = str_replace('\\', '/', $fullPath);
-        $safe = str_starts_with($normFull, $normBase . '/') && !str_contains($normFull, '/../');
-    }
+    $normBase = rtrim(str_replace('\\', '/', $realBase ?: $baseDir), '/');
+    $normFull = str_replace('\\', '/', $fullPath);
+
+    $safe = is_dir($normBase)
+         && str_starts_with($normFull, $normBase . '/')
+         && !str_contains($normFull, '/../')
+         && !str_contains($normFull, '/./');
 
     if ($safe && is_file($fullPath)) {
         $resolvedPath = $realFull ?: $fullPath;

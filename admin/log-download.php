@@ -29,31 +29,29 @@ $fullPath = $baseDir . '/' . $relPath;
 $real     = realpath($fullPath);
 $baseReal = realpath($baseDir);
 
-// Paylaşımlı hosting'de realpath symlink nedeniyle false dönebilir; fallback kontrol
-$safe = false;
-if ($real && $baseReal) {
-    $safe = str_starts_with($real, $baseReal . DIRECTORY_SEPARATOR) || $real === $baseReal;
-} elseif (!$baseReal && is_dir($baseDir)) {
-    $normBase = rtrim(str_replace('\\', '/', $baseDir), '/');
-    $normFull = str_replace('\\', '/', $fullPath);
-    $safe = str_starts_with($normFull, $normBase . '/') && !str_contains($normFull, '/../');
-}
+// Paylaşımlı hosting'de realpath symlink nedeniyle false dönebilir; normalize fallback
+$normBase = rtrim(str_replace('\\', '/', $baseReal ?: $baseDir), '/');
+$normFull = str_replace('\\', '/', $fullPath);
+$safe = is_dir($normBase)
+     && str_starts_with($normFull, $normBase . '/')
+     && !str_contains($normFull, '/../')
+     && !str_contains($normFull, '/./');
 
-$resolvedPath = $real ?: $fullPath;
+$resolved = $real ?: $fullPath;
 
-if (!$safe || !is_file($resolvedPath)) {
+if (!$safe || !is_file($resolved)) {
     http_response_code(403);
     exit('Erişim reddedildi.');
 }
 
-$ext = strtolower(pathinfo($resolvedPath, PATHINFO_EXTENSION));
+$ext = strtolower(pathinfo($resolved, PATHINFO_EXTENSION));
 if ($ext !== 'txt') {
     http_response_code(403);
     exit('Yalnızca .txt dosyaları indirilebilir.');
 }
 
 header('Content-Type: text/plain; charset=utf-8');
-header('Content-Disposition: attachment; filename="' . basename($resolvedPath) . '"');
-header('Content-Length: ' . filesize($resolvedPath));
-readfile($resolvedPath);
+header('Content-Disposition: attachment; filename="' . basename($resolved) . '"');
+header('Content-Length: ' . filesize($resolved));
+readfile($resolved);
 exit;
