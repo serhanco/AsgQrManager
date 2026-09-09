@@ -517,12 +517,14 @@ class QRcode {
         foreach ($formatPositions as $idx => [$fr,$fc]) {
             $frame[$fr][$fc] = $bits[$idx];
         }
-        // Sağ-alt & Sol-alt kopya
-        for ($i = 0; $i < 8; $i++) {
-            $frame[$size-1-$i][8] = $bits[$i];
-        }
+        // Sağ-üst & Sol-alt kopya (ikinci format bilgisi kopyası)
+        // Sol-alt (7 bit)
         for ($i = 0; $i < 7; $i++) {
-            $frame[8][$size-7+$i] = $bits[14-$i];
+            $frame[$size - 1 - $i][8] = $bits[$i];
+        }
+        // Sağ-üst (8 bit)
+        for ($i = 0; $i < 8; $i++) {
+            $frame[8][$size - 8 + $i] = $bits[7 + $i];
         }
     }
 
