@@ -102,17 +102,6 @@ document.addEventListener('submit', function (e) {
   }
 })();
 
-/* ─── Hata Düzeltme Seviyesi Otomatik H ────────────────────────────────── */
-(function () {
-  const useLogo = document.querySelector('#use-logo-checkbox');
-  const eccSel  = document.querySelector('#ecc-select');
-  if (!useLogo || !eccSel) return;
-  useLogo.addEventListener('change', function () {
-    if (this.checked && eccSel.value !== 'H') {
-      eccSel.value = 'H';
-    }
-  });
-})();
 
 /* ─── Dashboard Tarama Grafiği ─────────────────────────────────────────── */
 window.drawScanChart = function (canvasId, labels, data) {
@@ -254,10 +243,9 @@ window.drawScanChart = function (canvasId, labels, data) {
     const base   = document.querySelector('meta[name=base-url]')?.content || '';
     const slug   = form.dataset.slug;
     if (!slug) return;
-    const ecc    = form.querySelector('#ecc-select')?.value   || 'M';
     const margin = form.querySelector('#margin-input')?.value || '4';
     const logo   = form.querySelector('#logo-file-input')?.value || '';
-    const url    = `${base}/admin/qr-view.php?slug=${slug}&fmt=svg&ecc=${ecc}&margin=${margin}&logo=${encodeURIComponent(logo)}`;
+    const url    = `${base}/admin/qr-view.php?slug=${slug}&fmt=svg&margin=${margin}&logo=${encodeURIComponent(logo)}`;
     preview.src  = url;
   }
 

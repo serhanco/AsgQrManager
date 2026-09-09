@@ -27,9 +27,6 @@ if (!$link) {
 $fmtRaw = $_GET['fmt']  ?? '';
 $fmt    = in_array($fmtRaw, ['svg','png']) ? $fmtRaw : 'svg';
 
-$eccRaw = strtoupper($_GET['ecc'] ?? '');
-$ecc    = in_array($eccRaw, ['L','M','Q','H']) ? $eccRaw : ($link['logo'] ? 'H' : 'M');
-
 $sizeRaw = (int)($_GET['size'] ?? 0);
 $size    = in_array($sizeRaw, [600, 1200, 2000]) ? $sizeRaw : 600;
 
@@ -38,7 +35,7 @@ $logoFile = $_GET['logo'] ?? $link['logo'] ?? '';
 
 // Logo doğrulama
 if ($logoFile && !validateLogoFile($logoFile)) $logoFile = '';
-if ($logoFile) $ecc = 'H';
+$ecc = $logoFile ? 'H' : 'M';
 
 // Doğrudan download modu
 $download = !empty($_GET['dl']);
@@ -89,9 +86,9 @@ $activePage = 'links';
 include __DIR__ . '/views/_layout.php';
 
 // Önizleme sorgu dizesi
-function previewUrl(string $base, string $slug, string $fmt, string $ecc, int $size, int $margin, string $logo): string {
+function previewUrl(string $base, string $slug, string $fmt, int $size, int $margin, string $logo): string {
     return $base . '/admin/qr-view.php?slug=' . urlencode($slug)
-         . '&fmt=' . $fmt . '&ecc=' . $ecc . '&size=' . $size
+         . '&fmt=' . $fmt . '&size=' . $size
          . '&margin=' . $margin . '&logo=' . urlencode($logo);
 }
 ?>
@@ -121,24 +118,15 @@ function previewUrl(string $base, string $slug, string $fmt, string $ecc, int $s
   </div>
 
   <!-- İndirme Ayarları (katlanabilir) -->
-  <details class="mt-4" <?= ($ecc !== ($link['logo'] ? 'H' : 'M') || $margin !== 4 || $logoFile) ? 'open' : '' ?>>
+  <details class="mt-4" <?= ($margin !== 4 || $logoFile !== ($link['logo'] ?? '')) ? 'open' : '' ?>>
     <summary style="cursor:pointer;font-size:.85rem;color:var(--text-muted);padding:.4rem 0;user-select:none">
       ⚙️ İndirme Seçenekleri
     </summary>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem">
-      <div>
-        <label class="form-label" style="font-size:.8rem">Hata Düzeltme</label>
-        <select class="form-control" style="font-size:.85rem"
-                onchange="location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&ecc=' + this.value + '&margin=<?= $margin ?>&logo=<?= urlencode($logoFile) ?>'">
-          <?php foreach (['L','M','Q','H'] as $lvl): ?>
-            <option value="<?= $lvl ?>" <?= $ecc === $lvl ? 'selected' : '' ?>><?= $lvl ?></option>
-          <?php endforeach; ?>
-        </select>
-      </div>
+    <div style="margin-top:.75rem">
       <div>
         <label class="form-label" style="font-size:.8rem">Kenar Boşluğu</label>
         <select class="form-control" style="font-size:.85rem"
-                onchange="location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&ecc=<?= $ecc ?>&margin=' + this.value + '&logo=<?= urlencode($logoFile) ?>'">
+                onchange="location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&margin=' + this.value + '&logo=<?= urlencode($logoFile) ?>'">
           <?php foreach (range(0, 8) as $m): ?>
             <option value="<?= $m ?>" <?= $margin === $m ? 'selected' : '' ?>><?= $m ?> modül</option>
           <?php endforeach; ?>
@@ -151,14 +139,14 @@ function previewUrl(string $base, string $slug, string $fmt, string $ecc, int $s
       <label class="form-label" style="font-size:.8rem">Logo</label>
       <div class="form-check mb-2">
         <input type="checkbox" id="use-logo-page-cb" <?= $logoFile ? 'checked' : '' ?>
-               onchange="if(!this.checked)location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&ecc=<?= $ecc ?>&margin=<?= $margin ?>&logo='">
+               onchange="if(!this.checked)location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&margin=<?= $margin ?>&logo='">
         <span style="font-size:.85rem">Logo Ekle</span>
       </div>
       <div class="logo-gallery" id="view-logo-gallery">
         <?php foreach ($logos as $lf): ?>
           <div class="logo-item <?= $logoFile === $lf ? 'selected' : '' ?>"
                style="cursor:pointer"
-               onclick="location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&ecc=H&margin=<?= $margin ?>&logo=' + encodeURIComponent('<?= addslashes($lf) ?>')">
+               onclick="location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&margin=<?= $margin ?>&logo=' + encodeURIComponent('<?= addslashes($lf) ?>')">
             <img src="<?= BASE_URL ?>/logo/<?= rawurlencode($lf) ?>" alt="<?= e($lf) ?>" loading="lazy">
             <span><?= e($lf) ?></span>
           </div>
@@ -170,19 +158,19 @@ function previewUrl(string $base, string $slug, string $fmt, string $ecc, int $s
 
   <!-- İndirme butonları -->
   <div class="btn-group mt-3" style="justify-content:center;flex-wrap:wrap">
-    <a href="<?= previewUrl(BASE_URL, $slug, 'svg', $ecc, 600, $margin, $logoFile) ?>&dl=1"
+    <a href="<?= previewUrl(BASE_URL, $slug, 'svg', 600, $margin, $logoFile) ?>&dl=1"
        class="btn btn-success" download="qr-<?= e($slug) ?>.svg">
       ⬇️ SVG İndir
     </a>
-    <a href="<?= previewUrl(BASE_URL, $slug, 'png', $ecc, 600, $margin, $logoFile) ?>&dl=1"
+    <a href="<?= previewUrl(BASE_URL, $slug, 'png', 600, $margin, $logoFile) ?>&dl=1"
        class="btn btn-primary" download="qr-<?= e($slug) ?>.png">
       🖼 PNG 600px
     </a>
-    <a href="<?= previewUrl(BASE_URL, $slug, 'png', $ecc, 1200, $margin, $logoFile) ?>&dl=1"
+    <a href="<?= previewUrl(BASE_URL, $slug, 'png', 1200, $margin, $logoFile) ?>&dl=1"
        class="btn btn-ghost" download="qr-<?= e($slug) ?>-1200.png">
       🖼 PNG 1200px
     </a>
-    <a href="<?= previewUrl(BASE_URL, $slug, 'png', $ecc, 2000, $margin, $logoFile) ?>&dl=1"
+    <a href="<?= previewUrl(BASE_URL, $slug, 'png', 2000, $margin, $logoFile) ?>&dl=1"
        class="btn btn-ghost" download="qr-<?= e($slug) ?>-2000.png">
       🖼 PNG 2000px
     </a>
