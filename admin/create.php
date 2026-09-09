@@ -22,8 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customSlug  = sanitizeCustomSlug($_POST['custom_slug'] ?? '');
     $useLogo     = !empty($_POST['use_logo']);
     $logoFile    = $useLogo ? (trim($_POST['logo_file'] ?? '')) : '';
-    $eccRaw      = strtoupper($_POST['ecc'] ?? '');
-    $ecc         = in_array($eccRaw, ['L','M','Q','H']) ? $eccRaw : 'M';
+    $ecc         = 'M';
     $margin      = max(0, min(10, (int)($_POST['margin'] ?? 4)));
 
     // Doğrulama
@@ -134,15 +133,6 @@ include __DIR__ . '/views/_layout.php';
     <div class="card-title mb-4">⚙️ QR Seçenekleri</div>
 
     <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="ecc-select">Hata Düzeltme</label>
-        <select class="form-control" id="ecc-select" name="ecc">
-          <option value="M" <?= (($_POST['ecc']??'M')==='M')?'selected':'' ?>>M — Orta (önerilen)</option>
-          <option value="Q" <?= (($_POST['ecc']??'')==='Q')?'selected':'' ?>>Q — Yüksek</option>
-          <option value="H" <?= (($_POST['ecc']??'')==='H')?'selected':'' ?>>H — En Yüksek (logo için)</option>
-          <option value="L" <?= (($_POST['ecc']??'')==='L')?'selected':'' ?>>L — Düşük</option>
-        </select>
-      </div>
       <div class="form-group">
         <label class="form-label" for="margin-input">Kenar Boşluğu (modül)</label>
         <input class="form-control" type="number" id="margin-input" name="margin"

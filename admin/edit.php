@@ -32,8 +32,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $isActive  = isset($_POST['is_active']) ? 1 : 0;
     $useLogo   = !empty($_POST['use_logo']);
     $logoFile  = $useLogo ? trim($_POST['logo_file'] ?? '') : '';
-    $eccRaw    = strtoupper($_POST['ecc'] ?? '');
-    $ecc       = in_array($eccRaw, ['L','M','Q','H']) ? $eccRaw : 'M';
 
     if (!isValidUrl($targetUrl)) {
         $errors[] = 'Geçerli bir URL girin (http:// veya https://).';
@@ -42,7 +40,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Seçilen logo geçersiz.';
         $logoFile = '';
     }
-    if ($useLogo && $logoFile) $ecc = 'H';
 
     if (empty($errors)) {
         $upd = $pdo->prepare(

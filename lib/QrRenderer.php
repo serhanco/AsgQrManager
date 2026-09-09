@@ -68,8 +68,8 @@ class QrRenderer {
             $logoB64 = self::logoToBase64($logoPath);
             if ($logoB64 !== null) {
                 [$logoMime, $logoData] = $logoB64;
-                // Logo alanı: QR'ın %25'i (HEC H ile okunabilir)
-                $logoAreaPct = 0.25;
+                // Logo alanı: QR'ın %20'si (HEC H ile okunabilir)
+                $logoAreaPct = 0.20;
                 $logoSize    = (int)round($vbSize * $logoAreaPct);
                 $safePad     = $cell; // beyaz çerçeve
                 $logoX = (int)round(($vbSize - $logoSize) / 2);
@@ -163,7 +163,7 @@ class QrRenderer {
 
         $lw = imagesx($logo);
         $lh = imagesy($logo);
-        $maxLogo = (int)($imgSize * 0.25);
+        $maxLogo = (int)($imgSize * 0.20);
         // Oranı koru
         if ($lw > $lh) {
             $dstW = $maxLogo;
@@ -212,7 +212,7 @@ class QrRenderer {
 
         // Logo
         if ($logoPath && file_exists($logoPath)) {
-            $maxLogo = (int)($imgSize * 0.25);
+            $maxLogo = (int)($imgSize * 0.20);
             $safePad = max(4, (int)($imgSize * 0.015));
             $logoImg = new Imagick($logoPath);
             $lw = $logoImg->getImageWidth();
