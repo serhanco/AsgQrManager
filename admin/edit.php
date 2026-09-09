@@ -18,7 +18,7 @@ $link = $stmt->fetch();
 
 if (!$link) {
     flash('danger', 'Link bulunamadı.');
-    redirect(BASE_URL . '/admin/links.php');
+    redirect(BASE_URL . '/admin/links');
 }
 
 $logos  = listLogos();
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         Logger::info("Link güncellendi: id={$id} slug={$link['slug']}");
         flash('success', 'Link başarıyla güncellendi.');
-        redirect(BASE_URL . '/admin/edit.php?id=' . $id);
+        redirect(BASE_URL . '/admin/edit?id=' . $id);
     }
     // Form değerlerini yenile
     $link['target_url'] = $targetUrl;
@@ -69,9 +69,9 @@ include __DIR__ . '/views/_layout.php';
 <div class="page-header">
   <h1 class="page-title">✏️ Link Düzenle</h1>
   <div class="btn-group">
-    <a href="<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($link['slug']) ?>"
+    <a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($link['slug']) ?>"
        class="btn btn-ghost">📱 QR Görüntüle</a>
-    <a href="<?= BASE_URL ?>/admin/links.php" class="btn btn-ghost">← Geri</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost">← Geri</a>
   </div>
 </div>
 
@@ -143,7 +143,7 @@ include __DIR__ . '/views/_layout.php';
 
   <div class="btn-group mt-4">
     <button class="btn btn-primary" type="submit">💾 Kaydet</button>
-    <a href="<?= BASE_URL ?>/admin/links.php" class="btn btn-ghost">İptal</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost">İptal</a>
   </div>
 </form>
 

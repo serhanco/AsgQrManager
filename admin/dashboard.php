@@ -75,7 +75,7 @@ include __DIR__ . '/views/_layout.php';
 <div class="card">
   <div class="card-header">
     <span class="card-title">🏆 En Çok Taranan Linkler</span>
-    <a href="<?= BASE_URL ?>/admin/links.php" class="btn btn-ghost btn-sm">Tümünü Gör</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost btn-sm">Tümünü Gör</a>
   </div>
   <div class="table-wrap">
     <table>
@@ -109,7 +109,7 @@ include __DIR__ . '/views/_layout.php';
               </span>
             </td>
             <td>
-              <a href="<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($link['slug']) ?>" class="btn btn-ghost btn-sm">QR</a>
+              <a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($link['slug']) ?>" class="btn btn-ghost btn-sm">QR</a>
             </td>
           </tr>
         <?php endforeach; endif; ?>

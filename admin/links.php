@@ -52,7 +52,7 @@ include __DIR__ . '/views/_layout.php';
 
 <div class="page-header">
   <h1 class="page-title">🔗 Tüm Linkler</h1>
-  <a href="<?= BASE_URL ?>/admin/create.php" class="btn btn-primary">➕ Yeni Link</a>
+  <a href="<?= BASE_URL ?>/admin/create" class="btn btn-primary">➕ Yeni Link</a>
 </div>
 
 <!-- Arama -->
@@ -61,7 +61,7 @@ include __DIR__ . '/views/_layout.php';
          value="<?= e($search) ?>">
   <button class="btn btn-ghost" type="submit">🔍 Ara</button>
   <?php if ($search): ?>
-    <a href="<?= BASE_URL ?>/admin/links.php" class="btn btn-ghost">✕ Temizle</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost">✕ Temizle</a>
   <?php endif; ?>
 </form>
 
@@ -103,7 +103,7 @@ include __DIR__ . '/views/_layout.php';
             <td class="fw-bold"><?= formatCount((int)$link['scan_count']) ?></td>
             <td>
               <!-- Aktif/Pasif toggle (form POST) -->
-              <form method="POST" action="<?= BASE_URL ?>/admin/toggle.php" style="display:inline">
+              <form method="POST" action="<?= BASE_URL ?>/admin/toggle" style="display:inline">
                 <?= Auth::csrfField() ?>
                 <input type="hidden" name="id" value="<?= $link['id'] ?>">
                 <button type="submit" class="badge <?= $link['is_active'] ? 'badge-success' : 'badge-danger' ?>"
@@ -116,11 +116,11 @@ include __DIR__ . '/views/_layout.php';
             <td class="text-sm text-muted"><?= e(substr($link['created_at'], 0, 10)) ?></td>
             <td>
               <div class="btn-group">
-                <a href="<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($link['slug']) ?>"
+                <a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($link['slug']) ?>"
                    class="btn btn-ghost btn-sm" title="QR Görüntüle">📱</a>
-                <a href="<?= BASE_URL ?>/admin/edit.php?id=<?= $link['id'] ?>"
+                <a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>"
                    class="btn btn-ghost btn-sm" title="Düzenle">✏️</a>
-                <form method="POST" action="<?= BASE_URL ?>/admin/delete.php"
+                <form method="POST" action="<?= BASE_URL ?>/admin/delete"
                       data-confirm="Bu linki silmek istediğinizden emin misiniz?">
                   <?= Auth::csrfField() ?>
                   <input type="hidden" name="id" value="<?= $link['id'] ?>">

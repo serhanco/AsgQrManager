@@ -10,7 +10,7 @@ Auth::startSession();
 Auth::requireLogin();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    redirect(BASE_URL . '/admin/links.php');
+    redirect(BASE_URL . '/admin/links');
 }
 Auth::requireCsrf();
 
@@ -30,4 +30,4 @@ if ($link) {
     flash('danger', 'Link bulunamadı.');
 }
 
-redirect(BASE_URL . '/admin/links.php');
+redirect(BASE_URL . '/admin/links');

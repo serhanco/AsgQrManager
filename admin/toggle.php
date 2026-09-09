@@ -8,7 +8,7 @@ Logger::registerHandlers();
 Auth::startSession();
 Auth::requireLogin();
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect(BASE_URL . '/admin/links.php');
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect(BASE_URL . '/admin/links');
 Auth::requireCsrf();
 
 $pdo = getPdo();
@@ -24,4 +24,4 @@ if ($link) {
         ->execute([$newStatus, $id]);
 }
 
-redirect(BASE_URL . '/admin/links.php' . (isset($_SERVER['HTTP_REFERER']) ? '' : ''));
+redirect(BASE_URL . '/admin/links' . (isset($_SERVER['HTTP_REFERER']) ? '' : ''));

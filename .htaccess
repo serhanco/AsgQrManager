@@ -1,6 +1,6 @@
 Options -Indexes
 RewriteEngine On
-# RewriteBase / (Alt klasörlerde otomatik/bağıl çalışması için iptal edildi)
+RewriteBase /
 
 # ─── Güvenlik: hassas dosyalara erişimi engelle ───────────────────────────────
 <FilesMatch "^(config|schema)\.php$">
@@ -8,18 +8,17 @@ RewriteEngine On
     Deny from all
 </FilesMatch>
 
-# install.php güvenliği, PHP içerisindeki installed.lock kontrolü ile sağlanır.
-
 # ─── Yönlendirme kuralları ────────────────────────────────────────────────────
+# /r/{slug} → r.php
+RewriteRule ^r/([A-Za-z0-9_-]+)/?$ r.php?c=$1 [L,QSA]
+
 # Var olan dosya/klasöre dokunma
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# /r/{slug} → r.php
-RewriteRule ^r/([A-Za-z0-9_-]+)/?$ r.php?c=$1 [L,QSA]
-
-# admin/ altındaki clean URL'ler (gelecekte ihtiyaç olursa)
-# RewriteRule ^admin/(.+)$ admin/$1 [L]
+# .php uzantısını gizleme (Temiz URL'ler)
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^(.+)$ $1.php [L,QSA]
 
 # Kök isteği → index.php
 RewriteRule ^$ index.php [L]
@@ -31,7 +30,7 @@ RewriteRule ^$ index.php [L]
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
-# ─── PHP hata gösterimini kapat (log dosyasına yazılacak) ─────────────────────
+# ─── PHP hata gösterimini kapat ─────────────────────
 <IfModule mod_php.c>
     php_flag display_errors Off
     php_flag log_errors On

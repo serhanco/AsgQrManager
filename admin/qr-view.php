@@ -12,7 +12,7 @@ Auth::requireLogin();
 $pdo  = getPdo();
 $slug = preg_replace('/[^A-Za-z0-9_-]/', '', $_GET['slug'] ?? '');
 
-if ($slug === '') redirect(BASE_URL . '/admin/links.php');
+if ($slug === '') redirect(BASE_URL . '/admin/links');
 
 $stmt = $pdo->prepare('SELECT * FROM links WHERE slug = ? LIMIT 1');
 $stmt->execute([$slug]);
@@ -20,7 +20,7 @@ $link = $stmt->fetch();
 
 if (!$link) {
     flash('danger', 'Link bulunamadı.');
-    redirect(BASE_URL . '/admin/links.php');
+    redirect(BASE_URL . '/admin/links');
 }
 
 // Parametreler
@@ -96,8 +96,8 @@ function previewUrl(string $base, string $slug, string $fmt, int $size, int $mar
 <div class="page-header">
   <h1 class="page-title">📱 QR Görüntüle — <code><?= e($slug) ?></code></h1>
   <div class="btn-group">
-    <a href="<?= BASE_URL ?>/admin/edit.php?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm">✏️ Düzenle</a>
-    <a href="<?= BASE_URL ?>/admin/links.php" class="btn btn-ghost btn-sm">← Geri</a>
+    <a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm">✏️ Düzenle</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost btn-sm">← Geri</a>
   </div>
 </div>
 
@@ -126,7 +126,7 @@ function previewUrl(string $base, string $slug, string $fmt, int $size, int $mar
       <div>
         <label class="form-label" style="font-size:.8rem">Kenar Boşluğu</label>
         <select class="form-control" style="font-size:.85rem"
-                onchange="location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&margin=' + this.value + '&logo=<?= urlencode($logoFile) ?>'">
+                onchange="location.href='<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($slug) ?>&margin=' + this.value + '&logo=<?= urlencode($logoFile) ?>'">
           <?php foreach (range(0, 8) as $m): ?>
             <option value="<?= $m ?>" <?= $margin === $m ? 'selected' : '' ?>><?= $m ?> modül</option>
           <?php endforeach; ?>
@@ -139,14 +139,14 @@ function previewUrl(string $base, string $slug, string $fmt, int $size, int $mar
       <label class="form-label" style="font-size:.8rem">Logo</label>
       <div class="form-check mb-2">
         <input type="checkbox" id="use-logo-page-cb" <?= $logoFile ? 'checked' : '' ?>
-               onchange="if(!this.checked)location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&margin=<?= $margin ?>&logo='">
+               onchange="if(!this.checked)location.href='<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($slug) ?>&margin=<?= $margin ?>&logo='">
         <span style="font-size:.85rem">Logo Ekle</span>
       </div>
       <div class="logo-gallery" id="view-logo-gallery">
         <?php foreach ($logos as $lf): ?>
           <div class="logo-item <?= $logoFile === $lf ? 'selected' : '' ?>"
                style="cursor:pointer"
-               onclick="location.href='<?= BASE_URL ?>/admin/qr-view.php?slug=<?= urlencode($slug) ?>&margin=<?= $margin ?>&logo=' + encodeURIComponent('<?= addslashes($lf) ?>')">
+               onclick="location.href='<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($slug) ?>&margin=<?= $margin ?>&logo=' + encodeURIComponent('<?= addslashes($lf) ?>')">
             <img src="<?= BASE_URL ?>/logo/<?= rawurlencode($lf) ?>" alt="<?= e($lf) ?>" loading="lazy">
             <span><?= e($lf) ?></span>
           </div>
@@ -233,7 +233,7 @@ function previewUrl(string $base, string $slug, string $fmt, int $size, int $mar
   </div>
 
   <div style="margin-top:1.5rem">
-    <a href="<?= BASE_URL ?>/admin/edit.php?id=<?= $link['id'] ?>" class="btn btn-primary btn-sm" style="width:100%">
+    <a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-primary btn-sm" style="width:100%">
       ✏️ Linki Düzenle
     </a>
   </div>

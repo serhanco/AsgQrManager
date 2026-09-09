@@ -24,14 +24,14 @@ $csrf = Auth::csrfToken();
 <!-- Topbar -->
 <header class="topbar">
   <button class="hamburger" aria-label="Menü">☰</button>
-  <a class="topbar-brand" href="<?= $base ?>/admin/dashboard.php">
+  <a class="topbar-brand" href="<?= $base ?>/admin/dashboard">
     <span class="logo-icon">📱</span>
     <span>QR Manager</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-user">
     <span>👤 <?= e($_SESSION['username'] ?? '') ?></span>
-    <a href="<?= $base ?>/admin/logout.php">Çıkış</a>
+    <a href="<?= $base ?>/admin/logout">Çıkış</a>
   </div>
 </header>
 
@@ -39,18 +39,18 @@ $csrf = Auth::csrfToken();
 <nav class="sidebar">
   <ul class="sidebar-nav">
     <li class="sidebar-section">Genel</li>
-    <li><a href="<?= $base ?>/admin/dashboard.php" <?= $activePage==='dashboard'?'class="active"':'' ?>>
+    <li><a href="<?= $base ?>/admin/dashboard" <?= $activePage==='dashboard'?'class="active"':'' ?>>
       <span class="nav-icon">📊</span> Dashboard
     </a></li>
     <li class="sidebar-section">Bağlantılar</li>
-    <li><a href="<?= $base ?>/admin/links.php" <?= $activePage==='links'?'class="active"':'' ?>>
+    <li><a href="<?= $base ?>/admin/links" <?= $activePage==='links'?'class="active"':'' ?>>
       <span class="nav-icon">🔗</span> Tüm Linkler
     </a></li>
-    <li><a href="<?= $base ?>/admin/create.php" <?= $activePage==='create'?'class="active"':'' ?>>
+    <li><a href="<?= $base ?>/admin/create" <?= $activePage==='create'?'class="active"':'' ?>>
       <span class="nav-icon">➕</span> Yeni Link
     </a></li>
     <li class="sidebar-section">Sistem</li>
-    <li><a href="<?= $base ?>/admin/logs.php" <?= $activePage==='logs'?'class="active"':'' ?>>
+    <li><a href="<?= $base ?>/admin/logs" <?= $activePage==='logs'?'class="active"':'' ?>>
       <span class="nav-icon">📋</span> Log Görüntüleyici
     </a></li>
   </ul>

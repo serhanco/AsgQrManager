@@ -114,7 +114,7 @@ include __DIR__ . '/views/_layout.php';
         <div class="btn-group">
           <input class="form-control form-control" type="search" id="log-search"
                  placeholder="Filtre…" style="max-width:180px;padding:.3rem .6rem;font-size:.8rem">
-          <a href="<?= BASE_URL ?>/admin/log-download.php?type=<?= $type ?>&year=<?= $selYear ?>&mon=<?= $selMon ?>&file=<?= urlencode($selFile) ?>"
+          <a href="<?= BASE_URL ?>/admin/log-download?type=<?= $type ?>&year=<?= $selYear ?>&mon=<?= $selMon ?>&file=<?= urlencode($selFile) ?>"
              class="btn btn-ghost btn-sm">⬇️ İndir</a>
         </div>
       </div>

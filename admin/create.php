@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         Logger::info("Yeni link oluşturuldu: slug={$slug} url={$targetUrl}");
         flash('success', "Link oluşturuldu! Slug: {$slug}");
-        redirect(BASE_URL . '/admin/qr-view.php?slug=' . urlencode($slug));
+        redirect(BASE_URL . '/admin/qr-view?slug=' . urlencode($slug));
     }
 }
 
@@ -84,7 +84,7 @@ include __DIR__ . '/views/_layout.php';
 
 <div class="page-header">
   <h1 class="page-title">➕ Yeni Link Oluştur</h1>
-  <a href="<?= BASE_URL ?>/admin/links.php" class="btn btn-ghost">← Geri</a>
+  <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost">← Geri</a>
 </div>
 
 <?php foreach ($errors as $err): ?>
