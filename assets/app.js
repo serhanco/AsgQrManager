@@ -243,9 +243,8 @@ window.drawScanChart = function (canvasId, labels, data) {
     const base   = document.querySelector('meta[name=base-url]')?.content || '';
     const slug   = form.dataset.slug;
     if (!slug) return;
-    const margin = form.querySelector('#margin-input')?.value || '4';
     const logo   = form.querySelector('#logo-file-input')?.value || '';
-    const url    = `${base}/admin/qr-view.php?slug=${slug}&fmt=svg&margin=${margin}&logo=${encodeURIComponent(logo)}`;
+    const url    = `${base}/admin/qr-view?slug=${slug}&fmt=svg&logo=${encodeURIComponent(logo)}`;
     preview.src  = url;
   }
 

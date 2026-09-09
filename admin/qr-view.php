@@ -30,7 +30,7 @@ $fmt    = in_array($fmtRaw, ['svg','png']) ? $fmtRaw : 'svg';
 $sizeRaw = (int)($_GET['size'] ?? 0);
 $size    = in_array($sizeRaw, [600, 1200, 2000]) ? $sizeRaw : 600;
 
-$margin = max(0, min(10, (int)($_GET['margin'] ?? 4)));
+$margin = 4;
 $logoFile = $_GET['logo'] ?? $link['logo'] ?? '';
 
 // Logo doğrulama
@@ -86,10 +86,10 @@ $activePage = 'links';
 include __DIR__ . '/views/_layout.php';
 
 // Önizleme sorgu dizesi
-function previewUrl(string $base, string $slug, string $fmt, int $size, int $margin, string $logo): string {
-    return $base . '/admin/qr-view.php?slug=' . urlencode($slug)
+function previewUrl(string $base, string $slug, string $fmt, int $size, string $logo): string {
+    return $base . '/admin/qr-view?slug=' . urlencode($slug)
          . '&fmt=' . $fmt . '&size=' . $size
-         . '&margin=' . $margin . '&logo=' . urlencode($logo);
+         . '&logo=' . urlencode($logo);
 }
 ?>
 
@@ -117,60 +117,47 @@ function previewUrl(string $base, string $slug, string $fmt, int $size, int $mar
     <?= $svgInline ?>
   </div>
 
-  <!-- İndirme Ayarları (katlanabilir) -->
-  <details class="mt-4" <?= ($margin !== 4 || $logoFile !== ($link['logo'] ?? '')) ? 'open' : '' ?>>
+  <?php if (!empty($logos)): ?>
+  <!-- Logo Seçenekleri (katlanabilir) -->
+  <details class="mt-4" <?= ($logoFile !== ($link['logo'] ?? '')) ? 'open' : '' ?>>
     <summary style="cursor:pointer;font-size:.85rem;color:var(--text-muted);padding:.4rem 0;user-select:none">
-      ⚙️ İndirme Seçenekleri
+      ⚙️ Logo Seçenekleri
     </summary>
-    <div style="margin-top:.75rem">
-      <div>
-        <label class="form-label" style="font-size:.8rem">Kenar Boşluğu</label>
-        <select class="form-control" style="font-size:.85rem"
-                onchange="location.href='<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($slug) ?>&margin=' + this.value + '&logo=<?= urlencode($logoFile) ?>'">
-          <?php foreach (range(0, 8) as $m): ?>
-            <option value="<?= $m ?>" <?= $margin === $m ? 'selected' : '' ?>><?= $m ?> modül</option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-    </div>
-
-    <?php if (!empty($logos)): ?>
     <div class="mt-3">
-      <label class="form-label" style="font-size:.8rem">Logo</label>
       <div class="form-check mb-2">
         <input type="checkbox" id="use-logo-page-cb" <?= $logoFile ? 'checked' : '' ?>
-               onchange="if(!this.checked)location.href='<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($slug) ?>&margin=<?= $margin ?>&logo='">
+               onchange="if(!this.checked)location.href='<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($slug) ?>&logo='">
         <span style="font-size:.85rem">Logo Ekle</span>
       </div>
       <div class="logo-gallery" id="view-logo-gallery">
         <?php foreach ($logos as $lf): ?>
           <div class="logo-item <?= $logoFile === $lf ? 'selected' : '' ?>"
                style="cursor:pointer"
-               onclick="location.href='<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($slug) ?>&margin=<?= $margin ?>&logo=' + encodeURIComponent('<?= addslashes($lf) ?>')">
+               onclick="location.href='<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($slug) ?>&logo=' + encodeURIComponent('<?= addslashes($lf) ?>')">
             <img src="<?= BASE_URL ?>/logo/<?= rawurlencode($lf) ?>" alt="<?= e($lf) ?>" loading="lazy">
             <span><?= e($lf) ?></span>
           </div>
         <?php endforeach; ?>
       </div>
     </div>
-    <?php endif; ?>
   </details>
+  <?php endif; ?>
 
   <!-- İndirme butonları -->
   <div class="btn-group mt-3" style="justify-content:center;flex-wrap:wrap">
-    <a href="<?= previewUrl(BASE_URL, $slug, 'svg', 600, $margin, $logoFile) ?>&dl=1"
+    <a href="<?= previewUrl(BASE_URL, $slug, 'svg', 600, $logoFile) ?>&dl=1"
        class="btn btn-success" download="qr-<?= e($slug) ?>.svg">
       ⬇️ SVG İndir
     </a>
-    <a href="<?= previewUrl(BASE_URL, $slug, 'png', 600, $margin, $logoFile) ?>&dl=1"
+    <a href="<?= previewUrl(BASE_URL, $slug, 'png', 600, $logoFile) ?>&dl=1"
        class="btn btn-primary" download="qr-<?= e($slug) ?>.png">
       🖼 PNG 600px
     </a>
-    <a href="<?= previewUrl(BASE_URL, $slug, 'png', 1200, $margin, $logoFile) ?>&dl=1"
+    <a href="<?= previewUrl(BASE_URL, $slug, 'png', 1200, $logoFile) ?>&dl=1"
        class="btn btn-ghost" download="qr-<?= e($slug) ?>-1200.png">
       🖼 PNG 1200px
     </a>
-    <a href="<?= previewUrl(BASE_URL, $slug, 'png', 2000, $margin, $logoFile) ?>&dl=1"
+    <a href="<?= previewUrl(BASE_URL, $slug, 'png', 2000, $logoFile) ?>&dl=1"
        class="btn btn-ghost" download="qr-<?= e($slug) ?>-2000.png">
       🖼 PNG 2000px
     </a>

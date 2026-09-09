@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $useLogo     = !empty($_POST['use_logo']);
     $logoFile    = $useLogo ? (trim($_POST['logo_file'] ?? '')) : '';
     $ecc         = 'M';
-    $margin      = max(0, min(10, (int)($_POST['margin'] ?? 4)));
+    $margin      = 4;
 
     // Doğrulama
     if (!isValidUrl($targetUrl)) {
@@ -131,14 +131,6 @@ include __DIR__ . '/views/_layout.php';
 
   <div class="card mt-4">
     <div class="card-title mb-4">⚙️ QR Seçenekleri</div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="margin-input">Kenar Boşluğu (modül)</label>
-        <input class="form-control" type="number" id="margin-input" name="margin"
-               min="0" max="10" value="<?= (int)($_POST['margin'] ?? 4) ?>">
-      </div>
-    </div>
 
     <!-- Logo seçimi -->
     <div class="form-group">

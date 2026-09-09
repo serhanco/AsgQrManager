@@ -10,10 +10,26 @@ class QrRenderer {
 
     /**
      * Verilen URL için QR matrisini encode eder.
+     * Kanıtlanmış phpqrcode kütüphanesini (Dominik Dzienia / libqrencode) kullanır.
      */
     public static function buildMatrix(string $url, string $ecc = 'M'): array {
-        $qr = new QRcode();
-        return $qr->encode($url, strtoupper($ecc));
+        $eccMap = ['L' => QR_ECLEVEL_L, 'M' => QR_ECLEVEL_M, 'Q' => QR_ECLEVEL_Q, 'H' => QR_ECLEVEL_H];
+        $level  = $eccMap[strtoupper($ecc)] ?? QR_ECLEVEL_M;
+
+        // raw() returns array of strings where each char encodes module state
+        $rawData = QRcode::raw($url, false, $level);
+
+        // Convert to 2D int matrix (0=light, 1=dark)
+        $matrix = [];
+        foreach ($rawData as $row) {
+            $line = [];
+            $len  = strlen($row);
+            for ($i = 0; $i < $len; $i++) {
+                $line[] = (ord($row[$i]) & 1) ? 1 : 0;
+            }
+            $matrix[] = $line;
+        }
+        return $matrix;
     }
 
     // ─── SVG ──────────────────────────────────────────────────────────────────
@@ -68,8 +84,8 @@ class QrRenderer {
             $logoB64 = self::logoToBase64($logoPath);
             if ($logoB64 !== null) {
                 [$logoMime, $logoData] = $logoB64;
-                // Logo alanı: QR'ın %20'si (HEC H ile okunabilir)
-                $logoAreaPct = 0.20;
+                // Logo alanı: QR'ın %15'i (ECC H ile güvenli okunabilirlik)
+                $logoAreaPct = 0.15;
                 $logoSize    = (int)round($vbSize * $logoAreaPct);
                 $safePad     = $cell; // beyaz çerçeve
                 $logoX = (int)round(($vbSize - $logoSize) / 2);
@@ -163,7 +179,7 @@ class QrRenderer {
 
         $lw = imagesx($logo);
         $lh = imagesy($logo);
-        $maxLogo = (int)($imgSize * 0.20);
+        $maxLogo = (int)($imgSize * 0.15);
         // Oranı koru
         if ($lw > $lh) {
             $dstW = $maxLogo;
@@ -212,7 +228,7 @@ class QrRenderer {
 
         // Logo
         if ($logoPath && file_exists($logoPath)) {
-            $maxLogo = (int)($imgSize * 0.20);
+            $maxLogo = (int)($imgSize * 0.15);
             $safePad = max(4, (int)($imgSize * 0.015));
             $logoImg = new Imagick($logoPath);
             $lw = $logoImg->getImageWidth();
