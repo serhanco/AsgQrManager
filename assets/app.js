@@ -196,7 +196,7 @@ window.drawScanChart = function (canvasId, labels, data) {
   toggle.addEventListener('change', function () {
     const enabled = this.checked;
     const base    = document.querySelector('meta[name=base-url]')?.content || '';
-    fetch(base + '/admin/analytics-toggle.php', {
+    fetch(base + '/admin/analytics-toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: '_csrf=' + encodeURIComponent(document.querySelector('meta[name=csrf]')?.content || '')

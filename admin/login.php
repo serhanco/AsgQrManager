@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $redirect = filter_var($_GET['redirect'] ?? '', FILTER_SANITIZE_URL);
             // Güvenlik: aynı site içinde kalmalı
             if (!$redirect || !str_starts_with($redirect, BASE_PATH)) {
-                $redirect = BASE_URL . '/admin/dashboard.php';
+                $redirect = BASE_URL . '/admin/dashboard';
             } else {
                 $redirect = BASE_URL . preg_replace('#^' . preg_quote(BASE_PATH) . '#', '', $redirect);
             }

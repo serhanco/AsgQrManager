@@ -33,7 +33,7 @@ class Auth {
     public static function requireLogin(): void {
         if (!self::isLoggedIn()) {
             $target = urlencode($_SERVER['REQUEST_URI'] ?? '');
-            header('Location: ' . BASE_URL . '/admin/login.php?redirect=' . $target);
+            header('Location: ' . BASE_URL . '/admin/login?redirect=' . $target);
             exit;
         }
     }
