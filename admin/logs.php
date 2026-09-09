@@ -9,7 +9,9 @@ Auth::startSession();
 Auth::requireLogin();
 
 // Log türü: 'scans' | 'app'
-$type    = in_array($_GET['type'] ?? '', ['scans', 'app']) ? $_GET['type'] : 'scans';
+$reqType = strtolower($_GET['type'] ?? '');
+if ($reqType === 'info') $reqType = 'app';
+$type    = in_array($reqType, ['scans', 'app']) ? $reqType : 'scans';
 $baseDir = $type === 'scans' ? LOG_SCAN_DIR : LOG_APP_DIR;
 
 // Dosya listesi
@@ -88,8 +90,8 @@ include __DIR__ . '/views/_layout.php';
                 $href = '?type=' . $type . '&year=' . $year . '&mon=' . $mon . '&file=' . urlencode($file);
               ?>
               <a href="<?= $href ?>"
-                 class="text-xs d-block"
-                 style="padding:.2rem .5rem;border-radius:4px;<?= $isActive ? 'background:var(--accent);color:#fff;text-decoration:none' : 'color:var(--text-muted)' ?>">
+                 class="text-xs"
+                 style="display:block;padding:.2rem .5rem;border-radius:4px;<?= $isActive ? 'background:var(--accent);color:#fff;text-decoration:none' : 'color:var(--text-muted)' ?>">
                 <?= e($file) ?>
               </a>
             <?php endforeach; ?>

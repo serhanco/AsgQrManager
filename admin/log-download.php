@@ -12,7 +12,9 @@ Logger::registerHandlers();
 Auth::startSession();
 Auth::requireLogin();
 
-$type    = in_array($_GET['type'] ?? 'scans', ['scans', 'app']) ? $_GET['type'] : 'scans';
+$reqType = strtolower($_GET['type'] ?? 'scans');
+if ($reqType === 'info') $reqType = 'app';
+$type    = in_array($reqType, ['scans', 'app']) ? $reqType : 'scans';
 $baseDir = $type === 'scans' ? LOG_SCAN_DIR : LOG_APP_DIR;
 
 $year = preg_replace('/\D/', '', $_GET['year'] ?? '');
