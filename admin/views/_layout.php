@@ -14,7 +14,7 @@ $csrf = Auth::csrfToken();
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="base-url" content="<?= e($base) ?>">
 <meta name="csrf"     content="<?= e($csrf) ?>">
-<title><?= e($pageTitle ?? 'QR Yöneticisi') ?> — QR Manager</title>
+<title><?= e($pageTitle ?? 'QR Yöneticisi') ?> — ACIBADEM QR Code Manager</title>
 <link rel="icon" type="image/svg+xml" href="<?= $base ?>/assets/icon.svg">
 <link rel="stylesheet" href="<?= $base ?>/assets/style.css">
 </head>
@@ -25,9 +25,9 @@ $csrf = Auth::csrfToken();
 <!-- Topbar -->
 <header class="topbar">
   <button class="hamburger" aria-label="Menü">☰</button>
-  <a class="topbar-brand" href="<?= $base ?>/admin/dashboard">
-    <span class="logo-icon" style="display: flex; align-items: center;"><img src="<?= $base ?>/assets/icon.svg" alt="Logo" style="height: 1.6rem; width: auto;"></span>
-    <span>QR Manager</span>
+  <a class="topbar-brand" href="<?= $base ?>/admin/dashboard" style="gap: .75rem;">
+    <span class="logo-icon" style="display: flex; align-items: center;"><img src="<?= $base ?>/assets/icon.svg" alt="Logo" style="height: 2.4rem; width: auto;"></span>
+    <span style="font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">ACIBADEM QR Code Manager</span>
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-user">

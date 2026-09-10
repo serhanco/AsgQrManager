@@ -46,15 +46,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Giriş — QR Manager</title>
+<title>Giriş — ACIBADEM QR Code Manager</title>
 <link rel="icon" type="image/svg+xml" href="<?= BASE_URL ?>/assets/icon.svg">
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/style.css">
 </head>
 <body>
 <div class="login-page">
   <div class="login-card">
-    <div class="login-logo"><img src="<?= BASE_URL ?>/assets/icon.svg" alt="QR Manager Logo" style="height: 3.5rem; width: auto;"></div>
-    <h1 class="login-title">QR Manager</h1>
+    <div class="login-logo"><img src="<?= BASE_URL ?>/assets/icon.svg" alt="ACIBADEM QR Code Manager Logo" style="height: 7rem; width: auto;"></div>
+    <h1 class="login-title">ACIBADEM QR Code Manager</h1>
     <p class="login-sub">Yönetim Paneli</p>
 
     <?php if ($error): ?>

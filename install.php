@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 2) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>QR Manager — Kurulum</title>
+<title>ACIBADEM QR Code Manager — Kurulum</title>
 <style>
   :root{--bg:#f1f5f9;--card:#fff;--text:#0f172a;--muted:#64748b;--accent:#6366f1;--border:#e2e8f0;--success:#22c55e;--danger:#ef4444}
   @media(prefers-color-scheme:dark){:root{--bg:#0f172a;--card:#1e293b;--text:#f1f5f9;--muted:#94a3b8;--border:#334155}}
@@ -124,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 2) {
 </head>
 <body>
 <div class="card">
-  <h1 style="display:flex;align-items:center;justify-content:center;gap:.75rem;"><img src="assets/icon.svg" alt="Logo" style="height: 2.5rem; width: auto;"> QR Manager</h1>
+  <h1 style="display:flex;align-items:center;justify-content:center;gap:.75rem;"><img src="assets/icon.svg" alt="Logo" style="height: 2.5rem; width: auto;"> ACIBADEM QR Code Manager</h1>
   <p>Kurulum Sihirbazı — <code>install.php</code></p>
 
   <div class="warn">
