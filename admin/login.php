@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <div class="login-page">
   <div class="login-card">
-    <div class="login-logo">📱</div>
+    <div class="login-logo"><img src="<?= BASE_URL ?>/assets/icon.svg" alt="QR Manager Logo" style="height: 3.5rem; width: auto;"></div>
     <h1 class="login-title">QR Manager</h1>
     <p class="login-sub">Yönetim Paneli</p>
 

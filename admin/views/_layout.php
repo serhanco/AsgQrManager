@@ -26,7 +26,7 @@ $csrf = Auth::csrfToken();
 <header class="topbar">
   <button class="hamburger" aria-label="Menü">☰</button>
   <a class="topbar-brand" href="<?= $base ?>/admin/dashboard">
-    <span class="logo-icon">📱</span>
+    <span class="logo-icon" style="display: flex; align-items: center;"><img src="<?= $base ?>/assets/icon.svg" alt="Logo" style="height: 1.6rem; width: auto;"></span>
     <span>QR Manager</span>
   </a>
   <div class="topbar-spacer"></div>

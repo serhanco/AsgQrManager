@@ -124,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 2) {
 </head>
 <body>
 <div class="card">
-  <h1>📱 QR Manager</h1>
+  <h1 style="display:flex;align-items:center;justify-content:center;gap:.75rem;"><img src="assets/icon.svg" alt="Logo" style="height: 2.5rem; width: auto;"> QR Manager</h1>
   <p>Kurulum Sihirbazı — <code>install.php</code></p>
 
   <div class="warn">
