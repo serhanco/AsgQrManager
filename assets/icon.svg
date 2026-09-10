@@ -1,21 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="Acıbadem QR application icon">
-  <title>Acıbadem QR application icon</title>
-  <g transform="translate(364.120,371.430) scale(0.860000)">
-    
-    <!-- Kusursuzlaştırılmış Köşebentler -->
-    <g stroke="#022763" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none">
-      <!-- Sol Üst -->
-      <path d="M 87,24 L 40,24 A 15,15 0 0,0 25,39 L 25,83" />
-      <!-- Sol Alt -->
-      <path d="M 25,217 L 25,261 A 15,15 0 0,0 40,276 L 87,276" />
-      <!-- Sağ Üst -->
-      <path d="M 230,24 L 277,24 A 15,15 0 0,1 292,39 L 292,83" />
-      <!-- Sağ Alt -->
-      <path d="M 292,217 L 292,261 A 15,15 0 0,1 277,276 L 230,276" />
-    </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="Acıbadem İkon">
+  <title>Acıbadem İkon</title>
 
-    <!-- Kusursuzlaştırılmış Geometrik 'A' Formu (Tam Paralel Hatlar) -->
-    <path fill="#022763" d="M 65,226 L 158,59.3 L 251,226 L 211,226 L 158,131 L 105,226 Z" />
-    
+  <!-- Arka Plan Squircle (Koyu Lacivert) -->
+  <rect x="80" y="80" width="840" height="840" rx="230" fill="#101F42" />
+
+  <!-- Köşebentler (Açık Camgöbeği/Mavi) -->
+  <g fill="none" stroke="#60C2EE" stroke-width="45" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Sol Üst -->
+    <path d="M 345 235 H 250 A 28 28 0 0 0 222 263 V 355" />
+    <!-- Sağ Üst -->
+    <path d="M 655 235 H 750 A 28 28 0 0 1 778 263 V 355" />
+    <!-- Sol Alt -->
+    <path d="M 222 645 V 737 A 28 28 0 0 0 250 765 H 345" />
+    <!-- Sağ Alt -->
+    <path d="M 778 645 V 737 A 28 28 0 0 1 750 765 H 655" />
   </g>
+
+  <!-- Ortadaki Geometrik 'A' Formu (Beyaz Dolgu) -->
+  <!-- Orijinal görseldeki gibi tepe noktası sivri, etekleri yatay kesim -->
+  <path d="M 500 305 L 675 660 H 600 L 500 445 L 400 660 H 325 Z" fill="#FFFFFF" />
 </svg>
