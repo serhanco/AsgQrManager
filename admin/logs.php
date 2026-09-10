@@ -36,7 +36,7 @@ if ($selYear && $selMon && $selFile) {
     $realFull = realpath($fullPath);
 
     $normBase = rtrim(str_replace('\\', '/', $realBase ?: $baseDir), '/');
-    $normFull = str_replace('\\', '/', $fullPath);
+    $normFull = str_replace('\\', '/', $realFull ?: $fullPath);
 
     $safe = is_dir($normBase)
          && str_starts_with($normFull, $normBase . '/')

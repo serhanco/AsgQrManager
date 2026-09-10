@@ -61,10 +61,10 @@ $csrf = Auth::csrfToken();
 <main class="main">
 <?php
 // Flash mesajları
-foreach (['success','danger','warning','info'] as $type) {
-    $msg = flash($type);
+foreach (['success','danger','warning','info'] as $flashType) {
+    $msg = flash($flashType);
     if ($msg) {
-        echo '<div class="alert alert-' . $type . '">' . e($msg) . '</div>';
+        echo '<div class="alert alert-' . $flashType . '">' . e($msg) . '</div>';
     }
 }
 ?>

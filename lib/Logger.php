@@ -176,7 +176,7 @@ class Logger {
         // realpath, hosting symlink/yetki kısıtı nedeniyle dosya için false dönebilir.
         // Hem kesin (realpath) hem normalize fallback desteklenir.
         $normBase = rtrim(str_replace('\\', '/', $baseReal ?: $baseDir), '/');
-        $normFull = str_replace('\\', '/', $fullPath);
+        $normFull = str_replace('\\', '/', $real ?: $fullPath);
         $inBase   = str_starts_with($normFull, $normBase . '/')
                  && !str_contains($normFull, '/../')
                  && !str_contains($normFull, '/./');
