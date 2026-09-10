@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <div class="login-page">
   <div class="login-card">
-    <div class="login-logo"><img src="<?= BASE_URL ?>/assets/icon.svg" alt="ACIBADEM QR Code Manager Logo" style="height: 7rem; width: auto;"></div>
+    <div class="login-logo"><img src="<?= BASE_URL ?>/assets/icon.svg" alt="ACIBADEM QR Code Manager Logo" style="height: 7rem; width: auto; margin: 0 auto;"></div>
     <h1 class="login-title">ACIBADEM QR Code Manager</h1>
     <p class="login-sub">Yönetim Paneli</p>
 
