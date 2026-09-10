@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>404 — QR Yöneticisi</title>
+<link rel="icon" type="image/svg+xml" href="<?= defined('BASE_URL') ? BASE_URL : '' ?>/assets/icon.svg">
 <style>
   :root{--bg:#f8fafc;--card:#fff;--text:#1a1a2e;--muted:#64748b;--accent:#6366f1;--border:#e2e8f0}
   @media(prefers-color-scheme:dark){:root{--bg:#0f172a;--card:#1e293b;--text:#f1f5f9;--muted:#94a3b8;--border:#334155}}

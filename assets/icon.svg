@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" role="img" aria-label="Acıbadem QR application icon">
+  <title>Acıbadem QR application icon</title>
+  <g transform="translate(364.120,371.430) scale(0.860000)">
+    
+    <!-- Kusursuzlaştırılmış Köşebentler -->
+    <g stroke="#022763" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <!-- Sol Üst -->
+      <path d="M 87,24 L 40,24 A 15,15 0 0,0 25,39 L 25,83" />
+      <!-- Sol Alt -->
+      <path d="M 25,217 L 25,261 A 15,15 0 0,0 40,276 L 87,276" />
+      <!-- Sağ Üst -->
+      <path d="M 230,24 L 277,24 A 15,15 0 0,1 292,39 L 292,83" />
+      <!-- Sağ Alt -->
+      <path d="M 292,217 L 292,261 A 15,15 0 0,1 277,276 L 230,276" />
+    </g>
+
+    <!-- Kusursuzlaştırılmış Geometrik 'A' Formu (Tam Paralel Hatlar) -->
+    <path fill="#022763" d="M 65,226 L 158,59.3 L 251,226 L 211,226 L 158,131 L 105,226 Z" />
+    
+  </g>
+</svg>

@@ -11,8 +11,8 @@ Logger::registerHandlers();
 Auth::startSession();
 
 if (Auth::isLoggedIn()) {
-    header('Location: ' . BASE_URL . '/admin/dashboard.php');
+    header('Location: ' . BASE_URL . '/admin/dashboard');
 } else {
-    header('Location: ' . BASE_URL . '/admin/login.php');
+    header('Location: ' . BASE_URL . '/admin/login');
 }
 exit;

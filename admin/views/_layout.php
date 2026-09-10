@@ -15,6 +15,7 @@ $csrf = Auth::csrfToken();
 <meta name="base-url" content="<?= e($base) ?>">
 <meta name="csrf"     content="<?= e($csrf) ?>">
 <title><?= e($pageTitle ?? 'QR Yöneticisi') ?> — QR Manager</title>
+<link rel="icon" type="image/svg+xml" href="<?= $base ?>/assets/icon.svg">
 <link rel="stylesheet" href="<?= $base ?>/assets/style.css">
 </head>
 <body>
