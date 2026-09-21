@@ -337,6 +337,38 @@ class QrRenderer {
         }
     }
 
+    /**
+     * Tüm QR önbelleğini temizler.
+     * @return int Silinen dosya sayısı
+     */
+    public static function clearAllCache(): int {
+        if (!is_dir(CACHE_DIR)) {
+            return 0;
+        }
+        $count = 0;
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator(CACHE_DIR, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($iterator as $item) {
+                if ($item->isFile()) {
+                    $ext = strtolower($item->getExtension());
+                    if (in_array($ext, ['svg', 'png', 'tmp'])) {
+                        if (@unlink($item->getRealPath())) {
+                            $count++;
+                        }
+                    }
+                } elseif ($item->isDir()) {
+                    @rmdir($item->getRealPath());
+                }
+            }
+        } catch (\Throwable $e) {
+            Logger::error('clearAllCache hatası: ' . $e->getMessage());
+        }
+        return $count;
+    }
+
     // ─── Yardımcı ─────────────────────────────────────────────────────────────
 
     private static function logoToBase64(string $path): ?array {

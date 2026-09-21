@@ -54,6 +54,15 @@ $csrf = Auth::csrfToken();
     <li><a href="<?= $base ?>/admin/logs" <?= $activePage==='logs'?'class="active"':'' ?>>
       <span class="nav-icon">📋</span> Log Görüntüleyici
     </a></li>
+    <li>
+      <form method="POST" action="<?= $base ?>/admin/clear-cache"
+            data-confirm="Tüm QR önbelleğini silmek istediğinizden emin misiniz? QR kodlar yeni isteklerde güncel domain ile yeniden üretilecektir.">
+        <?= Auth::csrfField() ?>
+        <button type="submit" class="sidebar-btn">
+          <span class="nav-icon">🧹</span> Önbelleği Temizle
+        </button>
+      </form>
+    </li>
   </ul>
 </nav>
 
