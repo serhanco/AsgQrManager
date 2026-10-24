@@ -27,6 +27,7 @@ function linkToForm(array $l): array {
         'starts_at' => $local($l['starts_at'] ?? null), 'ends_at' => $local($l['ends_at'] ?? null),
         'after_end_url' => $l['after_end_url'] ?? '', 'fallback_url' => $l['fallback_url'] ?? '',
         'utm_enabled' => $l['utm_enabled'] ?? 0, 'utm_campaign' => $l['utm_campaign'] ?? '',
+        'ref_type' => $l['ref_type'] ?? '', 'ref_id' => $l['ref_id'] ?? '', 'ref_variant' => $l['ref_variant'] ?? '',
         'style_mode' => $custom ? 'custom' : 'brand',
         'fg_color' => $l['fg_color'] ?? '', 'bg_color' => $l['bg_color'] ?? '', 'shape' => $l['shape'] ?? '',
         'logo_file' => $l['logo'] ?? '',
@@ -41,14 +42,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     [$clean, $errors] = LinkService::normalize($input, $link);
 
     if (!$errors) {
-        $wasActive = (int)$link['is_active'];
-        $changes   = LinkService::update($pdo, $link, $clean, Auth::actor());
-        if (array_key_exists('is_active', $changes)) {
-            // Aktif/pasif değişimi geçmişte ayrıca görünsün
-            LinkEvents::log($pdo, (int)$id, $link['slug'], Auth::actor(), $clean['is_active'] ? 'activate' : 'deactivate');
+        try {
+            $changes = LinkService::update($pdo, $link, $clean, Auth::actor());
+            if (array_key_exists('is_active', $changes)) {
+                // Aktif/pasif değişimi geçmişte ayrıca görünsün
+                LinkEvents::log($pdo, (int)$id, $link['slug'], Auth::actor(), $clean['is_active'] ? 'activate' : 'deactivate');
+            }
+            flash('success', $changes ? 'Link başarıyla güncellendi.' : 'Değişiklik yok.');
+            redirect(BASE_URL . '/admin/edit?id=' . $id);
+        } catch (RuntimeException $e) {
+            $errors[] = $e->getMessage();
         }
-        flash('success', $changes ? 'Link başarıyla güncellendi.' : 'Değişiklik yok.');
-        redirect(BASE_URL . '/admin/edit?id=' . $id);
     }
     $f = $_POST;
     $f['logo_file'] = !empty($_POST['use_logo']) ? ($_POST['logo_file'] ?? '') : '';

@@ -16,6 +16,15 @@ class LinkService {
         'other'    => 'Diğer',
     ];
 
+    /** Bağlanabilecek portal (ACIBADEM.WORLD) kayıt türleri */
+    public const REF_TYPES = [
+        'hq'     => 'Genel Merkez',
+        'office' => 'Ofis',
+        'event'  => 'Etkinlik',
+        'page'   => 'Diğer sayfa',
+    ];
+    public const REF_DEFAULT_VARIANT = 'main';
+
     public const SHAPES = [
         'square'  => 'Kare (klasik)',
         'rounded' => 'Yuvarlatılmış kare',
@@ -27,6 +36,7 @@ class LinkService {
         'target_url', 'title', 'is_active', 'logo', 'category', 'tags', 'notes',
         'fallback_url', 'starts_at', 'ends_at', 'after_end_url',
         'utm_enabled', 'utm_campaign', 'fg_color', 'bg_color', 'shape',
+        'ref_type', 'ref_id', 'ref_variant',
     ];
 
     // ─── Renk yardımcıları ───────────────────────────────────────────────────
@@ -269,6 +279,9 @@ class LinkService {
             'utm_enabled'   => !empty($post['utm_enabled']) ? 1 : 0,
             'utm_campaign'  => $post['utm_campaign']  ?? '',
             'logo'          => !empty($post['use_logo']) ? trim((string)($post['logo_file'] ?? '')) : '',
+            'ref_type'      => $post['ref_type']      ?? '',
+            'ref_id'        => $post['ref_id']        ?? '',
+            'ref_variant'   => $post['ref_variant']   ?? '',
         ];
         if ($isEdit) $in['is_active'] = !empty($post['is_active']) ? 1 : 0;
 
@@ -379,7 +392,47 @@ class LinkService {
             else $clean['shape'] = $sh === '' ? null : $sh;
         }
 
+        // Portal kaydı (üçü birlikte değerlendirilir; tür boşsa bağlantı kaldırılır)
+        if ($has('ref_type') || $has('ref_id') || $has('ref_variant')) {
+            $type = trim((string)$merged('ref_type'));
+            $rid  = trim((string)$merged('ref_id'));
+            $var  = strtolower(trim((string)$merged('ref_variant')));
+            if ($type === '') {
+                $clean['ref_type'] = $clean['ref_id'] = $clean['ref_variant'] = null;
+            } elseif (!isset(self::REF_TYPES[$type])) {
+                $errors[] = 'Geçersiz portal kaydı türü (' . implode(', ', array_keys(self::REF_TYPES)) . ').';
+            } elseif (!self::validRefId($rid)) {
+                $errors[] = 'Portal kayıt kimliği zorunlu; en fazla 64 karakter, yalnızca harf, rakam ve - _ . : içerebilir.';
+            } elseif ($var !== '' && !self::validRefVariant($var)) {
+                $errors[] = 'Varyant yalnızca küçük harf, rakam, - _ içerebilir (en fazla 32 karakter).';
+            } else {
+                $clean['ref_type']    = $type;
+                $clean['ref_id']      = $rid;
+                $clean['ref_variant'] = $var === '' ? self::REF_DEFAULT_VARIANT : $var;
+            }
+        }
+
         return [$clean, $errors];
+    }
+
+    public static function validRefId(string $id): bool {
+        return (bool)preg_match('~^[A-Za-z0-9][A-Za-z0-9_\-.:]{0,63}$~', $id);
+    }
+
+    public static function validRefVariant(string $v): bool {
+        return (bool)preg_match('/^[a-z0-9][a-z0-9_-]{0,31}$/', $v);
+    }
+
+    /** Aynı portal kaydı + varyant başka bir QR'a bağlıysa hata fırlatır. */
+    private static function assertRefFree(PDO $pdo, array $clean, ?array $link): void {
+        $type = array_key_exists('ref_type', $clean) ? $clean['ref_type'] : ($link['ref_type'] ?? null);
+        if ($type === null || $type === '') return;
+        $rid = array_key_exists('ref_id', $clean) ? $clean['ref_id'] : ($link['ref_id'] ?? null);
+        $var = array_key_exists('ref_variant', $clean) ? $clean['ref_variant'] : ($link['ref_variant'] ?? null);
+        $other = self::findByRef($pdo, $type, (string)$rid, (string)$var);
+        if ($other && (!$link || (int)$other['id'] !== (int)$link['id'])) {
+            throw new RuntimeException("Bu portal kaydı ({$type}/{$rid}, varyant: {$var}) zaten '{$other['slug']}' QR'ına bağlı.");
+        }
     }
 
     // ─── Yazma işlemleri ─────────────────────────────────────────────────────
@@ -401,6 +454,7 @@ class LinkService {
         } else {
             $slug = generateUniqueSlug($pdo, defined('SLUG_LENGTH') ? SLUG_LENGTH : 7);
         }
+        self::assertRefFree($pdo, $clean, null);
 
         $clean += ['is_active' => 1];
         $cols = array_keys($clean);
@@ -413,8 +467,12 @@ class LinkService {
         return self::find($pdo, $id);
     }
 
-    /** @return array değişen alanlar [alan => [eski, yeni]] */
+    /**
+     * @return array değişen alanlar [alan => [eski, yeni]]
+     * @throws RuntimeException portal kaydı başka QR'a bağlıysa
+     */
     public static function update(PDO $pdo, array $link, array $clean, array $actor, string $action = 'update'): array {
+        self::assertRefFree($pdo, $clean, $link);
         $changes = [];
         foreach ($clean as $col => $val) {
             if (!in_array($col, self::COLUMNS, true)) continue;
@@ -454,6 +512,67 @@ class LinkService {
         return true;
     }
 
+    // ─── Portal kaydı ────────────────────────────────────────────────────────
+
+    /** Portal kaydına bağlı QR'lar (varyant verilirse tek QR). Arşivdekiler de döner. */
+    public static function findByRef(PDO $pdo, string $type, string $id, ?string $variant = null): array|null {
+        if ($variant !== null) {
+            $st = $pdo->prepare('SELECT * FROM links WHERE ref_type = ? AND ref_id = ? AND ref_variant = ? LIMIT 1');
+            $st->execute([$type, $id, $variant]);
+            return $st->fetch() ?: null;
+        }
+        $st = $pdo->prepare('SELECT * FROM links WHERE ref_type = ? AND ref_id = ? ORDER BY ref_variant = ? DESC, ref_variant, id');
+        $st->execute([$type, $id, self::REF_DEFAULT_VARIANT]);
+        return $st->fetchAll();
+    }
+
+    /**
+     * Portal kaydı için QR'ı oluşturur ya da günceller (idempotent: aynı istek tekrar gönderilebilir).
+     * Var olan QR'da kısa ad ASLA değişmez; yalnızca gönderilen alanlar güncellenir.
+     * Arşivdeki QR kendiliğinden geri alınmaz (restore ayrıca çağrılır).
+     *
+     * @return array{0:array,1:bool,2:array} [link, oluşturuldu mu, değişen alanlar]
+     * @throws InvalidArgumentException doğrulama hatası (mesajlar JSON dizisi)
+     * @throws RuntimeException kısa ad çakışması
+     */
+    public static function upsertByRef(PDO $pdo, string $type, string $id, string $variant, array $in, array $actor): array {
+        unset($in['ref_type'], $in['ref_id'], $in['ref_variant']);
+        $ref = ['ref_type' => $type, 'ref_id' => $id, 'ref_variant' => $variant];
+        $slug = isset($in['slug']) ? (string)$in['slug'] : null;
+        unset($in['slug']);
+
+        $existing = self::findByRef($pdo, $type, $id, $variant);
+        if ($existing) {
+            [$clean, $errors] = self::normalize($in, $existing);
+            if ($errors) throw new InvalidArgumentException(json_encode($errors, JSON_UNESCAPED_UNICODE));
+            $changes = self::update($pdo, $existing, $clean, $actor);
+            if (array_key_exists('is_active', $changes)) {
+                LinkEvents::log($pdo, (int)$existing['id'], $existing['slug'], $actor, $clean['is_active'] ? 'activate' : 'deactivate');
+            }
+            return [self::find($pdo, (int)$existing['id']), false, $changes];
+        }
+
+        // Tür verilmediyse portal kayıt türünden türet (page → other)
+        if (!array_key_exists('category', $in)) $in['category'] = isset(self::CATEGORIES[$type]) ? $type : 'other';
+        [$clean, $errors] = self::normalize($in + $ref);
+        if ($errors) throw new InvalidArgumentException(json_encode($errors, JSON_UNESCAPED_UNICODE));
+        try {
+            $link = self::create($pdo, $clean, $slug, $actor);
+        } catch (PDOException $e) {
+            // Aynı anda iki istek: benzersiz indeks ikinciyi durdurur, var olanı güncelleyerek devam et
+            if ($e->getCode() !== '23000' || !self::findByRef($pdo, $type, $id, $variant)) throw $e;
+            return self::upsertByRef($pdo, $type, $id, $variant, $in, $actor);
+        }
+        return [$link, true, []];
+    }
+
+    public static function refLabel(array $link): string {
+        if (empty($link['ref_type'])) return '';
+        $s = (self::REF_TYPES[$link['ref_type']] ?? $link['ref_type']) . ' #' . $link['ref_id'];
+        if (($link['ref_variant'] ?? '') !== '' && $link['ref_variant'] !== self::REF_DEFAULT_VARIANT) $s .= ' · ' . $link['ref_variant'];
+        return $s;
+    }
+
     // ─── Listeleme filtresi ──────────────────────────────────────────────────
 
     public const STATUSES = ['' => 'Tümü (arşiv hariç)', 'live' => 'Aktif', 'inactive' => 'Pasif',
@@ -461,7 +580,7 @@ class LinkService {
 
     /**
      * Liste / dışa aktarım / API için ortak WHERE üretir.
-     * @param array{q?:string,status?:string,category?:string,tag?:string} $f
+     * @param array{q?:string,status?:string,category?:string,tag?:string,ref_type?:string,ref_id?:string,ref?:string} $f
      * @return array{0:string,1:array} ["WHERE ...", parametreler]
      */
     public static function buildFilter(array $f): array {
@@ -489,10 +608,16 @@ class LinkService {
         if ($category !== '' && isset(self::CATEGORIES[$category])) { $where[] = 'category = ?'; $params[] = $category; }
         if ($tag === '__none') { $where[] = "(tags IS NULL OR tags = '')"; }
         elseif ($tag !== '')   { $where[] = 'FIND_IN_SET(?, tags) > 0'; $params[] = $tag; }
+        $refType = $f['ref_type'] ?? '';
+        $refId   = trim($f['ref_id'] ?? '');
+        if ($refType !== '' && isset(self::REF_TYPES[$refType])) { $where[] = 'ref_type = ?'; $params[] = $refType; }
+        if ($refId !== '') { $where[] = 'ref_id = ?'; $params[] = $refId; }
+        if (($f['ref'] ?? '') === 'linked')   $where[] = 'ref_type IS NOT NULL';
+        elseif (($f['ref'] ?? '') === 'none') $where[] = 'ref_type IS NULL';
         if ($search !== '') {
-            $where[] = '(slug LIKE ? OR title LIKE ? OR target_url LIKE ? OR tags LIKE ? OR notes LIKE ?)';
+            $where[] = '(slug LIKE ? OR title LIKE ? OR target_url LIKE ? OR tags LIKE ? OR notes LIKE ? OR ref_id = ?)';
             $like = '%' . $search . '%';
-            array_push($params, $like, $like, $like, $like, $like);
+            array_push($params, $like, $like, $like, $like, $like, $search);
         }
         return ['WHERE ' . implode(' AND ', $where), $params];
     }
@@ -537,6 +662,9 @@ class LinkService {
             'utm_enabled'   => !empty($link['utm_enabled']),
             'utm_campaign'  => $link['utm_campaign'] ?? null,
             'logo'          => $link['logo'],
+            'portal_ref'    => !empty($link['ref_type'])
+                                ? ['type' => $link['ref_type'], 'id' => $link['ref_id'], 'variant' => $link['ref_variant'] ?: self::REF_DEFAULT_VARIANT]
+                                : null,
             'style'         => $style,
             'scan_count'    => (int)$link['scan_count'],
             'created_at'    => $link['created_at'],

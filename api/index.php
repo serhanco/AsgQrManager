@@ -92,6 +92,41 @@ try {
         apiOut(200, ['data' => $out]);
     }
 
+    // ── /refs/{type}/{id}[/{variant}] — portal kaydına bağlı QR ──
+    if (($parts[0] ?? '') === 'refs') {
+        $type = $parts[1] ?? '';
+        $rid  = rawurldecode($parts[2] ?? '');
+        if (count($parts) < 3 || count($parts) > 4) apiError(404, 'not_found', 'Adres biçimi: /refs/{tür}/{kimlik}[/{varyant}]');
+        if (!isset(LinkService::REF_TYPES[$type])) {
+            apiError(422, 'validation_failed', 'Geçersiz portal kaydı türü.', ['allowed' => array_keys(LinkService::REF_TYPES)]);
+        }
+        if (!LinkService::validRefId($rid)) apiError(422, 'validation_failed', 'Geçersiz portal kayıt kimliği.');
+        $variant = isset($parts[3]) ? strtolower($parts[3]) : null;
+        if ($variant !== null && !LinkService::validRefVariant($variant)) apiError(422, 'validation_failed', 'Geçersiz varyant.');
+
+        if ($method === 'GET') {
+            if ($variant !== null) {
+                $l = LinkService::findByRef($pdo, $type, $rid, $variant);
+                if (!$l) apiError(404, 'not_found', 'Bu portal kaydına bağlı QR yok.');
+                apiOut(200, ['data' => LinkService::present($l)]);
+            }
+            apiOut(200, ['data' => array_map([LinkService::class, 'present'], LinkService::findByRef($pdo, $type, $rid))]);
+        }
+        if ($method === 'PUT' || $method === 'POST') {
+            needWrite($tok);
+            try {
+                [$l, $created, $changes] = LinkService::upsertByRef($pdo, $type, $rid, $variant ?? LinkService::REF_DEFAULT_VARIANT, $body, $actor);
+            } catch (InvalidArgumentException $e) {
+                apiError(422, 'validation_failed', 'Girdi geçersiz.', ['details' => json_decode($e->getMessage(), true)]);
+            } catch (RuntimeException $e) {
+                apiError(409, 'conflict', $e->getMessage());
+            }
+            if ($created) header('Location: ' . BASE_URL . '/api/v1/links/' . $l['slug']);
+            apiOut($created ? 201 : 200, ['data' => LinkService::present($l), 'created' => $created, 'changed' => array_keys($changes)]);
+        }
+        apiError(405, 'method_not_allowed', 'Bu yöntem desteklenmiyor. Bağlantıyı kaldırmak için PATCH /links/{slug} ile "ref_type": null gönderin.');
+    }
+
     if (($parts[0] ?? '') !== 'links') apiError(404, 'not_found', 'Bilinmeyen adres.');
 
     // ── /links ──
@@ -99,6 +134,7 @@ try {
         if ($method === 'GET') {
             [$where, $params] = LinkService::buildFilter([
                 'q' => $_GET['q'] ?? '', 'status' => $_GET['status'] ?? '', 'category' => $_GET['category'] ?? '', 'tag' => $_GET['tag'] ?? '',
+                'ref_type' => $_GET['ref_type'] ?? '', 'ref_id' => $_GET['ref_id'] ?? '', 'ref' => $_GET['ref'] ?? '',
             ]);
             $page = max(1, (int)($_GET['page'] ?? 1));
             $per  = max(1, min(100, (int)($_GET['per_page'] ?? 25)));
@@ -140,7 +176,11 @@ try {
             unset($body['slug']); // kısa ad değiştirilemez: basılı QR bozulur
             [$clean, $errors] = LinkService::normalize($body, $link);
             if ($errors) apiError(422, 'validation_failed', 'Girdi geçersiz.', ['details' => $errors]);
-            $changes = LinkService::update($pdo, $link, $clean, $actor);
+            try {
+                $changes = LinkService::update($pdo, $link, $clean, $actor);
+            } catch (RuntimeException $e) {
+                apiError(409, 'conflict', $e->getMessage());
+            }
             if (array_key_exists('is_active', $changes)) {
                 LinkEvents::log($pdo, (int)$link['id'], $link['slug'], $actor, $clean['is_active'] ? 'activate' : 'deactivate');
             }

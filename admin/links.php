@@ -11,13 +11,14 @@ $search   = trim($_GET['q'] ?? '');
 $status   = $_GET['status'] ?? '';
 $category = $_GET['category'] ?? '';
 $tag      = trim($_GET['tag'] ?? '');
+$ref      = in_array($_GET['ref'] ?? '', ['linked', 'none'], true) ? $_GET['ref'] : '';
 $page     = max(1, (int)($_GET['page'] ?? 1));
 
 $statuses = LinkService::STATUSES;
 if (!isset($statuses[$status])) $status = '';
 if ($category !== '' && !isset(LinkService::CATEGORIES[$category])) $category = '';
 
-[$whereSql, $params] = LinkService::buildFilter(['q' => $search, 'status' => $status, 'category' => $category, 'tag' => $tag]);
+[$whereSql, $params] = LinkService::buildFilter(['q' => $search, 'status' => $status, 'category' => $category, 'tag' => $tag, 'ref' => $ref]);
 
 $countStmt = $pdo->prepare("SELECT COUNT(*) FROM links {$whereSql}");
 $countStmt->execute($params);
@@ -39,7 +40,7 @@ $tagCounts = LinkService::allTags($pdo);
 $untaggedCount = (int)$pdo->query("SELECT COUNT(*) FROM links WHERE archived_at IS NULL AND (tags IS NULL OR tags = '')")->fetchColumn();
 
 $qs = fn(array $over = []) => '?' . http_build_query(array_filter(
-    array_merge(['q' => $search, 'status' => $status, 'category' => $category, 'tag' => $tag], $over),
+    array_merge(['q' => $search, 'status' => $status, 'category' => $category, 'tag' => $tag, 'ref' => $ref], $over),
     fn($v) => $v !== '' && $v !== null
 ));
 
@@ -94,8 +95,13 @@ include __DIR__ . '/views/_layout.php';
       <option value="<?= e($t['tag']) ?>" <?= LinkService::tagKey($tag) === LinkService::tagKey($t['tag']) ? 'selected' : '' ?>><?= e($t['tag']) ?> (<?= (int)$t['active'] ?>)</option>
     <?php endforeach; ?>
   </select>
+  <select class="form-control" name="ref" style="max-width:170px" onchange="this.form.submit()" title="ACIBADEM.WORLD kaydına bağlı olup olmamasına göre süz">
+    <option value="">Portal: tümü</option>
+    <option value="linked" <?= $ref === 'linked' ? 'selected' : '' ?>>🔗 Portala bağlı</option>
+    <option value="none" <?= $ref === 'none' ? 'selected' : '' ?>>Bağlı değil</option>
+  </select>
   <button class="btn btn-ghost" type="submit">🔍 Ara</button>
-  <?php if ($search || $status || $category || $tag): ?>
+  <?php if ($search || $status || $category || $tag || $ref): ?>
     <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost">✕ Temizle</a>
   <?php endif; ?>
 </form>
@@ -132,6 +138,9 @@ include __DIR__ . '/views/_layout.php';
                 <?= e($link['title'] ?: '—') ?>
                 <?php if (!empty($link['category'])): ?>
                   <span class="badge badge-muted" style="font-weight:500"><?= e(LinkService::CATEGORIES[$link['category']] ?? $link['category']) ?></span>
+                <?php endif; ?>
+                <?php if (!empty($link['ref_type'])): ?>
+                  <span class="badge badge-muted" style="font-weight:500" title="Portal kaydına bağlı">🔗 <?= e(LinkService::refLabel($link)) ?></span>
                 <?php endif; ?>
               </div>
               <div class="text-muted text-xs col-url" style="max-width:260px"><?= e($link['target_url']) ?></div>
