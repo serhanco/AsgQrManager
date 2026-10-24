@@ -2,13 +2,8 @@
 /**
  * clear-cache.php — Tüm QR önbelleğini siler
  */
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../lib/Logger.php';
-require_once __DIR__ . '/../lib/Auth.php';
-require_once __DIR__ . '/../lib/helpers.php';
-require_once __DIR__ . '/../lib/QrRenderer.php';
+require_once __DIR__ . '/../lib/bootstrap.php';
 
-Logger::registerHandlers();
 Auth::startSession();
 Auth::requireLogin();
 

@@ -15,6 +15,21 @@ if (file_exists($lockFile)) {
 
 require_once __DIR__ . '/config.php';
 
+// Güvenlik: veritabanında zaten bir yönetici varsa (örn. sistem phpMyAdmin ile kurulduysa ve
+// installed.lock hiç oluşmadıysa) kurulum sihirbazı ASLA çalışmaz.
+try {
+    $guardPdo = new PDO(
+        sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s', DB_HOST, DB_PORT, DB_NAME, DB_CHARSET),
+        DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+    if ((int)$guardPdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0) {
+        http_response_code(403);
+        exit('Kurulum zaten yapılmış (yönetici hesabı mevcut). Bu dosyayı sunucudan silin.');
+    }
+} catch (\Throwable $e) {
+    // Tablo yoksa veya bağlantı kurulamıyorsa: yeni kurulum, sihirbaz devam eder.
+}
+
 $step    = (int)($_POST['step'] ?? 1);
 $errors  = [];
 $success = [];

@@ -1,0 +1,18 @@
+<?php
+/**
+ * bootstrap.php — yeni sayfaların ortak başlangıcı: yapılandırma + tüm kütüphaneler.
+ */
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/Logger.php';
+require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/Settings.php';
+require_once __DIR__ . '/Migrator.php';
+require_once __DIR__ . '/LinkService.php';
+require_once __DIR__ . '/Redirector.php';
+require_once __DIR__ . '/QrRenderer.php';
+require_once __DIR__ . '/Share.php';
+require_once __DIR__ . '/Stats.php';
+require_once __DIR__ . '/ApiAuth.php';
+
+Logger::registerHandlers();

@@ -8,9 +8,29 @@ RewriteBase /
     Deny from all
 </FilesMatch>
 
+# SQL dökümleri, yedekler, belgeler ve kilit dosyaları web'den okunamaz
+<FilesMatch "\.(sql|md|lock|bak|log|dist|ini|sh)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+<IfModule mod_rewrite.c>
+    RewriteRule (^|/)\.(git|github)(/|$) - [F,L]
+    RewriteRule ^(lib|migrations)/ - [F,L]
+    # Kurulum tamamlandıysa install.php hiç sunulmaz
+    RewriteCond %{DOCUMENT_ROOT}/installed.lock -f
+    RewriteRule ^install\.php$ - [F,L]
+</IfModule>
+
+# API için Authorization başlığı bazı PHP/CGI kurulumlarında düşer; PHP'ye aktar
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 # ─── Yönlendirme kuralları ────────────────────────────────────────────────────
 # /r/{slug} → r.php
 RewriteRule ^r/([A-Za-z0-9_-]+)/?$ r.php?c=$1 [L,QSA]
+
+# /api/v1/... → api/index.php (REST API)
+RewriteRule ^api/v1(?:/(.*))?$ api/index.php?_route=$1 [L,QSA]
 
 # Var olan dosya/klasöre dokunma
 RewriteCond %{REQUEST_FILENAME} !-f

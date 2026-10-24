@@ -6,6 +6,41 @@
 
 ---
 
+## Sürüm 2 — Neler değişti?
+
+Mevcut kurulumlar **veri kaybetmeden** güncellenir. Üretilmiş hiçbir QR kodu, kısa ad veya okutma geçmişi silinmez.
+
+| Alan | Yenilik |
+|---|---|
+| **Veri güvenliği** | Yalnızca *ekleyen* migration'lar (`lib/Migrator.php`). Yönetici ilk girişte şema otomatik güncellenir; öncesinde `links` tablosunun yedeği `logs/backups/` altına yazılır ve kayıt sayıları doğrulanır. Hiçbir sütun/tablo silinmez, `r.php` migration'a bağlı değildir. |
+| **Silme yerine arşiv** | Linkler arşivlenir (geri alınabilir, okutulunca hedefe gitmez). Kalıcı silme yalnızca *hiç okutulmamış ve arşivdeki* kayıtlar için mümkündür. |
+| **Marka özelleştirme** | Ayarlar → marka rengi, nokta şekli (kare/yuvarlak/nokta), varsayılan logo; QR başına özel renk/şekil. Okunabilirlik kuralı: ön plan arka plandan koyu olmalı, kontrast ≥ 4:1; üç köşe kare kalır. |
+| **İndirme** | SVG, PDF (vektör; 30/50/100/200 mm), PNG (600–3000 px), şeffaf PNG, tek tıkla baskı paketi (ZIP). |
+| **Paylaşım** | Panoya kopyala, cihaz paylaşım menüsü, WhatsApp, e-posta, ajans/matbaa için **imzalı ve süreli indirme bağlantısı** (giriş gerektirmez, iptal edilebilir). |
+| **Yönlendirme** | Başlangıç/bitiş zamanı, bitiş sonrası adres, yedek hedef (genel ve QR'a özel), isteğe bağlı UTM etiketleri. |
+| **Düzen** | Tür (Genel Merkez/Ofis/Etkinlik/Kampanya), etiket, not; durum/tür/etiket filtreleri; CSV dışa aktarım; CSV ile toplu oluşturma. |
+| **Raporlar** | Tarih aralığı, saat/gün/ülke/cihaz kırılımı, tekil ziyaretçi tahmini. Bot ve link önizleme istekleri sayılmaz. |
+| **Denetim izi** | Kim, ne zaman, neyi değiştirdi (`Değişiklik Geçmişi`). |
+| **API** | `/api/v1` — Bearer anahtarı (yalnızca hash'i saklanır), okuma/yazma yetkisi. QR **silme uç noktası yoktur**. Belgeler: `/admin/api-docs`. |
+| **Güvenlik** | Veritabanı tabanlı brute-force koruması, güvenli oturum çerezi (HTTPS), CSRF, CSV formül enjeksiyonu koruması, SVG logo yüklemeye kapalı, `noindex` başlıkları, `.sql/.md/.lock` dosyalarına erişim engeli, sadece HTTPS API, KVKK için IP maskeleme/anonimleştirme. |
+
+### Güncelleme (canlıda çalışan kurulum)
+
+1. `main`'e birleştirmek GitHub Actions ile FTP dağıtımını tetikler (`config.php` ve `logs/`, `cache/`, `logo/` içeriği repoda olmadığı için **etkilenmez**).
+2. Dağıtımdan sonra **bir kez yönetici olarak giriş yapın**; şema otomatik güncellenir. (İsterseniz önce phpMyAdmin'den dışa aktarım alın.)
+3. `install.php`, `schema.sql`, `README.md` ve `tests/` artık canlıya gönderilmez (dağıtım aracı, daha önce gönderilmiş olanları sunucudan kaldırır; kalırsa elle silin). `install.php` ayrıca veritabanında yönetici varsa kendini kilitler.
+4. Cloudflare arkasındaysanız hiçbir ayar gerekmez; arkasında değilseniz `config.php`'ye `define('TRUST_PROXY_HEADERS', false);` ekleyin.
+
+### Testler
+
+```bash
+# config.php'yi TEST veritabanına yönlendirin (adında "test" geçmeli, canlıda ASLA çalıştırmayın)
+php tests/run.php --dump=uretim-dokumu.sql   # dökümü yükler, migration'ın hiçbir kaydı kaybettirmediğini doğrular
+php tests/run.php                            # yalnızca mantık testleri
+```
+
+---
+
 ## Gereksinimler
 
 | Bileşen | Gereksinim |
@@ -115,6 +150,8 @@ location /qr/ {
 QrManager/
 ├── index.php               ← Giriş (login/dashboard yönlendirir)
 ├── r.php                   ← QR yönlendirme uç noktası (302)
+├── share.php               ← İmzalı, süreli QR indirme sayfası
+├── api/index.php           ← REST API v1
 ├── install.php             ← Kurulum sihirbazı (sonra silin!)
 ├── config.php              ← Tüm ayarlar burada
 ├── schema.sql              ← Veritabanı şeması
@@ -125,8 +162,17 @@ QrManager/
 │   ├── phpqrcode.php       ← Bağımlılıksız QR encoder (tek dosya)
 │   ├── QrRenderer.php      ← SVG + PNG üretici + logo yerleştirme
 │   ├── Logger.php          ← Uygulama ve tarama log yöneticisi
-│   ├── Auth.php            ← Oturum, CSRF, brute-force
-│   └── helpers.php         ← PDO singleton, slug üretici, yardımcılar
+│   ├── Auth.php            ← Oturum, CSRF, DB tabanlı brute-force
+│   ├── helpers.php         ← PDO singleton, slug üretici, yardımcılar
+│   ├── bootstrap.php       ← Tüm sınıfları yükler
+│   ├── Migrator.php        ← Yalnızca-ekleyen, yedekli şema güncellemeleri
+│   ├── Settings.php        ← Marka / yönlendirme / gizlilik ayarları
+│   ├── LinkService.php     ← Link doğrulama, oluşturma, arşivleme, denetim izi
+│   ├── Redirector.php      ← Okutma kararı (aktif/pasif/zamanlı/yedek)
+│   ├── QrPdf.php           ← Vektör PDF çıktısı
+│   ├── Share.php           ← İmzalı indirme bağlantıları, format üretimi
+│   ├── Stats.php           ← Rapor sorguları (panel + API ortak)
+│   └── ApiAuth.php         ← API anahtarları
 │
 ├── admin/
 │   ├── login.php           ← Giriş sayfası
@@ -135,7 +181,13 @@ QrManager/
 │   ├── links.php           ← Link listesi (arama + sayfalama)
 │   ├── create.php          ← Yeni link oluştur
 │   ├── edit.php            ← Link düzenle (hedef URL güncelle)
-│   ├── delete.php          ← Sil (POST)
+│   ├── delete.php          ← Arşivle (POST); yalnızca okutulmamış arşivler kalıcı silinebilir
+│   ├── restore.php         ← Arşivden çıkar
+│   ├── bulk.php            ← CSV ile toplu oluştur
+│   ├── report.php          ← Raporlar
+│   ├── history.php        ← Değişiklik geçmişi
+│   ├── settings.php        ← Marka, yönlendirme, gizlilik, logolar, paylaşım
+│   ├── api-tokens.php      ← API anahtarları · api-docs.php: belgeler
 │   ├── toggle.php          ← Aktif/pasif (POST)
 │   ├── qr-view.php         ← QR görüntüle + indirme uç noktası
 │   ├── logs.php            ← Log görüntüleyici

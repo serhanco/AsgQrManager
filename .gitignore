@@ -29,3 +29,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+
+# Migration öncesi otomatik yedekler (veritabanı verisi içerir)
+logs/backups/*

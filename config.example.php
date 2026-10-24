@@ -79,6 +79,14 @@ define('CSRF_TOKEN_NAME',     '_csrf');
 define('BRUTE_MAX_ATTEMPTS',  5);
 define('BRUTE_LOCKOUT_SEC',   300);  // 5 dakika
 
+// Cloudflare / ters vekil arkasında gerçek ziyaretçi IP'si CF-Connecting-IP / X-Forwarded-For
+// başlıklarından okunur (varsayılan: açık). Site böyle bir vekilin ARKASINDA DEĞİLSE false yapın;
+// aksi halde ziyaretçiler başlığı taklit ederek kayıtlardaki IP'lerini sahteleyebilir.
+// define('TRUST_PROXY_HEADERS', false);
+
+// REST API varsayılan olarak yalnızca HTTPS'te çalışır (anahtar düz metin gitmesin).
+// Sadece yerel geliştirme için: define('API_ALLOW_HTTP', true);
+
 // ─── Sayfalama ────────────────────────────────────────────────────────────────
 define('LINKS_PER_PAGE', 20);
 

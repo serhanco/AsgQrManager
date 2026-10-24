@@ -50,7 +50,23 @@ $csrf = Auth::csrfToken();
     <li><a href="<?= $base ?>/admin/create" <?= $activePage==='create'?'class="active"':'' ?>>
       <span class="nav-icon">➕</span> Yeni Link
     </a></li>
+    <li><a href="<?= $base ?>/admin/bulk" <?= $activePage==='bulk'?'class="active"':'' ?>>
+      <span class="nav-icon">📑</span> Toplu Oluştur
+    </a></li>
+    <li class="sidebar-section">Raporlama</li>
+    <li><a href="<?= $base ?>/admin/report" <?= $activePage==='report'?'class="active"':'' ?>>
+      <span class="nav-icon">📈</span> Raporlar
+    </a></li>
+    <li><a href="<?= $base ?>/admin/history" <?= $activePage==='history'?'class="active"':'' ?>>
+      <span class="nav-icon">🕘</span> Değişiklik Geçmişi
+    </a></li>
     <li class="sidebar-section">Sistem</li>
+    <li><a href="<?= $base ?>/admin/settings" <?= $activePage==='settings'?'class="active"':'' ?>>
+      <span class="nav-icon">⚙️</span> Ayarlar
+    </a></li>
+    <li><a href="<?= $base ?>/admin/api-tokens" <?= in_array($activePage,['api-tokens','api-docs'],true)?'class="active"':'' ?>>
+      <span class="nav-icon">🔑</span> API
+    </a></li>
     <li><a href="<?= $base ?>/admin/logs" <?= $activePage==='logs'?'class="active"':'' ?>>
       <span class="nav-icon">📋</span> Log Görüntüleyici
     </a></li>

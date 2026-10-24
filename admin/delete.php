@@ -1,11 +1,10 @@
 <?php
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../lib/Logger.php';
-require_once __DIR__ . '/../lib/Auth.php';
-require_once __DIR__ . '/../lib/helpers.php';
-require_once __DIR__ . '/../lib/QrRenderer.php';
+/**
+ * delete.php — QR'lar SİLİNMEZ, arşivlenir.
+ * Kalıcı silme yalnızca arşivlenmiş ve hiç okutulmamış kayıtlar için (purge=1).
+ */
+require_once __DIR__ . '/../lib/bootstrap.php';
 
-Logger::registerHandlers();
 Auth::startSession();
 Auth::requireLogin();
 
@@ -14,20 +13,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 Auth::requireCsrf();
 
-$pdo = getPdo();
-$id  = (int)($_POST['id'] ?? 0);
+$pdo  = getPdo();
+$link = LinkService::find($pdo, (int)($_POST['id'] ?? 0));
 
-$stmt = $pdo->prepare('SELECT slug FROM links WHERE id = ? LIMIT 1');
-$stmt->execute([$id]);
-$link = $stmt->fetch();
-
-if ($link) {
-    QrRenderer::clearCache($link['slug']);
-    $pdo->prepare('DELETE FROM links WHERE id = ?')->execute([$id]);
-    Logger::info("Link silindi: id={$id} slug={$link['slug']}");
-    flash('success', 'Link silindi.');
-} else {
+if (!$link) {
     flash('danger', 'Link bulunamadı.');
+} elseif (!empty($_POST['purge'])) {
+    if (LinkService::purge($pdo, $link, Auth::actor())) {
+        flash('success', 'Kayıt kalıcı olarak silindi.');
+    } else {
+        flash('danger', 'Kalıcı silme yapılamadı: yalnızca arşivlenmiş ve hiç okutulmamış kayıtlar silinebilir.');
+    }
+} else {
+    LinkService::archive($pdo, $link, Auth::actor());
+    flash('success', "'{$link['slug']}' arşivlendi. Geri almak için Linkler → Arşiv filtresini kullanın.");
 }
 
 redirect(BASE_URL . '/admin/links');

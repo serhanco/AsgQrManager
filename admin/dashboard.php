@@ -1,21 +1,18 @@
 <?php
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../lib/Logger.php';
-require_once __DIR__ . '/../lib/Auth.php';
-require_once __DIR__ . '/../lib/helpers.php';
+require_once __DIR__ . '/../lib/bootstrap.php';
 
-Logger::registerHandlers();
 Auth::startSession();
 Auth::requireLogin();
 
 $pdo        = getPdo();
+maybeAnonymizeScans($pdo);
 $stats      = getDashboardStats($pdo);
 $topLinks   = getTopLinks($pdo, 8);
 $scanData   = getDailyScanStats($pdo, 30);
 $chartLabels = array_column($scanData, 'date');
 $chartValues = array_column($scanData, 'count');
 
-$analyticsEnabled = defined('ANALYTICS_ENABLED') && ANALYTICS_ENABLED;
+$analyticsEnabled = Settings::analyticsEnabled();
 
 $pageTitle  = 'Dashboard';
 $activePage = 'dashboard';
@@ -26,6 +23,7 @@ include __DIR__ . '/views/_layout.php';
 <div class="page-header">
   <h1 class="page-title">📊 Dashboard</h1>
   <div class="btn-group">
+    <a href="<?= BASE_URL ?>/admin/report" class="btn btn-ghost btn-sm">📈 Raporlar</a>
     <span class="text-sm text-muted">Analytics:&nbsp;</span>
     <label class="toggle" title="Tarama analitiğini aç/kapat">
       <input type="checkbox" id="analytics-toggle" <?= $analyticsEnabled ? 'checked' : '' ?>>
