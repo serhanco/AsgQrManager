@@ -26,9 +26,9 @@ Mevcut kurulumlar **veri kaybetmeden** güncellenir. Üretilmiş hiçbir QR kodu
 
 ### Güncelleme (canlıda çalışan kurulum)
 
-1. `main`'e birleştirmek GitHub Actions ile FTP dağıtımını tetikler (`config.php` ve `logs/`, `cache/`, `logo/` içeriği repoda olmadığı için **etkilenmez**).
+1. `main`'e birleştirmek Hostinger Git senkronuyla canlıya çıkar (`config.php` ve `logs/`, `cache/`, `logo/` içeriği repoda olmadığı için **etkilenmez**).
 2. Dağıtımdan sonra **bir kez yönetici olarak giriş yapın**; şema otomatik güncellenir. (İsterseniz önce phpMyAdmin'den dışa aktarım alın.)
-3. Hostinger Git senkronu depodaki **her dosyayı** sunucuya kopyalar (`install.php`, `schema.sql`, `README.md`, `tests/` dahil). Bu yüzden bunlar web'den korunur: `install.php` veritabanında yönetici varsa kendini kilitler, `.sql`/`.md`/`.lock` dosyaları `.htaccess` ile engellenir, `tests/` yalnızca komut satırında çalışır ve web erişimine kapalıdır. `.github/workflows/deploy.yml` (FTP) ikinci bir yoldur; Hostinger senkronu kullanılıyorsa gerekmez.
+3. Hostinger Git senkronu depodaki **her dosyayı** sunucuya kopyalar (`install.php`, `schema.sql`, `README.md`, `tests/` dahil). Bu yüzden bunlar web'den korunur: `install.php` veritabanında yönetici varsa kendini kilitler, `.sql`/`.md`/`.lock` dosyaları `.htaccess` ile engellenir, `tests/` yalnızca komut satırında çalışır ve web erişimine kapalıdır.
 4. Cloudflare arkasındaysanız hiçbir ayar gerekmez; arkasında değilseniz `config.php`'ye `define('TRUST_PROXY_HEADERS', false);` ekleyin.
 
 ### Testler
