@@ -165,5 +165,18 @@ foreach (['svg' => '<svg', 'png' => "\x89PNG", 'pdf' => '%PDF-'] as $fmt => $mag
 }
 QrRenderer::clearCache('testqr1');
 
+// ─── Bilgi sayfası ────────────────────────────────────────────────────────────
+section('Bilgi sayfası');
+$renderInfo = function (string $state, string $lang): string {
+    $_GET = ['lang' => $lang]; $infoState = $state;
+    ob_start(); include __DIR__ . '/../admin/views/info.php'; return ob_get_clean();
+};
+$h = $renderInfo('expired', 'tr');
+ok(str_contains($h, 'Bu etkinlik sona erdi') && str_contains($h, 'href="https://acibadem.world/"'), 'TR: süresi dolmuş metni + ACIBADEM.WORLD butonu');
+ok(!str_contains($h, 'http-equiv="refresh"'), 'varsayılan: otomatik geçiş yok');
+ok(str_contains($renderInfo('inactive', 'en'), 'This QR code is no longer active'), 'EN: pasif metni');
+ok(str_contains($renderInfo('<script>', 'xx'), 'Link not found'), 'bilinmeyen durum/dil güvenli varsayılana düşer');
+$_GET = [];
+
 echo "\n" . ($fail ? "BAŞARISIZ" : "TAMAM") . " — {$pass} geçti, {$fail} kaldı\n";
 exit($fail ? 1 : 0);
