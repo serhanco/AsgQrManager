@@ -22,6 +22,7 @@ Mevcut kurulumlar **veri kaybetmeden** güncellenir. Üretilmiş hiçbir QR kodu
 | **Raporlar** | Tarih aralığı, saat/gün/ülke/cihaz kırılımı, tekil ziyaretçi tahmini. Bot ve link önizleme istekleri sayılmaz. |
 | **Denetim izi** | Kim, ne zaman, neyi değiştirdi (`Değişiklik Geçmişi`). |
 | **API** | `/api/v1` — Bearer anahtarı (yalnızca hash'i saklanır), okuma/yazma yetkisi. QR **silme uç noktası yoktur**. Belgeler: `/admin/api-docs`. |
+| **Portal bağlantısı** | QR, ACIBADEM.WORLD'deki genel merkez / ofis / etkinlik kaydına (`ref_type` + `ref_id` + isteğe bağlı varyant) bağlanır. Portal `PUT /api/v1/refs/{tür}/{kimlik}` ile QR'ı oluşturur ya da hedefini günceller; tekrar çağrılabilir, kısa ad değişmez. Panelde formdan elle de bağlanabilir. |
 | **Güvenlik** | Veritabanı tabanlı brute-force koruması, güvenli oturum çerezi (HTTPS), CSRF, CSV formül enjeksiyonu koruması, SVG logo yüklemeye kapalı, `noindex` başlıkları, `.sql/.md/.lock` dosyalarına erişim engeli, sadece HTTPS API, KVKK için IP maskeleme/anonimleştirme. |
 
 ### Güncelleme (canlıda çalışan kurulum)

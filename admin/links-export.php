@@ -11,6 +11,7 @@ Auth::requireLogin();
 $pdo = getPdo();
 [$where, $params] = LinkService::buildFilter([
     'q' => $_GET['q'] ?? '', 'status' => $_GET['status'] ?? '', 'category' => $_GET['category'] ?? '', 'tag' => $_GET['tag'] ?? '',
+    'ref' => $_GET['ref'] ?? '',
 ]);
 $st = $pdo->prepare("SELECT * FROM links {$where} ORDER BY id");
 $st->execute($params);
@@ -20,7 +21,7 @@ header('Content-Disposition: attachment; filename="qr-linkler-' . date('Ymd-His'
 $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF"); // Excel için UTF-8 BOM
 fputcsv($out, ['slug', 'kisa_url', 'baslik', 'hedef_url', 'durum', 'tur', 'etiketler', 'okutma', 'baslangic', 'bitis',
-               'bitis_sonrasi_url', 'yedek_url', 'utm', 'olusturma', 'guncelleme', 'not'], ';');
+               'bitis_sonrasi_url', 'yedek_url', 'utm', 'olusturma', 'guncelleme', 'not', 'portal_kaydi'], ';');
 foreach ($st as $l) {
     $label = ['live' => 'aktif', 'inactive' => 'pasif', 'scheduled' => 'zamanlı', 'expired' => 'süresi dolmuş', 'archived' => 'arşiv'];
     fputcsv($out, array_map('csvCell', [
@@ -28,6 +29,7 @@ foreach ($st as $l) {
         $label[Redirector::state($l)['state']] ?? '', $l['category'] ?? '', $l['tags'] ?? '', $l['scan_count'],
         $l['starts_at'] ?? '', $l['ends_at'] ?? '', $l['after_end_url'] ?? '', $l['fallback_url'] ?? '',
         !empty($l['utm_enabled']) ? 'evet' : '', $l['created_at'], $l['updated_at'], $l['notes'] ?? '',
+        !empty($l['ref_type']) ? "{$l['ref_type']}/{$l['ref_id']}/{$l['ref_variant']}" : '',
     ]), ';');
 }
 fclose($out);

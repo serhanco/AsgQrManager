@@ -31,7 +31,10 @@ include __DIR__ . '/views/_layout.php';
     <tbody>
       <tr><td>GET</td><td><code>/ping</code></td><td>Anahtarı ve bağlantıyı doğrular</td></tr>
       <tr><td>GET</td><td><code>/tags</code></td><td>Kullanılan etiketler ve QR/okutma sayıları. Benzer yazımlar (İstanbul/istanbul) tek etiket sayılır; yazarken mevcut yazım korunur.</td></tr>
-      <tr><td>GET</td><td><code>/links</code></td><td>Liste. Filtre: <code>q, status, category, tag, page, per_page</code> (<code>tag=__none</code> etiketsiz QR’lar) (status: live, inactive, scheduled, expired, archived)</td></tr>
+      <tr><td>GET</td><td><code>/refs/{tür}/{kimlik}</code></td><td>Portal kaydına bağlı QR'lar (tüm varyantlar, arşiv dahil). Tür: <code><?= e(implode(' · ', array_keys(LinkService::REF_TYPES))) ?></code></td></tr>
+      <tr><td>GET</td><td><code>/refs/{tür}/{kimlik}/{varyant}</code></td><td>Tek QR (yoksa 404)</td></tr>
+      <tr><td>PUT</td><td><code>/refs/{tür}/{kimlik}[/{varyant}]</code></td><td><strong>Portal entegrasyonu için önerilen yol.</strong> QR yoksa oluşturur (201), varsa yalnızca gönderilen alanları günceller (200). Tekrar göndermek güvenlidir; kısa ad hiç değişmez. Varyant verilmezse <code><?= e(LinkService::REF_DEFAULT_VARIANT) ?></code>.</td></tr>
+      <tr><td>GET</td><td><code>/links</code></td><td>Liste. Filtre: <code>q, status, category, tag, ref_type, ref_id, ref=linked|none, page, per_page</code> (<code>tag=__none</code> etiketsiz QR’lar) (status: live, inactive, scheduled, expired, archived)</td></tr>
       <tr><td>POST</td><td><code>/links</code></td><td>QR oluştur (yazma yetkisi)</td></tr>
       <tr><td>GET</td><td><code>/links/{slug}</code></td><td>Tek QR</td></tr>
       <tr><td>PATCH</td><td><code>/links/{slug}</code></td><td>Gönderilen alanları güncelle (örn. yeni hedef URL)</td></tr>
@@ -56,6 +59,7 @@ include __DIR__ . '/views/_layout.php';
       <tr><td><code>fg_color</code>, <code>bg_color</code>, <code>shape</code></td><td>Görünüm (<code>#0B2A5B</code>, <code>square|rounded|dots</code>). Boşsa marka varsayılanı. Kontrast en az 4:1.</td></tr>
       <tr><td><code>logo</code></td><td>Logo galerisindeki dosya adı</td></tr>
       <tr><td><code>is_active</code></td><td>Varsayılan <code>true</code></td></tr>
+      <tr><td><code>ref_type</code>, <code>ref_id</code>, <code>ref_variant</code></td><td>Portal kaydı bağlantısı (<code>/links</code> üzerinden). Bir kayıt + varyant yalnızca bir QR'a bağlanabilir (çakışmada 409). Bağlantıyı kaldırmak için PATCH ile <code>"ref_type": null</code>. Yanıtta <code>portal_ref</code> olarak döner.</td></tr>
     </tbody>
   </table>
 
@@ -68,6 +72,20 @@ curl -X POST <?= e($api) ?>/links \
        "target_url":"https://acibadem.world/events/arab-health-2027",
        "ends_at":"2027-02-01 00:00","after_end_url":"https://acibadem.world/office/dubai",
        "utm_enabled":true,"fg_color":"#0B2A5B","bg_color":"#FFFFFF"}'
+
+# Portal: ofis kaydı kaydedildiğinde QR'ı oluştur/güncelle (her kayıtta güvenle tekrar çağrılabilir)
+curl -X PUT <?= e($api) ?>/refs/office/london \
+  -H "Authorization: Bearer $QRM_TOKEN" -H "Content-Type: application/json" \
+  -d '{"title":"Londra Ofisi","target_url":"https://acibadem.world/office/london","tags":["UK"]}'
+
+# Aynı ofisin broşür QR'ı (ayrı okutma raporu için ayrı varyant)
+curl -X PUT <?= e($api) ?>/refs/office/london/brosur \
+  -H "Authorization: Bearer $QRM_TOKEN" -H "Content-Type: application/json" \
+  -d '{"target_url":"https://acibadem.world/office/london","tags":["UK","broşür"]}'
+
+# Portal kaydı yayından kalkınca QR'ı pasife al (yedek hedef varsa oraya gider)
+curl -X PUT <?= e($api) ?>/refs/office/london \
+  -H "Authorization: Bearer $QRM_TOKEN" -H "Content-Type: application/json" -d '{"is_active":false}'
 
 # Hedefi değiştir (QR aynı kalır)
 curl -X PATCH <?= e($api) ?>/links/arabhealth-2027 \

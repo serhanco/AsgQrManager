@@ -89,6 +89,14 @@ class Migrator {
                     PRIMARY KEY (`skey`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
             }],
+            '007_links_portal_ref' => ['Portal kaydı bağlantısı (ACIBADEM.WORLD genel merkez / ofis / etkinlik)', function (PDO $p) {
+                // Mevcut satırlarda NULL kalır: eski QR'ların davranışı değişmez.
+                // Benzersiz indeks NULL'ları çakışma saymaz; yalnızca bağlı QR'larda (tür, kimlik, varyant) tekildir.
+                self::addColumn($p, 'links', 'ref_type',    'VARCHAR(20) NULL DEFAULT NULL');
+                self::addColumn($p, 'links', 'ref_id',      'VARCHAR(64) NULL DEFAULT NULL');
+                self::addColumn($p, 'links', 'ref_variant', 'VARCHAR(32) NULL DEFAULT NULL');
+                self::addIndex($p, 'links', 'uq_links_ref', '(`ref_type`, `ref_id`, `ref_variant`)', true);
+            }],
         ];
     }
 
@@ -218,13 +226,13 @@ class Migrator {
         $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$column` $ddl");
     }
 
-    private static function addIndex(PDO $pdo, string $table, string $name, string $cols): void {
+    private static function addIndex(PDO $pdo, string $table, string $name, string $cols, bool $unique = false): void {
         $st = $pdo->prepare(
             'SELECT COUNT(*) FROM information_schema.STATISTICS
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?'
         );
         $st->execute([$table, $name]);
         if ((int)$st->fetchColumn() > 0) return;
-        $pdo->exec("ALTER TABLE `$table` ADD INDEX `$name` $cols");
+        $pdo->exec("ALTER TABLE `$table` ADD " . ($unique ? 'UNIQUE ' : '') . "INDEX `$name` $cols");
     }
 }

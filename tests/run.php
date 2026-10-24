@@ -58,6 +58,7 @@ if ($dump) {
     $after = $pdo->query('SELECT id, slug, target_url, is_active FROM links ORDER BY id')->fetchAll();
     ok($after == $before['slugs'], 'kısa ad / hedef URL / aktiflik birebir aynı');
     ok((int)$pdo->query('SELECT COUNT(*) FROM links WHERE archived_at IS NOT NULL')->fetchColumn() === 0, 'hiçbir eski link arşivlenmedi');
+    ok((int)$pdo->query('SELECT COUNT(*) FROM links WHERE ref_type IS NOT NULL OR ref_id IS NOT NULL')->fetchColumn() === 0, 'eski linkler portal kaydına bağlanmadı (sütunlar boş)');
 
     // Her eski kısa ad hâlâ aynı yere yönlendiriyor mu?
     $bad = 0;
@@ -134,6 +135,53 @@ ok(count($tpdo->query("SELECT 1 FROM link_events WHERE action='tags' AND slug LI
 ok(str_contains($w, "tags IS NULL") && $p === [], 'etiketsiz filtresi');
 $tpdo->exec("DELETE FROM link_events WHERE slug LIKE 'tagtest%'");
 $tpdo->exec("DELETE FROM links WHERE slug LIKE 'tagtest%'");
+
+// ─── Portal kaydı bağlantısı ──────────────────────────────────────────────────
+section('Portal kaydı');
+$rp = getPdo();
+$rp->exec("DELETE FROM link_events WHERE slug LIKE 'reftest%'");
+$rp->exec("DELETE FROM links WHERE slug LIKE 'reftest%' OR ref_id LIKE 'zz-test%'");
+[$c, $e] = LinkService::normalize(['target_url' => 'https://a.com', 'ref_type' => 'office', 'ref_id' => 'zz-test-london']);
+ok(!$e && $c['ref_variant'] === 'main', 'varyant verilmezse "main"');
+[$c, $e] = LinkService::normalize(['target_url' => 'https://a.com', 'ref_type' => 'nope', 'ref_id' => 'x']);
+ok(count($e) > 0, 'geçersiz kayıt türü reddedilir');
+[$c, $e] = LinkService::normalize(['target_url' => 'https://a.com', 'ref_type' => 'office', 'ref_id' => '']);
+ok(count($e) > 0, 'kimliksiz bağlantı reddedilir');
+[$c, $e] = LinkService::normalize(['target_url' => 'https://a.com', 'ref_type' => 'office', 'ref_id' => 'a b<script>']);
+ok(count($e) > 0, 'geçersiz karakterli kimlik reddedilir');
+
+[$l, $created] = LinkService::upsertByRef($rp, 'office', 'zz-test-london', 'main', ['target_url' => 'https://acibadem.world/office/london', 'title' => 'Londra', 'slug' => 'reftest1'], $actor);
+ok($created && $l['slug'] === 'reftest1' && $l['category'] === 'office', 'ilk çağrı QR oluşturur, tür kayıttan gelir');
+[$l2, $created2, $ch] = LinkService::upsertByRef($rp, 'office', 'zz-test-london', 'main', ['target_url' => 'https://acibadem.world/office/london-new', 'slug' => 'baska'], $actor);
+ok(!$created2 && (int)$l2['id'] === (int)$l['id'] && $l2['slug'] === 'reftest1', 'ikinci çağrı aynı QR\'ı günceller, kısa ad değişmez');
+ok($l2['target_url'] === 'https://acibadem.world/office/london-new' && array_keys($ch) === ['target_url'], 'yalnızca gönderilen alan değişir');
+[, , $ch] = LinkService::upsertByRef($rp, 'office', 'zz-test-london', 'main', ['target_url' => 'https://acibadem.world/office/london-new'], $actor);
+ok($ch === [], 'aynı istek tekrarlanınca değişiklik yok (idempotent)');
+[$l3, $created3] = LinkService::upsertByRef($rp, 'office', 'zz-test-london', 'brosur', ['target_url' => 'https://acibadem.world/office/london-new'], $actor);
+ok($created3 && $l3['slug'] !== 'reftest1', 'farklı varyant ayrı QR oluşturur');
+ok(count(LinkService::findByRef($rp, 'office', 'zz-test-london')) === 2 && LinkService::findByRef($rp, 'office', 'zz-test-london')[0]['ref_variant'] === 'main', 'kayda bağlı QR\'lar listelenir (main önce)');
+$threw = false;
+try { LinkService::create($rp, ['target_url' => 'https://a.com', 'ref_type' => 'office', 'ref_id' => 'zz-test-london', 'ref_variant' => 'main'], 'reftest2', $actor); }
+catch (RuntimeException $ex) { $threw = true; }
+ok($threw && !LinkService::findBySlug($rp, 'reftest2'), 'aynı kayıt+varyant ikinci QR\'a bağlanamaz');
+$threw = false;
+try { LinkService::update($rp, $l3, ['ref_variant' => 'main'], $actor); } catch (RuntimeException $ex) { $threw = true; }
+ok($threw, 'güncellemede de çakışma engellenir');
+try { [, $e] = LinkService::upsertByRef($rp, 'event', 'zz-test-bad', 'main', ['target_url' => 'ftp://x'], $actor); $threw = false; }
+catch (InvalidArgumentException $ex) { $threw = is_array(json_decode($ex->getMessage(), true)); }
+ok($threw && !LinkService::findByRef($rp, 'event', 'zz-test-bad', 'main'), 'geçersiz girdi QR oluşturmaz');
+[$c, $e] = LinkService::normalize(['ref_type' => null], $l3);
+ok(!$e && $c['ref_type'] === null && $c['ref_id'] === null, 'ref_type boş gönderilince bağlantı kaldırılır');
+LinkService::update($rp, $l3, $c, $actor);
+ok(count(LinkService::findByRef($rp, 'office', 'zz-test-london')) === 1, 'bağlantısı kaldırılan QR listeden çıkar (QR silinmez)');
+$p = LinkService::present(LinkService::find($rp, (int)$l['id']));
+ok($p['portal_ref'] === ['type' => 'office', 'id' => 'zz-test-london', 'variant' => 'main'], 'API temsili portal_ref içerir');
+ok(LinkService::present(LinkService::find($rp, (int)$l3['id']))['portal_ref'] === null, 'bağlı olmayan QR\'da portal_ref null');
+[$w, $pp] = LinkService::buildFilter(['ref_type' => 'office', 'ref_id' => 'zz-test-london']);
+$st = $rp->prepare("SELECT slug FROM links {$w}"); $st->execute($pp);
+ok($st->fetchAll(PDO::FETCH_COLUMN) === ['reftest1'], 'liste filtresi ref_type + ref_id');
+$rp->exec("DELETE FROM link_events WHERE link_id IN (" . (int)$l['id'] . ',' . (int)$l3['id'] . ")");
+$rp->exec("DELETE FROM links WHERE id IN (" . (int)$l['id'] . ',' . (int)$l3['id'] . ")");
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────────
 section('Yardımcılar');

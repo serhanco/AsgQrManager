@@ -110,6 +110,25 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
     </div>
 
     <div class="form-group">
+      <label class="form-label" for="ref_type">Portal kaydı
+        <?= tip('Bu QR’ı ACIBADEM.WORLD’deki genel merkez, ofis veya etkinlik kaydına bağlar. Portal, kayıt kimliğiyle API’den QR’ı bulur ve sayfa adresi değişince hedefi kendisi günceller. Aynı kayda birden fazla QR (örn. poster, broşür) için farklı varyant kullanın.') ?>
+        <span class="hint">İsteğe bağlı</span>
+      </label>
+      <div class="form-row">
+        <select class="form-control" id="ref_type" name="ref_type" aria-label="Portal kayıt türü">
+          <option value="">— Bağlı değil —</option>
+          <?php foreach (LinkService::REF_TYPES as $k => $label): ?>
+            <option value="<?= e($k) ?>" <?= ($f['ref_type'] ?? '') === $k ? 'selected' : '' ?>><?= e($label) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <input class="form-control" type="text" name="ref_id" maxlength="64" placeholder="Kayıt kimliği (örn. london)" aria-label="Portal kayıt kimliği"
+               value="<?= e($f['ref_id'] ?? '') ?>">
+        <input class="form-control" type="text" name="ref_variant" maxlength="32" placeholder="Varyant: <?= e(LinkService::REF_DEFAULT_VARIANT) ?>" aria-label="Varyant"
+               value="<?= e($f['ref_variant'] ?? '') ?>">
+      </div>
+    </div>
+
+    <div class="form-group">
       <label class="form-label" for="notes">Not <span class="hint">Yalnızca panelde görünür (sorumlu kişi, basılan materyal vb.)</span></label>
       <textarea class="form-control" id="notes" name="notes" rows="2" maxlength="2000"><?= e($f['notes'] ?? '') ?></textarea>
     </div>
