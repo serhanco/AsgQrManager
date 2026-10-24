@@ -15,7 +15,7 @@ Mevcut kurulumlar **veri kaybetmeden** güncellenir. Üretilmiş hiçbir QR kodu
 | **Veri güvenliği** | Yalnızca *ekleyen* migration'lar (`lib/Migrator.php`). Yönetici ilk girişte şema otomatik güncellenir; öncesinde `links` tablosunun yedeği `logs/backups/` altına yazılır ve kayıt sayıları doğrulanır. Hiçbir sütun/tablo silinmez, `r.php` migration'a bağlı değildir. |
 | **Silme yerine arşiv** | Linkler arşivlenir (geri alınabilir, okutulunca hedefe gitmez). Kalıcı silme yalnızca *hiç okutulmamış ve arşivdeki* kayıtlar için mümkündür. |
 | **Marka özelleştirme** | Ayarlar → marka rengi, nokta şekli (kare/yuvarlak/nokta), varsayılan logo; QR başına özel renk/şekil. Okunabilirlik kuralı: ön plan arka plandan koyu olmalı, kontrast ≥ 4:1; üç köşe kare kalır. |
-| **İndirme** | SVG, PDF (vektör; 30/50/100/200 mm), PNG (600–3000 px), şeffaf PNG, tek tıkla baskı paketi (ZIP). |
+| **İndirme** | SVG, PDF (vektör; 30/50/100/200 mm), EPS ve AI (matbaa için CMYK vektör), PNG (600–3000 px), şeffaf PNG, tek tıkla baskı paketi (ZIP). |
 | **Paylaşım** | Panoya kopyala, cihaz paylaşım menüsü, WhatsApp, e-posta, ajans/matbaa için **imzalı ve süreli indirme bağlantısı** (giriş gerektirmez, iptal edilebilir). |
 | **Yönlendirme** | Başlangıç/bitiş zamanı, bitiş sonrası adres, yedek hedef (genel ve QR'a özel), isteğe bağlı UTM etiketleri. |
 | **Düzen ve etiketler** | **Tür** (tek seçim: Genel Merkez/Ofis/Etkinlik/Kampanya) ve **etiket** (serbest, çoklu: ülke, etkinlik adı, materyal…). Formda çipli giriş, mevcut etiketlerden öneri, tür/etiket rehberi ve ⓘ ipuçları; İstanbul/istanbul/Istanbul gibi yazımlar otomatik birleşir. Etiketler sayfası (yeniden adlandır, birleştir, kaldır), listede çoklu seçimle toplu etiket ekle/çıkar, "etiketsiz" filtresi, etikete göre birleşik rapor. CSV dışa aktarım ve CSV ile toplu oluşturma. |
@@ -169,7 +169,8 @@ QrManager/
 │   ├── Settings.php        ← Marka / yönlendirme / gizlilik ayarları
 │   ├── LinkService.php     ← Link doğrulama, oluşturma, arşivleme, denetim izi
 │   ├── Redirector.php      ← Okutma kararı (aktif/pasif/zamanlı/yedek)
-│   ├── QrPdf.php           ← Vektör PDF çıktısı
+│   ├── QrPdf.php           ← Vektör PDF (ve AI) çıktısı
+│   ├── QrEps.php           ← Vektör EPS çıktısı
 │   ├── Share.php           ← İmzalı indirme bağlantıları, format üretimi
 │   ├── Stats.php           ← Rapor sorguları (panel + API ortak)
 │   └── ApiAuth.php         ← API anahtarları

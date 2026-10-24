@@ -45,7 +45,7 @@ if (isset($_GET['zip'])) {
         if (!$link) continue;
         $dir = Share::fileBase($link) . '/';
         try {
-            foreach ([['svg', 0], ['pdf', 100], ['png', 1200]] as [$fmt, $size]) {
+            foreach ([['svg', 0], ['pdf', 100], ['eps', 100], ['png', 1200]] as [$fmt, $size]) {
                 $r = Share::render($link, $fmt, $size);
                 $zip->addFromString($dir . $r['name'], $r['data']);
             }

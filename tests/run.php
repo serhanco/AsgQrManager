@@ -159,10 +159,16 @@ ok(!Share::verify('abc', time() - 5, Share::sign('abc', time() - 5)), 'süresi d
 section('QR çıktıları');
 $link = ['slug' => 'testqr1', 'title' => 'Test', 'target_url' => 'https://acibadem.world', 'logo' => null,
          'fg_color' => '#0B2A5B', 'bg_color' => '#FFFFFF', 'shape' => 'dots'];
-foreach (['svg' => '<svg', 'png' => "\x89PNG", 'pdf' => '%PDF-'] as $fmt => $magic) {
-    $r = Share::render($link, $fmt, $fmt === 'png' ? 600 : ($fmt === 'pdf' ? 50 : 0));
+foreach (['svg' => '<svg', 'png' => "\x89PNG", 'pdf' => '%PDF-', 'eps' => '%!PS-Adobe-3.0 EPSF-3.0', 'ai' => '%PDF-'] as $fmt => $magic) {
+    $r = Share::render($link, $fmt, $fmt === 'png' ? 600 : ($fmt === 'svg' ? 0 : 50));
     ok(str_starts_with(ltrim($r['data']), $magic) || str_contains(substr($r['data'], 0, 200), $magic), strtoupper($fmt) . ' üretilir');
 }
+$ai  = Share::render($link, 'ai', 50)['data'];
+$eps = Share::render($link, 'eps', 50)['data'];
+ok(str_contains($ai, " k\n") && !str_contains($ai, " rg\n"), 'AI renkleri CMYK');
+ok(str_contains($eps, '%%BoundingBox: 0 0 142 142') && str_ends_with($eps, "%%EOF\n"), 'EPS sınır kutusu 50 mm');
+ok(QrPdf::color('#000000', true) === '0 0 0 1 k', 'siyah yalnızca K kanalında');
+ok(str_ends_with(Share::render($link, 'eps', 100)['name'], '-100mm.eps'), 'EPS dosya adı');
 QrRenderer::clearCache('testqr1');
 
 echo "\n" . ($fail ? "BAŞARISIZ" : "TAMAM") . " — {$pass} geçti, {$fail} kaldı\n";

@@ -22,9 +22,9 @@ if (array_key_exists('logo', $_GET)) {
 }
 $logoFile = $logoOverride ?? LinkService::effectiveLogo($link);
 
-// ─── Dosya uç noktası: ?fmt=svg|png|pdf (önizleme veya indirme) ───────────────
+// ─── Dosya uç noktası: ?fmt=svg|png|pdf|eps|ai (önizleme veya indirme) ───────────────
 if (!empty($_GET['fmt'])) {
-    $fmt = in_array($_GET['fmt'], ['svg', 'png', 'pdf'], true) ? $_GET['fmt'] : 'svg';
+    $fmt = in_array($_GET['fmt'], Share::FORMATS, true) ? $_GET['fmt'] : 'svg';
     try {
         $r = Share::render($link, $fmt, (int)($_GET['size'] ?? 0), !empty($_GET['transparent']), $logoOverride);
     } catch (\Throwable $e) {
@@ -41,7 +41,7 @@ if (!empty($_GET['fmt'])) {
     exit;
 }
 
-// ─── Baskı paketi (ZIP): SVG + PDF + PNG + saydam PNG + kısa adres ─────────────
+// ─── Baskı paketi (ZIP): SVG + PDF + EPS + AI + PNG + saydam PNG + kısa adres ─────────────
 if (!empty($_GET['zip'])) {
     if (!class_exists('ZipArchive')) {
         flash('danger', 'Sunucuda ZIP desteği (ZipArchive) yok. Dosyaları tek tek indirin.');
@@ -51,7 +51,7 @@ if (!empty($_GET['zip'])) {
     $zip = new ZipArchive();
     $zip->open($tmp, ZipArchive::OVERWRITE);
     try {
-        foreach ([['svg', 0, false], ['pdf', 100, false], ['png', 2000, false], ['png', 2000, true]] as [$fmt, $size, $tr]) {
+        foreach ([['svg', 0, false], ['pdf', 100, false], ['eps', 100, false], ['ai', 100, false], ['png', 2000, false], ['png', 2000, true]] as [$fmt, $size, $tr]) {
             $r = Share::render($link, $fmt, $size, $tr, $logoOverride);
             $zip->addFromString($r['name'], $r['data']);
         }
@@ -61,7 +61,8 @@ if (!empty($_GET['zip'])) {
     $zip->addFromString('OKU-BENI.txt',
         "QR kısa adresi: " . BASE_URL . "/r/{$slug}\r\n" .
         "Başlık: " . ($link['title'] ?? '-') . "\r\n\r\n" .
-        "SVG ve PDF vektöreldir (baskı için önerilir). PNG dosyaları dijital kullanım içindir.\r\n" .
+        "SVG, PDF, EPS ve AI vektöreldir (baskı için önerilir). EPS ve AI CMYK renklidir; matbaa/ajans yazılımlarında doğrudan açılır.\r\n" .
+        "PNG dosyaları dijital kullanım içindir.\r\n" .
         "QR'ı küçültürken en az 2 x 2 cm kullanın, kenar boşluğunu (beyaz çerçeve) kesmeyin.\r\n" .
         "Basımdan önce gerçek bir telefonla okutarak test edin.\r\n");
     $zip->close();
@@ -167,6 +168,14 @@ include __DIR__ . '/views/_layout.php';
         <?php foreach (Share::PDF_MM as $mm): ?>
           <a class="btn btn-primary dl-link" data-tr="1" href="<?= qrDownloadUrl($slug, 'pdf', $mm, $logoQs) ?>">PDF <?= $mm ?> mm</a>
         <?php endforeach; ?>
+      </div>
+    </div>
+
+    <div class="dl-group">
+      <div class="dl-label">Matbaa / ajans — Illustrator, CorelDRAW, InDesign (CMYK, vektörel)<?= tip('EPS ve AI dosyaları vektöreldir; 100 mm çizim alanıyla gelir ve kalite kaybı olmadan istenen ölçüye büyütülüp küçültülebilir. Renkler CMYK yazılır, siyah yalnızca K (%100 siyah) kanalındadır.') ?></div>
+      <div class="btn-group">
+        <a class="btn btn-primary dl-link" data-tr="1" href="<?= qrDownloadUrl($slug, 'eps', 100, $logoQs) ?>">EPS</a>
+        <a class="btn btn-primary dl-link" data-tr="1" href="<?= qrDownloadUrl($slug, 'ai', 100, $logoQs) ?>">AI (Illustrator)</a>
       </div>
     </div>
 
