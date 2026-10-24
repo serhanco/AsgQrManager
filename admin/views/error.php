@@ -20,9 +20,9 @@
 </head>
 <body>
 <div class="card">
-  <div class="icon">⚠️</div>
-  <h1>Bir Hata Oluştu</h1>
-  <p>Beklenmedik bir hata oluştu. Ayrıntılar sistem günlüğüne kaydedildi.</p>
+  <div class="icon"><?= isset($errorTitle) ? '🔒' : '⚠️' ?></div>
+  <h1><?= htmlspecialchars($errorTitle ?? 'Bir Hata Oluştu') ?></h1>
+  <p><?= htmlspecialchars($errorMessage ?? 'Beklenmedik bir hata oluştu. Ayrıntılar sistem günlüğüne kaydedildi.') ?></p>
   <?php if (isset($e) && defined('LOG_LEVEL') && LOG_LEVEL === 'DEBUG'): ?>
     <div style="text-align: left; background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.85rem; margin-bottom: 1.5rem;">
         <strong>Hata:</strong> <?= htmlspecialchars($e->getMessage()) ?><br>

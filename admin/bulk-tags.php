@@ -6,6 +6,7 @@ require_once __DIR__ . '/../lib/bootstrap.php';
 
 Auth::startSession();
 Auth::requireLogin();
+Auth::requirePerm('links.edit');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect(BASE_URL . '/admin/links');
 Auth::requireCsrf();
 
@@ -24,7 +25,10 @@ if (!$ids) {
 } elseif (count($ids) > 500) {
     flash('danger', 'Tek seferde en fazla 500 QR işlenebilir.');
 } else {
-    $n = LinkService::bulkTags(getPdo(), $ids, $add, $rm, Auth::actor());
+    // Yalnızca kullanıcının düzenleyebildiği QR'lar
+    $pdo = getPdo();
+    $ids = array_values(array_filter($ids, fn($id) => ($l = LinkService::find($pdo, $id)) && Access::canEditLink($l)));
+    $n = $ids ? LinkService::bulkTags($pdo, $ids, $add, $rm, Auth::actor()) : 0;
     $parts = [];
     if ($add) $parts[] = count($add) . ' etiket eklendi';
     if ($rm)  $parts[] = count($rm) . ' etiket çıkarıldı';

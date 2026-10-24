@@ -6,6 +6,23 @@
 
 ---
 
+## Sürüm 3 — Kullanıcılar ve roller
+
+Tek yönetici hesabının yanına sınırlı yetkili hesaplar eklenir (`Sistem → Kullanıcılar`). Mevcut hesaplar **Yönetici** olarak kalır.
+
+| Rol | Yapabildikleri |
+|---|---|
+| **Yönetici** | Her şey: tüm QR'lar, kullanıcılar, ayarlar, API anahtarları, etiket yönetimi, arşivleme. |
+| **Editör** | Kapsamındaki QR'ları oluşturur, hedefini değiştirir, açar/kapatır, etiketler; raporlarını görür. Arşivleyemez. |
+| **Rapor izleyici** | Kapsamındaki QR'ları ve raporlarını görür, QR indirir. Değişiklik yapamaz. |
+
+- **Kapsam:** "Tüm QR'lar" ya da tür (Ofis, Etkinlik…) ve etiket (ör. `Almanya`) seçimi. Kullanıcı ayrıca kendi oluşturduğu QR'ları her zaman görür. Liste, rapor, gösterge paneli, CSV, değişiklik geçmişi ve API aynı kapsamla süzülür.
+- **Hesaplar silinmez**, devre dışı bırakılır; devre dışı hesabın oturumu ve API anahtarları hemen çalışmaz hale gelir. Son etkin yönetici düşürülemez.
+- **Geçici şifre:** yeni kullanıcıya ve şifre sıfırlamada sistem geçici şifre üretir; kullanıcı ilk girişte değiştirmeden ilerleyemez (en az 10 karakter, harf + rakam).
+- **API anahtarı → kullanıcı:** anahtar bir kullanıcıya bağlanırsa onun rolü ve kapsamıyla çalışır (Rapor izleyicinin anahtarı yazamaz). Bağlanmayan anahtar eskisi gibi tam yetkilidir.
+- Şema: `008_users_roles`, `009_user_scopes`, `010_owners` (yalnızca ekleme; `007` portal entegrasyonuna ayrıldı).
+- **CI:** `.github/workflows/tests.yml` her PR'da testleri, örnek v1 veritabanından migration zincirini ve üretilen QR'ların `zbarimg` ile okunduğunu doğrular.
+
 ## Sürüm 2 — Neler değişti?
 
 Mevcut kurulumlar **veri kaybetmeden** güncellenir. Üretilmiş hiçbir QR kodu, kısa ad veya okutma geçmişi silinmez.
@@ -37,6 +54,8 @@ Mevcut kurulumlar **veri kaybetmeden** güncellenir. Üretilmiş hiçbir QR kodu
 # config.php'yi TEST veritabanına yönlendirin (adında "test" geçmeli, canlıda ASLA çalıştırmayın)
 php tests/run.php --dump=uretim-dokumu.sql   # dökümü yükler, migration'ın hiçbir kaydı kaybettirmediğini doğrular
 php tests/run.php                            # yalnızca mantık testleri
+php tests/run.php --dump=tests/fixtures/v1-ornek.sql   # sentetik ilk sürüm veritabanıyla migration zinciri
+# zbarimg kuruluysa (apt install zbar-tools) üretilen QR'ların okunabilirliği de sınanır
 ```
 
 ---

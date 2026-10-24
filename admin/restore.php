@@ -3,12 +3,13 @@ require_once __DIR__ . '/../lib/bootstrap.php';
 
 Auth::startSession();
 Auth::requireLogin();
+Auth::requirePerm('links.archive');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect(BASE_URL . '/admin/links');
 Auth::requireCsrf();
 
 $pdo  = getPdo();
-$link = LinkService::find($pdo, (int)($_POST['id'] ?? 0));
+$link = Auth::requireLinkAccess(LinkService::find($pdo, (int)($_POST['id'] ?? 0)), true);
 if ($link) {
     LinkService::restore($pdo, $link, Auth::actor());
     flash('success', "'{$link['slug']}' arşivden çıkarıldı.");

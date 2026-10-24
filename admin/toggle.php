@@ -8,7 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect(BASE_URL . '/admin/links');
 Auth::requireCsrf();
 
 $pdo  = getPdo();
-$link = LinkService::find($pdo, (int)($_POST['id'] ?? 0));
+$link = Auth::requireLinkAccess(LinkService::find($pdo, (int)($_POST['id'] ?? 0)), true);
 
 if ($link) {
     $new = $link['is_active'] ? 0 : 1;

@@ -13,7 +13,12 @@ $chartLabels = array_column($scanData, 'date');
 $chartValues = array_column($scanData, 'count');
 
 $analyticsEnabled = Settings::analyticsEnabled();
-$untagged = (int)$pdo->query("SELECT COUNT(*) FROM links WHERE archived_at IS NULL AND (tags IS NULL OR tags = '')")->fetchColumn();
+$untagged = (function () use ($pdo) {
+    [$sc, $sa] = Access::linkScopeSql();
+    $st = $pdo->prepare("SELECT COUNT(*) FROM links WHERE archived_at IS NULL AND (tags IS NULL OR tags = '')" . ($sc !== '' ? " AND {$sc}" : ''));
+    $st->execute($sa);
+    return (int)$st->fetchColumn();
+})();
 
 $pageTitle  = 'Dashboard';
 $activePage = 'dashboard';
@@ -25,6 +30,7 @@ include __DIR__ . '/views/_layout.php';
   <h1 class="page-title">📊 Dashboard</h1>
   <div class="btn-group">
     <a href="<?= BASE_URL ?>/admin/report" class="btn btn-ghost btn-sm">📈 Raporlar</a>
+    <?php if (Access::isAdmin()): ?>
     <span class="text-sm text-muted">Analytics:&nbsp;</span>
     <label class="toggle" title="Tarama analitiğini aç/kapat">
       <input type="checkbox" id="analytics-toggle" <?= $analyticsEnabled ? 'checked' : '' ?>>
@@ -33,6 +39,7 @@ include __DIR__ . '/views/_layout.php';
     <span class="text-sm <?= $analyticsEnabled ? 'text-success' : 'text-muted' ?>">
       <?= $analyticsEnabled ? 'Açık' : 'Kapalı' ?>
     </span>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -44,7 +51,7 @@ include __DIR__ . '/views/_layout.php';
     <p>Ülke, etkinlik adı veya materyal gibi etiketler verirseniz raporlarda “kongre-2027” ya da “tüm posterler” gibi gruplara göre sonuç görebilirsiniz.</p>
     <div class="btn-group">
       <a class="btn btn-primary btn-sm" href="<?= BASE_URL ?>/admin/links?tag=__none">Etiketsizleri göster</a>
-      <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/tags">Etiket rehberi</a>
+      <?php if (Access::isAdmin()): ?><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/tags">Etiket rehberi</a><?php endif; ?>
     </div>
   </div>
 </div>

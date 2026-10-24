@@ -6,6 +6,7 @@ require_once __DIR__ . '/../lib/bootstrap.php';
 
 Auth::startSession();
 Auth::requireLogin();
+Auth::requirePerm('admin');
 
 $pdo = getPdo();
 $newToken = null;
@@ -19,7 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name === '') {
             $errors[] = 'Anahtar için bir ad girin (örn. "ACIBADEM.WORLD portalı").';
         } else {
-            $r = ApiAuth::create($pdo, $name, $_POST['scopes'] ?? 'read,write', Auth::actor()['name']);
+            $uid = (int)($_POST['user_id'] ?? 0);
+            $owner = $uid ? UserService::find($pdo, $uid) : null;
+            $r = ApiAuth::create($pdo, $name, $_POST['scopes'] ?? 'read,write', Auth::actor()['name'], $owner ? (int)$owner['id'] : null);
             $newToken = $r['token'];
             LinkEvents::log($pdo, null, null, Auth::actor(), 'settings', ['api_anahtarı' => [null, "oluşturuldu: {$name}"]]);
         }
@@ -32,6 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $tokens = $pdo->query('SELECT * FROM api_tokens ORDER BY id DESC')->fetchAll();
+$userNames = [];
+foreach (UserService::all($pdo) as $u) $userNames[(int)$u['id']] = $u;
 
 $pageTitle  = 'API Anahtarları';
 $activePage = 'api-tokens';
@@ -67,6 +72,13 @@ include __DIR__ . '/views/_layout.php';
         <option value="read,write">Okuma + yazma (QR oluştur / güncelle)</option>
         <option value="read">Yalnızca okuma (liste, istatistik, QR indirme)</option>
       </select></div>
+    <div class="form-group"><label class="form-label">Kimin adına <?= tip('Bir kullanıcıya bağlanan anahtar o kullanıcının rolü ve kapsamıyla çalışır: yalnızca onun görebildiği QR\'lara erişir, Rapor izleyicinin anahtarı yazamaz. Kullanıcı devre dışı bırakılınca anahtar da çalışmaz.') ?></label>
+      <select class="form-control" name="user_id">
+        <option value="0">Tam yetki (sistem entegrasyonu)</option>
+        <?php foreach ($userNames as $u): if (!(int)($u['is_active'] ?? 1)) continue; ?>
+          <option value="<?= (int)$u['id'] ?>"><?= e($u['username']) ?> — <?= e(Access::ROLES[$u['role'] ?? 'admin'] ?? '') ?></option>
+        <?php endforeach; ?>
+      </select></div>
   </div>
   <button class="btn btn-primary" type="submit">Anahtar oluştur</button>
 </form>
@@ -80,7 +92,8 @@ include __DIR__ . '/views/_layout.php';
       <tr>
         <td class="fw-bold"><?= e($t['name']) ?></td>
         <td class="font-mono text-xs"><?= e($t['token_prefix']) ?>…</td>
-        <td class="text-sm"><?= $t['scopes'] === 'read' ? 'Okuma' : 'Okuma + yazma' ?></td>
+        <td class="text-sm"><?= $t['scopes'] === 'read' ? 'Okuma' : 'Okuma + yazma' ?>
+          <br><span class="text-xs text-muted"><?= !empty($t['user_id']) ? e('👤 ' . ($userNames[(int)$t['user_id']]['username'] ?? '#' . $t['user_id'])) : 'tam yetki' ?></span></td>
         <td class="text-sm"><?= e($t['created_by'] ?: '—') ?><br><span class="text-xs text-muted"><?= e(substr($t['created_at'], 0, 10)) ?></span></td>
         <td class="text-sm text-muted"><?= $t['last_used_at'] ? e(substr($t['last_used_at'], 0, 16)) : 'hiç' ?></td>
         <td><?= $t['revoked_at'] ? '<span class="badge badge-muted">İptal</span>' : '<span class="badge badge-success">Etkin</span>' ?></td>

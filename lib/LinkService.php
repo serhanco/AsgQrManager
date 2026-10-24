@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . "/Access.php";
 /**
  * LinkService — link doğrulama, oluşturma, güncelleme ve arşivleme.
  * Yönetim paneli, toplu yükleme ve REST API aynı kuralları kullanır.
@@ -125,7 +126,11 @@ class LinkService {
      * Görünen yazım, en çok kullanılan yazımdır. Sayıya göre azalan sıralıdır.
      */
     public static function allTags(PDO $pdo): array {
-        $rows = $pdo->query("SELECT tags, archived_at IS NULL AS live, scan_count FROM links WHERE tags IS NOT NULL AND tags <> ''")->fetchAll();
+        [$scopeSql, $scopeParams] = Access::linkScopeSql();
+        $st = $pdo->prepare("SELECT tags, archived_at IS NULL AS live, scan_count FROM links WHERE tags IS NOT NULL AND tags <> ''"
+            . ($scopeSql !== '' ? " AND {$scopeSql}" : ''));
+        $st->execute($scopeParams);
+        $rows = $st->fetchAll();
         $spell = $res = [];
         foreach ($rows as $r) {
             foreach (explode(',', $r['tags']) as $t) {
@@ -403,6 +408,7 @@ class LinkService {
         }
 
         $clean += ['is_active' => 1];
+        if (!empty($actor['id']) && self::hasColumn($pdo, 'created_by')) $clean['created_by'] = (int)$actor['id'];
         $cols = array_keys($clean);
         $sql  = 'INSERT INTO links (slug, ' . implode(',', array_map(fn($c) => "`$c`", $cols)) . ') VALUES (?' . str_repeat(',?', count($cols)) . ')';
         $pdo->prepare($sql)->execute(array_merge([$slug], array_values($clean)));
@@ -494,10 +500,23 @@ class LinkService {
             $like = '%' . $search . '%';
             array_push($params, $like, $like, $like, $like, $like);
         }
+        // Kullanıcı kapsamı (Yönetici ve "tüm QR'lar" için boş)
+        [$scopeSql, $scopeParams] = Access::linkScopeSql();
+        if ($scopeSql !== '') { $where[] = $scopeSql; array_push($params, ...$scopeParams); }
         return ['WHERE ' . implode(' AND ', $where), $params];
     }
 
     // ─── Okuma ───────────────────────────────────────────────────────────────
+
+    /** links tablosunda sütun var mı (istek başına önbellekli; migration öncesi uyumluluk için) */
+    private static function hasColumn(PDO $pdo, string $col): bool {
+        static $cols = null;
+        if ($cols === null) {
+            $cols = [];
+            foreach ($pdo->query('SHOW COLUMNS FROM links')->fetchAll() as $c) $cols[$c['Field']] = true;
+        }
+        return isset($cols[$col]);
+    }
 
     public static function find(PDO $pdo, int $id): ?array {
         $st = $pdo->prepare('SELECT * FROM links WHERE id = ? LIMIT 1');

@@ -8,11 +8,7 @@ $pdo  = getPdo();
 $slug = preg_replace('/[^A-Za-z0-9_-]/', '', $_GET['slug'] ?? '');
 if ($slug === '') redirect(BASE_URL . '/admin/links');
 
-$link = LinkService::findBySlug($pdo, $slug);
-if (!$link) {
-    flash('danger', 'Link bulunamadı.');
-    redirect(BASE_URL . '/admin/links');
-}
+$link = Auth::requireLinkAccess(LinkService::findBySlug($pdo, $slug));
 
 // Kayıtlı logoyu geçici olarak değiştirmek için ?logo= (boş = logosuz). Kayıt değişmez.
 $logoOverride = null;
@@ -109,7 +105,7 @@ include __DIR__ . '/views/_layout.php';
 <div class="page-header">
   <h1 class="page-title">📱 QR — <code><?= e($slug) ?></code></h1>
   <div class="btn-group">
-    <a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm">✏️ Düzenle</a>
+    <?php if (Access::canEditLink($link)): ?><a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm">✏️ Düzenle</a><?php endif; ?>
     <a href="<?= BASE_URL ?>/admin/report?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm">📊 Rapor</a>
     <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost btn-sm">← Geri</a>
   </div>
@@ -271,7 +267,7 @@ include __DIR__ . '/views/_layout.php';
     <?php endif; ?>
   </div>
   <div style="margin-top:1.5rem">
-    <a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-primary btn-sm" style="width:100%">✏️ Linki Düzenle</a>
+    <?php if (Access::canEditLink($link)): ?><a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-primary btn-sm" style="width:100%">✏️ Linki Düzenle</a><?php endif; ?>
   </div>
 </div>
 

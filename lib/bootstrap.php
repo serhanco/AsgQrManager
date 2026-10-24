@@ -6,6 +6,8 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/Access.php';
+require_once __DIR__ . '/UserService.php';
 require_once __DIR__ . '/Settings.php';
 require_once __DIR__ . '/Migrator.php';
 require_once __DIR__ . '/LinkService.php';

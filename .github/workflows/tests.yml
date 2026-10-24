@@ -1,0 +1,50 @@
+name: Testler
+
+# Her PR'da ve main'e her gönderimde: mantık testleri, eski veritabanından migration zinciri
+# ve üretilen QR'ların gerçekten okunduğu (zbarimg) kontrol edilir. Canlıya hiçbir şey göndermez.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: qr_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: pdo_mysql, gd, mbstring, zip
+          coverage: none
+
+      - name: Araçlar (QR çözücü, MySQL istemcisi)
+        run: sudo apt-get update -q && sudo apt-get install -y -q zbar-tools mysql-client
+
+      - name: Test yapılandırması
+        run: |
+          sed -e "s/'qrmanager'/'qr_test'/" \
+              -e "s/define('DB_HOST',     'localhost')/define('DB_HOST',     '127.0.0.1')/" \
+              -e "s/define('DB_PASS',     '')/define('DB_PASS',     'root')/" \
+              config.example.php > config.php
+          grep -q "'qr_test'" config.php && grep -q "'127.0.0.1'" config.php && grep -q "'root');" config.php
+
+      - name: Migration zinciri (v1 örnek veritabanı → güncel şema)
+        run: php tests/run.php --dump=tests/fixtures/v1-ornek.sql
+
+      - name: Temiz kurulum (schema.sql + migration)
+        run: |
+          mysql -h127.0.0.1 -uroot -proot -e "DROP DATABASE qr_test; CREATE DATABASE qr_test CHARACTER SET utf8mb4"
+          mysql -h127.0.0.1 -uroot -proot qr_test < schema.sql
+          php tests/run.php

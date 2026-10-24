@@ -6,6 +6,7 @@ require_once __DIR__ . '/../lib/bootstrap.php';
 
 Auth::startSession();
 Auth::requireLogin();
+Auth::requirePerm('admin');
 
 $infoState = (string)($_GET['state'] ?? 'inactive');
 header('X-Robots-Tag: noindex, nofollow');

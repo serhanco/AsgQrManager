@@ -3,6 +3,7 @@ require_once __DIR__ . '/../lib/bootstrap.php';
 
 Auth::startSession();
 Auth::requireLogin();
+Auth::requirePerm('admin');
 
 $api = BASE_URL . '/api/v1';
 $pageTitle  = 'API Dokümantasyonu';
@@ -19,7 +20,7 @@ include __DIR__ . '/views/_layout.php';
   <h3>Genel</h3>
   <ul>
     <li>Taban adres: <code><?= e($api) ?></code> — yalnızca HTTPS.</li>
-    <li>Kimlik doğrulama: <code>Authorization: Bearer qrm_…</code> (veya <code>X-API-Key</code>). Anahtarı <a href="<?= BASE_URL ?>/admin/api-tokens">API Anahtarları</a>'ndan oluşturun; yalnızca sunucudan sunucuya kullanın.</li>
+    <li>Kimlik doğrulama: <code>Authorization: Bearer qrm_…</code> (veya <code>X-API-Key</code>). Anahtarı <a href="<?= BASE_URL ?>/admin/api-tokens">API Anahtarları</a>'ndan oluşturun; yalnızca sunucudan sunucuya kullanın. Bir kullanıcıya bağlanan anahtar o kullanıcının rolü ve kapsamıyla çalışır (kapsam dışındaki QR'lar 404 döner, arşivleme yalnızca yönetici yetkisiyle).</li>
     <li>İstek/yanıt: JSON (<code>Content-Type: application/json</code>). Hata biçimi: <code>{"error":{"code":"…","message":"…"}}</code></li>
     <li>QR'lar API ile <strong>silinemez</strong>; <code>archive</code> ile arşivlenir ve <code>restore</code> ile geri alınır. Kısa ad (<code>slug</code>) oluşturulduktan sonra değiştirilemez (basılı QR bozulmasın diye).</li>
     <li>Tarih/saatler panelde seçili saat dilimine göredir (<code><?= e(Settings::timezone()->getName()) ?></code>), biçim <code>2026-11-05 18:30</code>.</li>

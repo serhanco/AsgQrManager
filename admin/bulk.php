@@ -9,6 +9,7 @@ require_once __DIR__ . '/../lib/bootstrap.php';
 
 Auth::startSession();
 Auth::requireLogin();
+Auth::requirePerm('links.edit');
 
 const BULK_MAX_ROWS = 500;
 const BULK_COLUMNS  = ['target_url', 'title', 'slug', 'category', 'tags', 'notes', 'starts_at', 'ends_at', 'fallback_url'];

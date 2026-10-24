@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/Migrator.php';
+require_once __DIR__ . '/Access.php';
 
 class Auth {
 
@@ -49,6 +50,54 @@ class Auth {
             exit;
         }
         self::ensureSchema();
+        self::loadUser();
+    }
+
+    /** Oturumdaki kullanıcıyı her istekte veritabanından okur: rol, kapsam ve devre dışı bırakma hemen geçerli olur. */
+    private static function loadUser(): void {
+        $pdo = getPdo();
+        $st = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
+        $st->execute([(int)$_SESSION['user_id']]);
+        $user = $st->fetch(\PDO::FETCH_ASSOC) ?: null;
+        if (!$user || (isset($user['is_active']) && !(int)$user['is_active'])) {
+            self::logout();
+            self::startSession();
+            flash('danger', 'Hesabınız devre dışı. Yöneticinizle görüşün.');
+            redirect(BASE_URL . '/admin/login');
+        }
+        Access::setUser($user, $pdo);
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['display_name'] = $user['display_name'] ?? '';
+
+        // Geçici şifreyle giren kullanıcı önce şifresini değiştirir
+        $page = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '', '.php');
+        if (!empty($user['must_change_password']) && !in_array($page, ['account', 'logout'], true)) {
+            flash('warning', 'Devam etmeden önce geçici şifrenizi değiştirin.');
+            redirect(BASE_URL . '/admin/account');
+        }
+    }
+
+    /** Yetki yoksa 403 sayfası gösterir. */
+    public static function requirePerm(string $perm): void {
+        if (!Access::can($perm)) self::forbidden();
+    }
+
+    /** Link kapsam dışındaysa (veya yoksa) 404 gibi davranır; $edit ise düzenleme yetkisi de aranır. */
+    public static function requireLinkAccess(?array $link, bool $edit = false): array {
+        if (!$link || !Access::canSeeLink($link)) {
+            flash('danger', 'Link bulunamadı.');
+            redirect(BASE_URL . '/admin/links');
+        }
+        if ($edit && !Access::canEditLink($link)) self::forbidden();
+        return $link;
+    }
+
+    public static function forbidden(): never {
+        http_response_code(403);
+        $errorTitle = 'Bu sayfa için yetkiniz yok';
+        $errorMessage = 'Bu işlem rolünüzün dışında. Gerekirse yöneticinizden yetki isteyin.';
+        include __DIR__ . '/../admin/views/error.php';
+        exit;
     }
 
     /**
@@ -82,6 +131,9 @@ class Auth {
         $_SESSION['user_id']  = $userId;
         $_SESSION['username'] = $username;
         unset($_SESSION['login_attempts'], $_SESSION['lockout_until']);
+        try {
+            getPdo()->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?')->execute([$userId]);
+        } catch (\Throwable $e) {} // sütun henüz yoksa (migration girişten sonra çalışır)
     }
 
     public static function logout(): void {
@@ -235,11 +287,12 @@ class Auth {
     // ─── DB tabanlı kullanıcı doğrulama ──────────────────────────────────────
 
     public static function verifyUser(\PDO $pdo, string $username, string $password): ?array {
-        $stmt = $pdo->prepare('SELECT id, username, password_hash FROM users WHERE username = ? LIMIT 1');
+        $stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? LIMIT 1');
         $stmt->execute([trim($username)]);
         $user = $stmt->fetch(\PDO::FETCH_ASSOC);
         if (!$user) return null;
         if (!password_verify($password, $user['password_hash'])) return null;
+        if (isset($user['is_active']) && !(int)$user['is_active']) return null; // devre dışı hesap
         return $user;
     }
 }
