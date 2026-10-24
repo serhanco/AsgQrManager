@@ -9,6 +9,12 @@
  * GÜVENLİK: Veritabanı adında "test" geçmiyorsa çalışmayı reddeder; canlı veritabanında ASLA çalıştırmayın.
  * (Canlıya gönderilmez: deploy.yml tests/** dosyalarını hariç tutar.)
  */
+// Yalnızca komut satırı: Git senkronuyla sunucuya kopyalansa bile web'den çalıştırılamaz.
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
 require_once __DIR__ . '/../lib/bootstrap.php';
 
 if (stripos(DB_NAME, 'test') === false) {
