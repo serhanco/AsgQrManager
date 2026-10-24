@@ -153,7 +153,7 @@ try {
     $sub = $parts[2] ?? '';
     if (count($parts) === 3) {
         if ($method === 'GET' && $sub === 'qr') {
-            $fmt = in_array($_GET['format'] ?? 'svg', ['svg', 'png', 'pdf'], true) ? ($_GET['format'] ?? 'svg') : 'svg';
+            $fmt = in_array($_GET['format'] ?? 'svg', Share::FORMATS, true) ? ($_GET['format'] ?? 'svg') : 'svg';
             $r = Share::render($link, $fmt, (int)($_GET['size'] ?? 0), !empty($_GET['transparent']));
             header('Content-Type: ' . $r['mime']);
             header('Content-Disposition: ' . (!empty($_GET['download']) ? 'attachment' : 'inline') . '; filename="' . $r['name'] . '"');

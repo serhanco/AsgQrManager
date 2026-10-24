@@ -1,6 +1,6 @@
 <?php
 /**
- * QrRenderer — SVG / PNG / PDF QR kod üretici + logo yerleştirme + marka stili
+ * QrRenderer — SVG / PNG / PDF / EPS / AI QR kod üretici + logo yerleştirme + marka stili
  */
 
 require_once __DIR__ . '/phpqrcode.php';
@@ -9,6 +9,7 @@ require_once __DIR__ . '/Settings.php';
 require_once __DIR__ . '/LinkService.php';
 require_once __DIR__ . '/Redirector.php';
 require_once __DIR__ . '/QrPdf.php';
+require_once __DIR__ . '/QrEps.php';
 
 class QrRenderer {
 
@@ -349,7 +350,7 @@ class QrRenderer {
      */
     public static function cachePath(
         string $slug,
-        string $type,   // 'svg' | 'png' | 'pdf'
+        string $type,   // 'svg' | 'png' | 'pdf' | 'eps' | 'ai'
         string $ecc,
         int    $size,
         int    $margin,
@@ -368,14 +369,14 @@ class QrRenderer {
 
     /**
      * Önce cache'e bakar; varsa döndürür, yoksa üretir + kaydeder.
-     * $size: PNG için piksel, PDF için milimetre; SVG'de yok sayılır.
+     * $size: PNG için piksel, PDF/EPS/AI için milimetre; SVG'de yok sayılır.
      *
      * @return array ['data'=>string, 'mime'=>string, 'cached'=>bool]
      */
     public static function getOrGenerate(
         string  $url,
         string  $slug,
-        string  $type,      // 'svg' | 'png' | 'pdf'
+        string  $type,      // 'svg' | 'png' | 'pdf' | 'eps' | 'ai'
         string  $ecc   = 'M',
         int     $size  = 600,
         int     $margin = 4,
@@ -384,7 +385,8 @@ class QrRenderer {
     ): array {
         $logoPath = ($logoFile && $logoFile !== '') ? LOGO_DIR . '/' . basename($logoFile) : null;
         $logoKey  = $logoFile ?? '';
-        $mime = ['svg' => 'image/svg+xml', 'png' => 'image/png', 'pdf' => 'application/pdf'][$type] ?? 'application/octet-stream';
+        $mime = ['svg' => 'image/svg+xml', 'png' => 'image/png', 'pdf' => 'application/pdf',
+                 'eps' => 'application/postscript', 'ai' => 'application/illustrator'][$type] ?? 'application/octet-stream';
         $st   = self::normalizeStyle($style);
 
         $cachePath = self::cachePath($slug, $type, $ecc, $size, $margin, $logoKey, $st);
@@ -400,6 +402,9 @@ class QrRenderer {
             'svg'   => self::toSvg($matrix, $margin, $logoPath, $st),
             'png'   => self::toPng($matrix, $size, $margin, $logoPath, $st),
             'pdf'   => QrPdf::render($matrix, $margin, $size, $logoPath, $st),
+            'eps'   => QrEps::render($matrix, $margin, $size, $logoPath, $st, $slug),
+            // AI: Illustrator'ın kendi PDF uyumlu biçimi; CMYK PDF, .ai uzantısıyla doğrudan açılır
+            'ai'    => QrPdf::render($matrix, $margin, $size, $logoPath, $st, true),
             default => throw new InvalidArgumentException('Desteklenmeyen format: ' . $type),
         };
 
@@ -417,7 +422,7 @@ class QrRenderer {
      * Belirli bir slug için üretilmiş tüm cache dosyalarını siler.
      */
     public static function clearCache(string $slug): void {
-        $pattern = CACHE_DIR . '/*/*/' . $slug . '_*.{svg,png,pdf}';
+        $pattern = CACHE_DIR . '/*/*/' . $slug . '_*.{svg,png,pdf,eps,ai}';
         foreach (glob($pattern, GLOB_BRACE) ?: [] as $file) {
             @unlink($file);
         }
@@ -437,7 +442,7 @@ class QrRenderer {
             );
             foreach ($iterator as $item) {
                 if ($item->isFile()) {
-                    if (in_array(strtolower($item->getExtension()), ['svg', 'png', 'pdf', 'tmp'])) {
+                    if (in_array(strtolower($item->getExtension()), ['svg', 'png', 'pdf', 'eps', 'ai', 'tmp'])) {
                         if (@unlink($item->getRealPath())) $count++;
                     }
                 } elseif ($item->isDir()) {

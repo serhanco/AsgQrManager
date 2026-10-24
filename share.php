@@ -32,7 +32,7 @@ if (!$link || !empty($link['archived_at'])) shareDeny('Bu QR artık mevcut deği
 
 // ─── İndirme ──────────────────────────────────────────────────────────────────
 if (!empty($_GET['fmt'])) {
-    $fmt = in_array($_GET['fmt'], ['svg', 'png', 'pdf'], true) ? $_GET['fmt'] : 'svg';
+    $fmt = in_array($_GET['fmt'], Share::FORMATS, true) ? $_GET['fmt'] : 'svg';
     try {
         $r = Share::render($link, $fmt, (int)($_GET['size'] ?? 0), !empty($_GET['transparent']));
     } catch (\Throwable $e) {
@@ -77,6 +77,8 @@ $days = max(0, (int)ceil(($exp - time()) / 86400));
       <?php foreach (Share::PDF_MM as $mm): ?>
         <a class="btn btn-primary dl" href="<?= e($base) ?>&fmt=pdf&size=<?= $mm ?>">PDF <?= $mm ?> mm</a>
       <?php endforeach; ?>
+      <a class="btn btn-primary dl" href="<?= e($base) ?>&fmt=eps&size=100">EPS (CMYK)</a>
+      <a class="btn btn-primary dl" href="<?= e($base) ?>&fmt=ai&size=100">AI (Illustrator)</a>
     </div>
 
     <div class="text-sm" style="margin-bottom:.35rem;font-weight:600">Görsel (PNG)</div>

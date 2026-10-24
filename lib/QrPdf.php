@@ -16,13 +16,25 @@ class QrPdf {
         return array_map(fn($i) => self::n(hexdec(substr($hex, $i, 2)) / 255), [0, 2, 4]);
     }
 
+    /** Renk operatörü: PDF/EPS içinde "r g b rg" ya da (matbaa için) "c m y k k" */
+    public static function color(string $hex, bool $cmyk): string {
+        [$r, $g, $b] = self::rgb($hex);
+        if (!$cmyk) return "{$r} {$g} {$b} rg";
+        $r = (float)$r; $g = (float)$g; $b = (float)$b;
+        $k = 1 - max($r, $g, $b);
+        if ($k >= 1) return '0 0 0 1 k';           // saf siyah → yalnızca K (zengin siyah değil)
+        $f = fn(float $v) => self::n((1 - $v - $k) / (1 - $k));
+        return "{$f($r)} {$f($g)} {$f($b)} " . self::n($k) . ' k';
+    }
+
     /**
-     * @param int $mm  Sayfa kenarı (milimetre), 20-1000 arası
-     * @param array $style normalizeStyle() çıktısı: fg, bg, shape, transparent
+     * PDF ve EPS'in ortak çizim komutları (m, l, c, h, re, f, rg/k).
+     * Logo görselinin kendisi çizilmez; yalnızca altındaki boşluk çizilir ve konumu döner.
+     *
+     * @param float $W Sayfa kenarı (pt)
+     * @return array{0:string,1:?array} [komutlar, logo: [jpeg, iw, ih, x, y, dw, dh] | null]
      */
-    public static function render(array $matrix, int $margin, int $mm, ?string $logoPath, array $style): string {
-        $mm    = max(20, min(1000, $mm));
-        $W     = $mm * 72 / 25.4;               // pt
+    public static function drawing(array $matrix, int $margin, float $W, ?string $logoPath, array $style, bool $cmyk = false, bool $fillPerRow = false): array {
         $size  = count($matrix);
         $total = $size + $margin * 2;
         $u     = $W / $total;                    // modül kenarı (pt)
@@ -30,14 +42,11 @@ class QrPdf {
         $k     = 0.5523;                         // daire/yay için Bezier katsayısı
 
         $c = '';
-        [$br, $bg, $bb] = self::rgb($style['bg']);
-        [$fr, $fg, $fb] = self::rgb($style['fg']);
-
         if (!$style['transparent']) {
-            $c .= "{$br} {$bg} {$bb} rg\n0 0 {$n($W)} {$n($W)} re f\n";
+            $c .= self::color($style['bg'], $cmyk) . "\n0 0 {$n($W)} {$n($W)} re f\n";
         }
 
-        $c .= "{$fr} {$fg} {$fb} rg\n";
+        $c .= self::color($style['fg'], $cmyk) . "\n";
         for ($r = 0; $r < $size; $r++) {
             for ($col = 0; $col < $size; $col++) {
                 if ($matrix[$r][$col] !== 1) continue;
@@ -68,12 +77,13 @@ class QrPdf {
                     $c .= "{$n($x)} {$n($y)} {$n($u)} {$n($u)} re\n";
                 }
             }
+            // EPS: eski RIP'lerin yol sınırına takılmamak için satır satır doldur
+            if ($fillPerRow) $c .= "f\n";
         }
-        $c .= "f\n";
+        if (!$fillPerRow) $c .= "f\n";
 
-        // Logo
-        $imageObj = '';
-        $xobject  = '';
+        // Logo zemini
+        $logo = null;
         if ($logoPath && file_exists($logoPath)) {
             $jpg = QrRenderer::logoAsJpeg($logoPath, $style['transparent'] ? '#FFFFFF' : $style['bg']);
             if ($jpg !== null) {
@@ -83,13 +93,33 @@ class QrPdf {
                 $pad = $u;
                 $bx = ($W - $dw) / 2 - $pad;  $by = ($W - $dh) / 2 - $pad;
                 $bw = $dw + 2 * $pad;         $bh = $dh + 2 * $pad;
-                [$sr, $sg, $sb] = $style['transparent'] ? ['1', '1', '1'] : [$br, $bg, $bb];
-                $c .= "{$sr} {$sg} {$sb} rg\n{$n($bx)} {$n($by)} {$n($bw)} {$n($bh)} re f\n";
-                $c .= "q {$n($dw)} 0 0 {$n($dh)} {$n(($W - $dw) / 2)} {$n(($W - $dh) / 2)} cm /Im1 Do Q\n";
-                $imageObj = "<< /Type /XObject /Subtype /Image /Width {$iw} /Height {$ih} /ColorSpace /DeviceRGB "
-                          . "/BitsPerComponent 8 /Filter /DCTDecode /Length " . strlen($data) . " >>\nstream\n{$data}\nendstream";
-                $xobject = ' /XObject << /Im1 5 0 R >>';
+                $c .= self::color($style['transparent'] ? '#FFFFFF' : $style['bg'], $cmyk) . "\n{$n($bx)} {$n($by)} {$n($bw)} {$n($bh)} re f\n";
+                $logo = [$data, $iw, $ih, ($W - $dw) / 2, ($W - $dh) / 2, $dw, $dh];
             }
+        }
+        return [$c, $logo];
+    }
+
+    /**
+     * @param int $mm  Sayfa kenarı (milimetre), 20-1000 arası
+     * @param array $style normalizeStyle() çıktısı: fg, bg, shape, transparent
+     * @param bool $cmyk Renkleri CMYK yaz (AI / matbaa çıktısı); varsayılan PDF RGB kalır
+     */
+    public static function render(array $matrix, int $margin, int $mm, ?string $logoPath, array $style, bool $cmyk = false): string {
+        $mm = max(20, min(1000, $mm));
+        $W  = $mm * 72 / 25.4;                   // pt
+        $n  = fn(float $v) => self::n($v);
+
+        [$c, $logo] = self::drawing($matrix, $margin, $W, $logoPath, $style, $cmyk);
+
+        $imageObj = '';
+        $xobject  = '';
+        if ($logo !== null) {
+            [$data, $iw, $ih, $lx, $ly, $dw, $dh] = $logo;
+            $c .= "q {$n($dw)} 0 0 {$n($dh)} {$n($lx)} {$n($ly)} cm /Im1 Do Q\n";
+            $imageObj = "<< /Type /XObject /Subtype /Image /Width {$iw} /Height {$ih} /ColorSpace /DeviceRGB "
+                      . "/BitsPerComponent 8 /Filter /DCTDecode /Length " . strlen($data) . " >>\nstream\n{$data}\nendstream";
+            $xobject = ' /XObject << /Im1 5 0 R >>';
         }
 
         $objs = [

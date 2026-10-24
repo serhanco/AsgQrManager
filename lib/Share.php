@@ -32,7 +32,11 @@ class Share {
 
     /** İzin verilen çıktı seçenekleri (qr-view ve share aynı doğrulamayı kullanır) */
     public const PNG_SIZES = [600, 1200, 2000, 3000];
-    public const PDF_MM    = [30, 50, 100, 200];
+    public const PDF_MM    = [30, 50, 100, 200];   // PDF / EPS / AI çizim alanı
+    /** Milimetre ölçülü vektör formatlar */
+    public const VECTOR_MM_FORMATS = ['pdf', 'eps', 'ai'];
+    /** Tüm uç noktaların kabul ettiği formatlar */
+    public const FORMATS = ['svg', 'png', 'pdf', 'eps', 'ai'];
 
     /**
      * İstenen formatı üretir.
@@ -47,7 +51,7 @@ class Share {
 
         if ($fmt === 'png') {
             if (!in_array($size, self::PNG_SIZES, true)) $size = 1200;
-        } elseif ($fmt === 'pdf') {
+        } elseif (in_array($fmt, self::VECTOR_MM_FORMATS, true)) {
             if (!in_array($size, self::PDF_MM, true)) $size = 100;
         } else {
             $fmt = 'svg';
@@ -55,7 +59,7 @@ class Share {
         }
 
         $r = QrRenderer::getOrGenerate(BASE_URL . '/r/' . $link['slug'], $link['slug'], $fmt, $ecc, $size, 4, $logo ?: null, $style);
-        $suffix = ($fmt === 'png' ? '-' . $size . 'px' : ($fmt === 'pdf' ? '-' . $size . 'mm' : ''))
+        $suffix = ($fmt === 'png' ? '-' . $size . 'px' : ($size > 0 && $fmt !== 'png' ? '-' . $size . 'mm' : ''))
                 . ($transparent ? '-seffaf' : '');
         return ['data' => $r['data'], 'mime' => $r['mime'], 'ext' => $fmt, 'name' => self::fileBase($link) . $suffix . '.' . $fmt];
     }

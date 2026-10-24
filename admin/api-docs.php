@@ -36,7 +36,7 @@ include __DIR__ . '/views/_layout.php';
       <tr><td>GET</td><td><code>/links/{slug}</code></td><td>Tek QR</td></tr>
       <tr><td>PATCH</td><td><code>/links/{slug}</code></td><td>Gönderilen alanları güncelle (örn. yeni hedef URL)</td></tr>
       <tr><td>POST</td><td><code>/links/{slug}/activate</code> · <code>deactivate</code> · <code>archive</code> · <code>restore</code></td><td>Durum değiştir</td></tr>
-      <tr><td>GET</td><td><code>/links/{slug}/qr?format=svg|png|pdf&amp;size=&amp;transparent=1&amp;download=1</code></td><td>QR dosyası. PNG size: 600, 1200, 2000, 3000 px · PDF size: 30, 50, 100, 200 mm</td></tr>
+      <tr><td>GET</td><td><code>/links/{slug}/qr?format=svg|png|pdf|eps|ai&amp;size=&amp;transparent=1&amp;download=1</code></td><td>QR dosyası. PNG size: 600, 1200, 2000, 3000 px · PDF / EPS / AI size: 30, 50, 100, 200 mm (EPS ve AI CMYK)</td></tr>
       <tr><td>GET</td><td><code>/links/{slug}/stats?from=YYYY-MM-DD&amp;to=YYYY-MM-DD</code></td><td>Okutma istatistikleri (günlük, cihaz, ülke…)</td></tr>
     </tbody>
   </table>
