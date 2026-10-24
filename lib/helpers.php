@@ -78,13 +78,84 @@ function formatCount(int $n): string {
  * İstemci IP adresini güvenle alır.
  */
 function getClientIp(): string {
-    foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $key) {
+    // Proxy/CDN arkasında değilseniz config.php'ye define('TRUST_PROXY_HEADERS', false) ekleyin;
+    // aksi halde istemci bu başlıkları sahte gönderip IP kaydını yanıltabilir.
+    $trust = !defined('TRUST_PROXY_HEADERS') || TRUST_PROXY_HEADERS;
+    $keys  = $trust ? ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] : ['REMOTE_ADDR'];
+    foreach ($keys as $key) {
         if (!empty($_SERVER[$key])) {
             $ip = trim(explode(',', $_SERVER[$key])[0]);
             if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
         }
     }
     return '0.0.0.0';
+}
+
+/**
+ * KVKK: IP adresini ayara göre maskeler.
+ * full = olduğu gibi · mask = IPv4 son bayt / IPv6 son 80 bit sıfır · none = saklama
+ */
+function maskIp(string $ip, string $mode): ?string {
+    if ($mode === 'none') return null;
+    if ($mode !== 'mask') return $ip;
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $p = explode('.', $ip);
+        return $p[0] . '.' . $p[1] . '.' . $p[2] . '.0';
+    }
+    $bin = @inet_pton($ip);
+    if ($bin === false) return null;
+    return inet_ntop(substr($bin, 0, 6) . str_repeat("\0", 10)) ?: null;
+}
+
+/**
+ * Link önizleme botları, tarayıcı botları ve boş User-Agent okutma sayılmaz.
+ */
+function isBotUserAgent(string $ua): bool {
+    if (trim($ua) === '') return true;
+    // "bot" kelimesi tek başına aranmaz: bazı telefon markaları (ör. CUBOT) gerçek kullanıcıdır.
+    return (bool)preg_match(
+        '/bot\\/|googlebot|bingbot|yandexbot|baiduspider|duckduckbot|applebot|ahrefsbot|semrushbot|petalbot|bytespider|'
+        . 'crawl|spider|slurp|facebookexternalhit|facebot|whatsapp\\/|telegrambot|preview|embedly|pinterest|'
+        . 'headless|lighthouse|curl\\/|wget|python-requests|libwww|go-http-client|'
+        . 'uptime|pingdom|skypeuripreview|linkedinbot|slackbot|discordbot|twitterbot/i',
+        $ua
+    );
+}
+
+/**
+ * User-Agent'tan cihaz / işletim sistemi / tarayıcı ailesi çıkarır (rapor için).
+ * @return array{device:string,os:string,browser:string}
+ */
+function parseUserAgent(string $ua): array {
+    $device = 'Masaüstü';
+    if (preg_match('/ipad|tablet|(android(?!.*mobile))/i', $ua)) $device = 'Tablet';
+    elseif (preg_match('/mobile|iphone|ipod|android/i', $ua))     $device = 'Mobil';
+
+    $os = 'Diğer';
+    foreach ([
+        '/iphone|ipad|ipod|cpu iphone os|cpu os/i' => 'iOS',
+        '/android/i'                               => 'Android',
+        '/windows/i'                               => 'Windows',
+        '/mac os x|macintosh/i'                    => 'macOS',
+        '/cros/i'                                  => 'ChromeOS',
+        '/linux/i'                                 => 'Linux',
+    ] as $re => $name) {
+        if (preg_match($re, $ua)) { $os = $name; break; }
+    }
+
+    $browser = 'Diğer';
+    foreach ([
+        '/edg(e|a|ios)?\//i'            => 'Edge',
+        '/opr\/|opera/i'                => 'Opera',
+        '/samsungbrowser/i'             => 'Samsung Internet',
+        '/yabrowser/i'                  => 'Yandex',
+        '/firefox|fxios/i'              => 'Firefox',
+        '/chrome|crios/i'               => 'Chrome',
+        '/safari/i'                     => 'Safari',
+    ] as $re => $name) {
+        if (preg_match($re, $ua)) { $browser = $name; break; }
+    }
+    return ['device' => $device, 'os' => $os, 'browser' => $browser];
 }
 
 /**
@@ -124,19 +195,16 @@ function sanitizeCustomSlug(string $slug): string {
 }
 
 /**
- * Config'deki ANALYTICS_ENABLED değerini dinamik olarak değiştirir (runtime + config.php).
- * NOT: config.php'yi yeniden yazar. Dikkatli kullanın.
+ * Analytics açma/kapama. Artık config.php yeniden yazılmaz; ayar settings tablosunda tutulur.
  */
 function toggleAnalytics(bool $enabled): bool {
-    $configPath = ROOT_DIR . '/config.php';
-    $content    = file_get_contents($configPath);
-    $val        = $enabled ? 'true' : 'false';
-    $content    = preg_replace(
-        "/define\('ANALYTICS_ENABLED',\s*(true|false)\)/",
-        "define('ANALYTICS_ENABLED', {$val})",
-        $content
-    );
-    return file_put_contents($configPath, $content) !== false;
+    try {
+        Settings::set('analytics_enabled', $enabled ? '1' : '0');
+        return true;
+    } catch (\Throwable $e) {
+        Logger::error('Analytics ayarı kaydedilemedi: ' . $e->getMessage());
+        return false;
+    }
 }
 
 /**
@@ -163,7 +231,7 @@ function getDailyScanStats(PDO $pdo, int $days = 30): array {
     $stmt = $pdo->prepare(
         'SELECT DATE(scanned_at) AS `date`, COUNT(*) AS `count`
          FROM scans
-         WHERE scanned_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+         WHERE scanned_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY) AND is_bot = 0 AND (outcome IS NULL OR outcome = \'ok\')
          GROUP BY DATE(scanned_at)
          ORDER BY `date` ASC'
     );
@@ -186,13 +254,13 @@ function getDailyScanStats(PDO $pdo, int $days = 30): array {
 function getDashboardStats(PDO $pdo): array {
     $stats = [];
 
-    $row = $pdo->query('SELECT COUNT(*) AS total, SUM(is_active) AS active, SUM(scan_count) AS scans FROM links')->fetch();
+    $row = $pdo->query('SELECT COUNT(*) AS total, SUM(is_active) AS active, SUM(scan_count) AS scans FROM links WHERE archived_at IS NULL')->fetch();
     $stats['total_links']  = (int)($row['total']  ?? 0);
     $stats['active_links'] = (int)($row['active'] ?? 0);
     $stats['total_scans']  = (int)($row['scans']  ?? 0);
     $stats['inactive_links'] = $stats['total_links'] - $stats['active_links'];
 
-    $row2 = $pdo->query('SELECT COUNT(*) AS today FROM scans WHERE DATE(scanned_at) = CURDATE()')->fetch();
+    $row2 = $pdo->query("SELECT COUNT(*) AS today FROM scans WHERE DATE(scanned_at) = CURDATE() AND is_bot = 0 AND (outcome IS NULL OR outcome = 'ok')")->fetch();
     $stats['today_scans'] = (int)($row2['today'] ?? 0);
 
     return $stats;
@@ -203,7 +271,7 @@ function getDashboardStats(PDO $pdo): array {
  */
 function getTopLinks(PDO $pdo, int $limit = 10): array {
     $stmt = $pdo->prepare(
-        'SELECT id, slug, title, target_url, scan_count, is_active FROM links ORDER BY scan_count DESC LIMIT ?'
+        'SELECT id, slug, title, target_url, scan_count, is_active FROM links WHERE archived_at IS NULL ORDER BY scan_count DESC LIMIT ?'
     );
     $stmt->bindValue(1, $limit, PDO::PARAM_INT);
     $stmt->execute();
@@ -229,4 +297,52 @@ function flash(string $key, ?string $msg = null): ?string {
     $val = $_SESSION['flash'][$key] ?? null;
     unset($_SESSION['flash'][$key]);
     return $val;
+}
+
+/**
+ * CSV'de formül enjeksiyonunu engeller (Excel'de = + - @ ile başlayan hücre formül sayılır).
+ */
+function csvCell(mixed $v): mixed {
+    if (!is_string($v) || $v === '') return $v;
+    return in_array($v[0], ['=', '+', '-', '@', "\t", "\r"], true) ? "'" . $v : $v;
+}
+
+/**
+ * KVKK: $days günden eski okutma kayıtlarındaki IP adreslerini maskeler (satırlar silinmez,
+ * raporlar etkilenmez). IPv4 son bayt, IPv6 ilk 3 grup dışı sıfırlanır.
+ * @return int etkilenen satır sayısı
+ */
+function anonymizeOldScans(PDO $pdo, int $days): int {
+    if ($days < 1) return 0;
+    $n = $pdo->prepare(
+        "UPDATE scans SET ip = CASE
+            WHEN ip LIKE '%:%' THEN CONCAT(SUBSTRING_INDEX(ip, ':', 3), '::')
+            ELSE CONCAT(SUBSTRING_INDEX(ip, '.', 3), '.0') END
+         WHERE ip IS NOT NULL
+           AND scanned_at < (NOW() - INTERVAL ? DAY)
+           AND ip NOT LIKE '%.0' AND ip NOT LIKE '%::'"
+    );
+    $n->execute([$days]);
+    return $n->rowCount();
+}
+
+/** Günde en fazla bir kez, ayarlıysa eski IP'leri anonimleştirir (dashboard açılışında çağrılır). */
+function maybeAnonymizeScans(PDO $pdo): void {
+    $days = (int)Settings::get('ip_anonymize_days');
+    if ($days < 1 || Settings::get('last_anonymize', '') === date('Y-m-d')) return;
+    try {
+        $c = anonymizeOldScans($pdo, $days);
+        Settings::set('last_anonymize', date('Y-m-d'));
+        if ($c > 0) Logger::info("KVKK: {$c} okutma kaydının IP adresi anonimleştirildi (>{$days} gün).");
+    } catch (\Throwable $e) {
+        Logger::warning('IP anonimleştirme hatası: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Bilgi (ⓘ) simgesi: üzerine gelince veya klavye ile odaklanınca açıklama gösterir.
+ * Metin kaçışlıdır; HTML kabul etmez.
+ */
+function tip(string $text): string {
+    return '<span class="tip" tabindex="0" role="note" aria-label="' . e($text) . '" data-tip="' . e($text) . '">ⓘ</span>';
 }

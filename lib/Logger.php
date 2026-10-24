@@ -78,20 +78,21 @@ class Logger {
 
     /**
      * Tarama kaydı hem DB'ye hem dosyaya yazar.
-     * ANALYTICS_ENABLED false ise hiçbiri yazılmaz.
-     * SCAN_COUNT_ENABLED kontrolü caller tarafında yapılmalı.
+     * Analytics açık mı (Settings::analyticsEnabled) ve SCAN_COUNT_ENABLED kontrolü caller'da yapılır.
+     *
+     * @param array{country?:?string,is_bot?:bool,outcome?:?string} $extra
+     *        Migration uygulanmamışsa yeni sütunlar olmadan eski biçimde yazılır.
      */
     public static function logScan(
         \PDO $pdo,
         int  $linkId,
         string $slug,
         string $targetUrl,
-        string $ip,
+        ?string $ip,
         string $userAgent,
-        string $referer
+        string $referer,
+        array $extra = []
     ): void {
-        if (!defined('ANALYTICS_ENABLED') || !ANALYTICS_ENABLED) return;
-
         $now   = date('Y-m-d H:i:s');
         $yyyy  = date('Y');
         $mm    = date('m');
@@ -100,19 +101,32 @@ class Logger {
         $file  = "{$dir}/scans-{$today}.txt";
 
         // DB'ye yaz
+        $ua  = substr($userAgent, 0, 512);
+        $ref = substr($referer, 0, 512);
         try {
-            $stmt = $pdo->prepare(
-                'INSERT INTO scans (link_id, scanned_at, ip, user_agent, referer) VALUES (?,?,?,?,?)'
-            );
-            $stmt->execute([$linkId, $now, $ip, substr($userAgent, 0, 512), substr($referer, 0, 512)]);
+            $pdo->prepare(
+                'INSERT INTO scans (link_id, scanned_at, ip, user_agent, referer, country, is_bot, outcome)
+                 VALUES (?,?,?,?,?,?,?,?)'
+            )->execute([
+                $linkId, $now, $ip, $ua, $ref,
+                $extra['country'] ?? null, !empty($extra['is_bot']) ? 1 : 0, $extra['outcome'] ?? null,
+            ]);
         } catch (\Throwable $e) {
-            self::warning('Scan DB yazma hatası: ' . $e->getMessage());
+            try {
+                // Eski şema (migration henüz çalışmadı): yönlendirme ve sayım bozulmasın
+                $pdo->prepare(
+                    'INSERT INTO scans (link_id, scanned_at, ip, user_agent, referer) VALUES (?,?,?,?,?)'
+                )->execute([$linkId, $now, $ip, $ua, $ref]);
+            } catch (\Throwable $e2) {
+                self::warning('Scan DB yazma hatası: ' . $e2->getMessage());
+            }
         }
 
-        // Dosyaya yaz
-        $ipSafe = htmlspecialchars($ip, ENT_NOQUOTES);
-        $line = implode("\t", [$now, $slug, $targetUrl, $ip, substr($userAgent, 0, 200), substr($referer, 0, 200)]) . "\n";
-        self::writeToFile($file, $dir, $line);
+        // Dosyaya yaz (bot önizlemeleri dosya kaydına alınmaz)
+        if (empty($extra['is_bot'])) {
+            $line = implode("\t", [$now, $slug, $targetUrl, $ip ?? '-', substr($userAgent, 0, 200), substr($referer, 0, 200)]) . "\n";
+            self::writeToFile($file, $dir, $line);
+        }
     }
 
     // ─── Dosya yazdırma (klasör oluşturur) ────────────────────────────────────

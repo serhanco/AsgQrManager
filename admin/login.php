@@ -13,7 +13,7 @@ $locked = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Auth::requireCsrf();
 
-    if (Auth::checkBruteForce()) {
+    if (Auth::checkBruteForce(trim($_POST['username'] ?? ''))) {
         $locked = true;
         $rem    = Auth::lockoutRemaining();
         $error  = "Çok fazla başarısız deneme. {$rem} saniye bekleyin.";
@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = Auth::verifyUser($pdo, $username, $password);
 
         if ($user) {
+            Auth::clearFailedAttempts();
             Auth::login((int)$user['id'], $user['username']);
             $redirect = filter_var($_GET['redirect'] ?? '', FILTER_SANITIZE_URL);
             // Güvenlik: aynı site içinde kalmalı
@@ -35,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             redirect($redirect);
         } else {
-            Auth::recordFailedAttempt();
+            Auth::recordFailedAttempt($username);
             $error = 'Kullanıcı adı veya şifre hatalı.';
         }
     }

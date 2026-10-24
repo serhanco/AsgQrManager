@@ -1,21 +1,19 @@
 <?php
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../lib/Logger.php';
-require_once __DIR__ . '/../lib/Auth.php';
-require_once __DIR__ . '/../lib/helpers.php';
+require_once __DIR__ . '/../lib/bootstrap.php';
 
-Logger::registerHandlers();
 Auth::startSession();
 Auth::requireLogin();
 
 $pdo        = getPdo();
+maybeAnonymizeScans($pdo);
 $stats      = getDashboardStats($pdo);
 $topLinks   = getTopLinks($pdo, 8);
 $scanData   = getDailyScanStats($pdo, 30);
 $chartLabels = array_column($scanData, 'date');
 $chartValues = array_column($scanData, 'count');
 
-$analyticsEnabled = defined('ANALYTICS_ENABLED') && ANALYTICS_ENABLED;
+$analyticsEnabled = Settings::analyticsEnabled();
+$untagged = (int)$pdo->query("SELECT COUNT(*) FROM links WHERE archived_at IS NULL AND (tags IS NULL OR tags = '')")->fetchColumn();
 
 $pageTitle  = 'Dashboard';
 $activePage = 'dashboard';
@@ -26,6 +24,7 @@ include __DIR__ . '/views/_layout.php';
 <div class="page-header">
   <h1 class="page-title">📊 Dashboard</h1>
   <div class="btn-group">
+    <a href="<?= BASE_URL ?>/admin/report" class="btn btn-ghost btn-sm">📈 Raporlar</a>
     <span class="text-sm text-muted">Analytics:&nbsp;</span>
     <label class="toggle" title="Tarama analitiğini aç/kapat">
       <input type="checkbox" id="analytics-toggle" <?= $analyticsEnabled ? 'checked' : '' ?>>
@@ -36,6 +35,20 @@ include __DIR__ . '/views/_layout.php';
     </span>
   </div>
 </div>
+
+<?php if ($stats['total_links'] >= 3 && $untagged >= max(2, (int)ceil($stats['total_links'] / 2))): ?>
+<div class="nudge">
+  <div class="nudge-icon">🏷</div>
+  <div>
+    <div class="nudge-title"><?= $untagged ?> QR’ın etiketi yok</div>
+    <p>Ülke, etkinlik adı veya materyal gibi etiketler verirseniz raporlarda “kongre-2027” ya da “tüm posterler” gibi gruplara göre sonuç görebilirsiniz.</p>
+    <div class="btn-group">
+      <a class="btn btn-primary btn-sm" href="<?= BASE_URL ?>/admin/links?tag=__none">Etiketsizleri göster</a>
+      <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/tags">Etiket rehberi</a>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 <!-- İstatistik Kartları -->
 <div class="stat-grid">

@@ -25,3 +25,11 @@ jobs:
           port: 21
           server-dir: ./
           dry-run: false
+          # Canlı sunucuya yalnızca çalışma zamanı dosyaları gönderilir
+          exclude: |
+            **/.git*
+            **/.git*/**
+            README.md
+            schema.sql
+            install.php
+            tests/**

@@ -3,12 +3,8 @@
  * log-download.php — Log dosyası indirme
  * Güvenlik: path traversal koruması, sadece giriş yapmış kullanıcı
  */
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../lib/Logger.php';
-require_once __DIR__ . '/../lib/Auth.php';
-require_once __DIR__ . '/../lib/helpers.php';
+require_once __DIR__ . '/../lib/bootstrap.php';
 
-Logger::registerHandlers();
 Auth::startSession();
 Auth::requireLogin();
 
