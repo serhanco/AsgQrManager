@@ -11,6 +11,10 @@ class Settings {
     private const DEFAULTS = [
         'timezone'           => 'Europe/Istanbul', // zamanlı hedef saatleri bu saat dilimine göre yorumlanır
         'fallback_url'       => '',                // pasif / süresi dolmuş QR'ların genel yedek hedefi
+        'info_page_url'      => 'https://acibadem.world/', // yedek hedef yoksa gösterilen bilgi sayfasındaki buton
+        'info_page_redirect_seconds' => '0',      // 0 = otomatik geçiş yok
+        'info_page_message_tr' => '',             // bilgi sayfasına isteğe bağlı ek not
+        'info_page_message_en' => '',
         'brand_fg'           => '#000000',
         'brand_bg'           => '#FFFFFF',
         'brand_shape'        => 'square',

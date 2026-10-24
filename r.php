@@ -37,7 +37,8 @@ $slug = preg_replace('/[^A-Za-z0-9_-]/', '', $slug);
 
 if ($slug === '') {
     http_response_code(404);
-    include __DIR__ . '/admin/views/404.php';
+    $infoState = 'unknown';
+    include __DIR__ . '/admin/views/info.php';
     exit;
 }
 
@@ -57,12 +58,13 @@ try {
 
 if (!$link) {
     http_response_code(404);
-    include __DIR__ . '/admin/views/404.php';
+    $infoState = 'unknown';
+    include __DIR__ . '/admin/views/info.php';
     exit;
 }
 
 // ─── Hedefi belirle ───────────────────────────────────────────────────────────
-// Aktif + zamanında ise hedef; pasif/arşiv/başlamamış/bitmiş ise yedek hedef ya da 404
+// Aktif + zamanında ise hedef; pasif/arşiv/başlamamış/bitmiş ise yedek hedef ya da markalı bilgi sayfası
 try {
     $decision = Redirector::resolve($link);
 } catch (\Throwable $e) {
@@ -112,8 +114,10 @@ header('Pragma: no-cache');
 header('Expires: 0');
 
 if ($decision['action'] === 'notfound') {
+    // Yedek hedef yoksa çıplak 404 yerine markalı bilgi sayfası (durum kodu 404 kalır)
     http_response_code(404);
-    include __DIR__ . '/admin/views/404.php';
+    $infoState = $decision['state'];
+    include __DIR__ . '/admin/views/info.php';
     exit;
 }
 

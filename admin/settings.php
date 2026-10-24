@@ -84,6 +84,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', 'Yönlendirme ayarları kaydedildi.');
                 break;
 
+            case 'info_page':
+                $url = trim($_POST['info_page_url'] ?? '');
+                if (!isValidUrl($url)) { $errors[] = 'Bilgi sayfası bağlantısı geçerli bir http(s) adresi olmalı.'; break; }
+                $sec = max(0, min(60, (int)($_POST['info_page_redirect_seconds'] ?? 0)));
+                $mtr = mb_substr(trim($_POST['info_page_message_tr'] ?? ''), 0, 500);
+                $men = mb_substr(trim($_POST['info_page_message_en'] ?? ''), 0, 500);
+                Settings::set('info_page_url', $url); Settings::set('info_page_redirect_seconds', (string)$sec);
+                Settings::set('info_page_message_tr', $mtr); Settings::set('info_page_message_en', $men);
+                LinkEvents::log($pdo, null, null, Auth::actor(), 'settings', ['bilgi sayfası' => [null, "buton=$url geçiş={$sec}sn"]]);
+                flash('success', 'Bilgi sayfası ayarları kaydedildi.');
+                break;
+
             case 'privacy':
                 $mode = $_POST['ip_mode'] ?? 'full';
                 if (!in_array($mode, ['full', 'mask', 'none'], true)) { $errors[] = 'Geçersiz IP modu.'; break; }
@@ -189,7 +201,7 @@ include __DIR__ . '/views/_layout.php';
   <?= Auth::csrfField() ?><input type="hidden" name="action" value="routing">
   <div class="card-title mb-2">🔀 Yönlendirme</div>
   <div class="form-group">
-    <label class="form-label">Genel yedek hedef <span class="hint">Pasif, arşivlenmiş veya süresi dolmuş QR okutulunca (QR'a özel yedek yoksa) ziyaretçi buraya gider. Boşsa 404.</span></label>
+    <label class="form-label">Genel yedek hedef <span class="hint">Pasif, arşivlenmiş veya süresi dolmuş QR okutulunca (QR'a özel yedek yoksa) ziyaretçi buraya gider. Boşsa aşağıdaki bilgi sayfası gösterilir.</span></label>
     <input class="form-control" type="url" name="fallback_url" placeholder="https://acibadem.world/" value="<?= e(Settings::get('fallback_url')) ?>">
   </div>
   <div class="form-group">
@@ -201,6 +213,31 @@ include __DIR__ . '/views/_layout.php';
   <div class="form-row">
     <div class="form-group"><label class="form-label">UTM kaynak (utm_source)</label><input class="form-control" type="text" name="utm_source" value="<?= e(Settings::get('utm_source')) ?>"></div>
     <div class="form-group"><label class="form-label">UTM ortam (utm_medium)</label><input class="form-control" type="text" name="utm_medium" value="<?= e(Settings::get('utm_medium')) ?>"></div>
+  </div>
+  <button class="btn btn-primary" type="submit">Kaydet</button>
+</form>
+
+<!-- Bilgi sayfası -->
+<form method="POST" class="card">
+  <?= Auth::csrfField() ?><input type="hidden" name="action" value="info_page">
+  <div class="card-title mb-2">🪧 Bilgi sayfası</div>
+  <p class="text-sm text-muted mb-2">Pasif, arşivlenmiş, zamanı gelmemiş veya süresi dolmuş bir QR okutulduğunda yedek hedef tanımlı değilse ziyaretçi 404 yerine Acıbadem logolu bu sayfayı görür (Türkçe/İngilizce, tarayıcı diline göre).
+    Önizle:
+    <?php foreach (['inactive' => 'pasif', 'expired' => 'süresi dolmuş', 'scheduled' => 'zamanı gelmemiş', 'unknown' => 'bilinmeyen'] as $st => $lbl): ?>
+      <a href="<?= e(BASE_URL) ?>/admin/info-preview?state=<?= $st ?>" target="_blank" rel="noopener"><?= $lbl ?></a><?= $st !== 'unknown' ? ' ·' : '' ?>
+    <?php endforeach; ?>
+  </p>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Buton bağlantısı <span class="hint">Varsayılan: ACIBADEM.WORLD ana sayfası</span></label>
+      <input class="form-control" type="url" name="info_page_url" required placeholder="https://acibadem.world/" value="<?= e(Settings::get('info_page_url')) ?>"></div>
+    <div class="form-group"><label class="form-label">Otomatik geçiş (saniye) <span class="hint">0 = kapalı; ziyaretçi butona kendisi basar</span></label>
+      <input class="form-control" type="number" min="0" max="60" name="info_page_redirect_seconds" value="<?= e(Settings::get('info_page_redirect_seconds')) ?>"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Ek not (Türkçe) <span class="hint">İsteğe bağlı</span></label>
+      <textarea class="form-control" name="info_page_message_tr" rows="2" maxlength="500"><?= e(Settings::get('info_page_message_tr')) ?></textarea></div>
+    <div class="form-group"><label class="form-label">Ek not (English) <span class="hint">Optional</span></label>
+      <textarea class="form-control" name="info_page_message_en" rows="2" maxlength="500"><?= e(Settings::get('info_page_message_en')) ?></textarea></div>
   </div>
   <button class="btn btn-primary" type="submit">Kaydet</button>
 </form>
