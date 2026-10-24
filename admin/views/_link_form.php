@@ -17,6 +17,9 @@ $styleMode  = $f['style_mode'] ?? 'brand';
 $fgVal      = LinkService::normalizeHex($f['fg_color'] ?? '') ?? $brandFg;
 $bgVal      = LinkService::normalizeHex($f['bg_color'] ?? '') ?? $brandBg;
 $shapeVal   = $f['shape'] ?? '';
+$allTags    = array_values(array_map(fn($t) => ['tag' => $t['tag'], 'count' => $t['count']], LinkService::allTags(getPdo())));
+$starterTags = ['poster', 'broşür', 'stand', 'kartvizit', 'sunum', 'e-posta', 'sosyal-medya'];
+$hasTags    = trim((string)($f['tags'] ?? '')) !== '';
 ?>
 <div class="form-layout">
 <div class="form-main">
@@ -27,7 +30,7 @@ $shapeVal   = $f['shape'] ?? '';
     <?php if ($mode === 'create'): ?>
     <div class="form-group">
       <label class="form-label" for="custom_slug">
-        Kısa Ad (slug) <span class="hint">Boş bırakırsanız otomatik üretilir. Basıldıktan sonra değiştirilemez.</span>
+        Kısa Ad (slug) <?= tip('QR’ın kısa adresinde görünen kısım: /r/<slug>. QR basıldıktan sonra değiştirilemez; hedef adres ise istediğiniz zaman değişebilir.') ?> <span class="hint">Boş bırakırsanız otomatik üretilir. Basıldıktan sonra değiştirilemez.</span>
       </label>
       <input class="form-control" type="text" id="custom_slug" name="custom_slug"
              placeholder="london-office" value="<?= e($f['custom_slug'] ?? '') ?>"
@@ -36,7 +39,7 @@ $shapeVal   = $f['shape'] ?? '';
     <?php endif; ?>
 
     <div class="form-group">
-      <label class="form-label" for="target_url">Hedef URL <span class="hint">* Zorunlu</span></label>
+      <label class="form-label" for="target_url">Hedef URL <?= tip('QR okutulunca ziyaretçinin gideceği sayfa. Basılı QR aynı kalır; bu adresi değiştirerek QR’ı başka sayfaya yönlendirebilirsiniz.') ?> <span class="hint">* Zorunlu</span></label>
       <input class="form-control" type="url" id="target_url" name="target_url"
              placeholder="https://acibadem.world/office/london" value="<?= e($f['target_url'] ?? '') ?>" required>
       <?php if ($mode === 'edit'): ?>
@@ -51,7 +54,7 @@ $shapeVal   = $f['shape'] ?? '';
                placeholder="Londra Ofisi" value="<?= e($f['title'] ?? '') ?>">
       </div>
       <div class="form-group">
-        <label class="form-label" for="category">Tür</label>
+        <label class="form-label" for="category">Tür <?= tip('QR\'ın ne olduğunu söyler; tek seçimlidir (Genel Merkez, Ofis, Etkinlik…). Raporlarda “türe göre” dağılım verir. Ülke, etkinlik adı veya materyal gibi gruplar için Etiketler alanını kullanın.') ?></label>
         <select class="form-control" id="category" name="category">
           <option value="">— Seçilmedi —</option>
           <?php foreach (LinkService::CATEGORIES as $k => $label): ?>
@@ -61,10 +64,49 @@ $shapeVal   = $f['shape'] ?? '';
       </div>
     </div>
 
-    <div class="form-group">
-      <label class="form-label" for="tags">Etiketler <span class="hint">Virgülle ayırın: ülke, ofis, kampanya…</span></label>
-      <input class="form-control" type="text" id="tags" name="tags" maxlength="400"
-             placeholder="UK, londra, kongre-2027" value="<?= e($f['tags'] ?? '') ?>">
+    <div class="form-group tag-wrap">
+      <label class="form-label" for="tag-entry">Etiketler
+        <?= tip('Serbest ve çoklu gruplama: ülke, etkinlik adı, materyal, dönem… Raporlarda aynı etikete sahip tüm QR’lar tek satırda toplanır. Büyük/küçük harf ve Türkçe karakter farkı otomatik birleştirilir (İstanbul = istanbul).') ?>
+        <span class="hint">Yazıp Enter’a basın · en fazla <?= LinkService::MAX_TAGS ?></span>
+      </label>
+      <div class="tag-box">
+      <div class="tag-input" data-all="<?= e(json_encode($allTags, JSON_UNESCAPED_UNICODE)) ?>"
+           data-categories="<?= e(json_encode(LinkService::CATEGORIES, JSON_UNESCAPED_UNICODE)) ?>" data-max="<?= LinkService::MAX_TAGS ?>">
+        <span class="tag-chips"></span>
+        <input type="text" id="tag-entry" autocomplete="off" maxlength="40" aria-controls="tag-suggest" aria-autocomplete="list">
+      </div>
+      <input type="hidden" id="tags" name="tags" value="<?= e($f['tags'] ?? '') ?>">
+      <div class="tag-suggest" id="tag-suggest" role="listbox" hidden></div>
+      </div>
+      <div class="tag-meta"><span id="tag-hint" aria-live="polite"></span><span id="tag-count"></span></div>
+
+      <div class="tag-popular">
+        <?php if ($allTags): ?>
+          Sık kullanılanlar:
+          <?php foreach (array_slice($allTags, 0, 8) as $t): ?>
+            <button type="button" class="tag-chip" data-tag="<?= e($t['tag']) ?>" title="<?= (int)$t['count'] ?> QR'da kullanılıyor">+ <?= e($t['tag']) ?> <small><?= (int)$t['count'] ?></small></button>
+          <?php endforeach; ?>
+        <?php else: ?>
+          Başlangıç için öneriler (materyal tipi):
+          <?php foreach ($starterTags as $t): ?>
+            <button type="button" class="tag-chip" data-tag="<?= e($t) ?>">+ <?= e($t) ?></button>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </div>
+
+      <details class="tag-guide" <?= !$hasTags && $mode === 'create' ? 'open' : '' ?>>
+        <summary>💡 Tür mü, etiket mi?</summary>
+        <dl>
+          <dt>Tür</dt><dd>QR’ın <strong>ne olduğu</strong>. Tek seçim: Genel Merkez, Ofis, Etkinlik, Kampanya.</dd>
+          <dt>Etiket</dt><dd>QR’ın <strong>hangi gruplara girdiği</strong>. Serbest ve çoklu: ülke, etkinlik adı, materyal, dönem.</dd>
+        </dl>
+        <div class="example">
+          <strong>Örnek:</strong> Londra ofisinin kongre posteri →
+          Tür: <span class="tag-chip">Ofis</span> Etiketler: <span class="tag-chip">#UK</span> <span class="tag-chip">#poster</span> <span class="tag-chip">#kongre-2027</span><br>
+          <span class="text-muted">Böylece raporda “kongre-2027 etiketli tüm QR’lar” veya “tüm posterler” tek tıkla görülür. Etiketleri sonradan
+          <a href="<?= BASE_URL ?>/admin/tags">Etiketler</a> sayfasından toplu yeniden adlandırabilir veya birleştirebilirsiniz.</span>
+        </div>
+      </details>
     </div>
 
     <div class="form-group">
@@ -90,11 +132,11 @@ $shapeVal   = $f['shape'] ?? '';
     </p>
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label" for="starts_at">Başlangıç</label>
+        <label class="form-label" for="starts_at">Başlangıç <?= tip('Bu tarihten önce QR hedefe gitmez (yedek hedefe ya da 404’e düşer). Etkinlik öncesi basılan QR’lar için kullanışlıdır.') ?></label>
         <input class="form-control" type="datetime-local" id="starts_at" name="starts_at" value="<?= e($f['starts_at'] ?? '') ?>">
       </div>
       <div class="form-group">
-        <label class="form-label" for="ends_at">Bitiş</label>
+        <label class="form-label" for="ends_at">Bitiş <?= tip('Bu tarihten sonra QR kendiliğinden “bitiş sonrası adrese” (yoksa yedek hedefe) yönlenir.') ?></label>
         <input class="form-control" type="datetime-local" id="ends_at" name="ends_at" value="<?= e($f['ends_at'] ?? '') ?>">
       </div>
     </div>
@@ -114,7 +156,7 @@ $shapeVal   = $f['shape'] ?? '';
   </div>
 
   <div class="card mt-4">
-    <div class="card-title mb-2">📈 Takip (UTM)</div>
+    <div class="card-title mb-2">📈 Takip (UTM) <?= tip('UTM, hedef sitenizin analitiğinde ziyaretin QR’dan geldiğini gösteren etikettir. Bu panel zaten okutmaları sayar; UTM yalnızca hedef sitedeki analitik içindir.') ?></div>
     <div class="form-group">
       <label class="form-check">
         <input type="checkbox" name="utm_enabled" value="1" <?= !empty($f['utm_enabled']) ? 'checked' : '' ?>>

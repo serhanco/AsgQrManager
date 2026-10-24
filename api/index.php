@@ -83,6 +83,15 @@ try {
         apiOut(200, ['ok' => true, 'time' => date('c'), 'token' => $tok['name'], 'scopes' => explode(',', $tok['scopes'])]);
     }
 
+    // GET /tags — kullanılan etiketler ve QR/okutma sayıları
+    if ($method === 'GET' && $parts === ['tags']) {
+        $out = [];
+        foreach (LinkService::allTags($pdo) as $t) {
+            $out[] = ['tag' => $t['tag'], 'qr_count' => $t['active'], 'qr_count_including_archived' => $t['count'], 'scan_count' => $t['scans']];
+        }
+        apiOut(200, ['data' => $out]);
+    }
+
     if (($parts[0] ?? '') !== 'links') apiError(404, 'not_found', 'Bilinmeyen adres.');
 
     // ── /links ──

@@ -8,16 +8,21 @@
 class Stats {
 
     /**
-     * @param string $from Y-m-d (dahil)   @param string $to Y-m-d (dahil)
+     * @param string $from Y-m-d (dahil)   @param string $to Y-m-d (dahil)   @param ?string $tag yalnızca bu etiketli QR'lar (linkId yoksa)
      * @return array{total:int,unique:int,first_at:?string,last_at:?string,bots:int,redirected:int,
      *               daily:array<string,int>,hours:int[],devices:array,os:array,browsers:array,countries:array,referrers:array}
      */
-    public static function summary(PDO $pdo, ?int $linkId, string $from, string $to): array {
+    public static function summary(PDO $pdo, ?int $linkId, string $from, string $to, ?string $tag = null): array {
         $fromTs = $from . ' 00:00:00';
         $toTs   = (new DateTimeImmutable($to))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
         $linkSql = $linkId ? ' AND s.link_id = ?' : '';
-        $ok   = "s.is_bot = 0 AND (s.outcome IS NULL OR s.outcome = 'ok') AND s.scanned_at >= ? AND s.scanned_at < ?" . $linkSql;
         $args = $linkId ? [$fromTs, $toTs, $linkId] : [$fromTs, $toTs];
+        // Etiket süzgeci: o etikete sahip tüm QR'ların birleşik raporu
+        if (!$linkId && $tag !== null && $tag !== '') {
+            $linkSql .= ' AND s.link_id IN (SELECT id FROM links WHERE FIND_IN_SET(?, tags) > 0)';
+            $args[] = $tag;
+        }
+        $ok   = "s.is_bot = 0 AND (s.outcome IS NULL OR s.outcome = 'ok') AND s.scanned_at >= ? AND s.scanned_at < ?" . $linkSql;
         $q = function (string $sql) use ($pdo, $args) { $st = $pdo->prepare($sql); $st->execute($args); return $st; };
 
         $tot = $q("SELECT COUNT(*) c, COUNT(DISTINCT CONCAT(IFNULL(s.ip,''),'|',IFNULL(s.user_agent,''))) u,

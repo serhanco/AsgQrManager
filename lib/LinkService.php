@@ -90,17 +90,126 @@ class LinkService {
 
     // ─── Etiket / tarih / UTM ────────────────────────────────────────────────
 
-    /** "Londra, Kongre 2027;  londra" → "Londra,Kongre 2027" (en fazla 10 etiket) */
-    public static function normalizeTags(?string $raw): ?string {
+    /** Etiket karşılaştırma anahtarı: büyük/küçük harf ve Türkçe aksan farkını yok sayar (İstanbul = istanbul = Istanbul). */
+    public static function tagKey(string $t): string {
+        $t = strtr($t, ['İ' => 'i', 'I' => 'i', 'ı' => 'i', 'Ç' => 'c', 'ç' => 'c', 'Ğ' => 'g', 'ğ' => 'g',
+                        'Ö' => 'o', 'ö' => 'o', 'Ş' => 's', 'ş' => 's', 'Ü' => 'u', 'ü' => 'u']);
+        return mb_strtolower($t);
+    }
+
+    public const MAX_TAGS = 10;
+
+    /**
+     * "Londra, Kongre 2027;  londra" → "Londra,Kongre 2027" (en fazla MAX_TAGS etiket).
+     * $canonical verilirse (tagKey => yazım) var olan etiketin yazımı kullanılır; böylece
+     * "Istanbul" ile "İstanbul" raporlarda ikiye bölünmez.
+     */
+    public static function normalizeTags(?string $raw, array $canonical = []): ?string {
         $out = [];
         foreach (preg_split('/[,;\n]+/', (string)$raw) as $t) {
             $t = trim(preg_replace('/\s+/u', ' ', $t));
             $t = preg_replace('/[^\p{L}\p{N} _\-.]/u', '', $t);
             if ($t === '' || mb_strlen($t) > 30) continue;
-            $out[mb_strtolower($t)] ??= $t;
-            if (count($out) >= 10) break;
+            $key = self::tagKey($t);
+            $spelled = $canonical[$key] ?? $t;
+            // links.tags VARCHAR(255): sığmayan etiketler sessizce atlanır
+            if (!isset($out[$key]) && strlen(implode(',', array_merge($out, [$spelled]))) > 255) break;
+            $out[$key] ??= $spelled;
+            if (count($out) >= self::MAX_TAGS) break;
         }
         return $out ? implode(',', array_values($out)) : null;
+    }
+
+    /**
+     * Sistemdeki etiketler: tagKey => ['tag' => görünen yazım, 'count' => tüm QR, 'active' => arşivsiz QR, 'scans' => okutma].
+     * Görünen yazım, en çok kullanılan yazımdır. Sayıya göre azalan sıralıdır.
+     */
+    public static function allTags(PDO $pdo): array {
+        $rows = $pdo->query("SELECT tags, archived_at IS NULL AS live, scan_count FROM links WHERE tags IS NOT NULL AND tags <> ''")->fetchAll();
+        $spell = $res = [];
+        foreach ($rows as $r) {
+            foreach (explode(',', $r['tags']) as $t) {
+                if ($t === '') continue;
+                $k = self::tagKey($t);
+                $spell[$k][$t] = ($spell[$k][$t] ?? 0) + 1;
+                $res[$k]['count'] = ($res[$k]['count'] ?? 0) + 1;
+                $res[$k]['active'] = ($res[$k]['active'] ?? 0) + (int)$r['live'];
+                $res[$k]['scans'] = ($res[$k]['scans'] ?? 0) + (int)$r['scan_count'];
+            }
+        }
+        foreach ($res as $k => &$v) {
+            arsort($spell[$k]);
+            $v['tag'] = (string)array_key_first($spell[$k]);
+        }
+        unset($v);
+        uasort($res, fn($a, $b) => [$b['active'], $b['count'], $a['tag']] <=> [$a['active'], $a['count'], $b['tag']]);
+        return $res;
+    }
+
+    /** tagKey => yazım haritası (normalizeTags için). Veritabanı erişilemezse boş döner. */
+    public static function canonicalMap(?PDO $pdo = null): array {
+        try {
+            $map = [];
+            foreach (self::allTags($pdo ?? getPdo()) as $k => $v) $map[$k] = $v['tag'];
+            return $map;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Seçili QR'lara etiket ekler / çıkarır; her değişiklik geçmişe yazılır.
+     * @param int[] $ids   @param string[] $add   @param string[] $remove
+     * @return int değişen QR sayısı
+     */
+    public static function bulkTags(PDO $pdo, array $ids, array $add, array $remove, array $actor): int {
+        $map = self::canonicalMap($pdo);
+        $addKeys = [];
+        foreach (explode(',', (string)self::normalizeTags(implode(',', $add), $map)) as $t) if ($t !== '') $addKeys[self::tagKey($t)] = $t;
+        $rmKeys = array_map([self::class, 'tagKey'], array_filter(array_map('trim', $remove), fn($t) => $t !== ''));
+        $n = 0;
+        foreach (array_unique(array_map('intval', $ids)) as $id) {
+            $link = self::find($pdo, $id);
+            if (!$link) continue;
+            $cur = [];
+            foreach (explode(',', (string)$link['tags']) as $t) if ($t !== '') $cur[self::tagKey($t)] = $t;
+            foreach ($rmKeys as $k) unset($cur[$k]);
+            foreach ($addKeys as $k => $t) $cur[$k] ??= $t;
+            $new = self::normalizeTags(implode(',', $cur), $map);
+            if (self::update($pdo, $link, ['tags' => $new], $actor, 'tags')) $n++;
+        }
+        return $n;
+    }
+
+    /**
+     * Bir etiketi tüm QR'larda yeniden adlandırır; $to zaten varsa birleştirir. $to boşsa etiketi kaldırır.
+     * QR'ların kendisine (kısa ad, hedef, okutma) dokunulmaz.
+     * @return int değişen QR sayısı
+     */
+    public static function renameTag(PDO $pdo, string $from, string $to, array $actor): int {
+        $fromKey = self::tagKey(trim($from));
+        $ids = [];
+        foreach ($pdo->query("SELECT id, tags FROM links WHERE tags IS NOT NULL AND tags <> ''")->fetchAll() as $r) {
+            foreach (explode(',', $r['tags']) as $t) {
+                if (self::tagKey($t) === $fromKey) { $ids[] = (int)$r['id']; break; }
+            }
+        }
+        // Aynı etiketin yazımını düzeltmek (poster → Poster) serbest; farklı bir etikete geçiş mevcut yazımı korur (birleştirme)
+        $canon = self::canonicalMap($pdo);
+        unset($canon[$fromKey]);
+        $to = trim((string)self::normalizeTags($to, $canon));
+        $n = 0;
+        foreach ($ids as $id) {
+            $link = self::find($pdo, $id);
+            $cur = [];
+            foreach (explode(',', (string)$link['tags']) as $t) {
+                if ($t === '') continue;
+                if (self::tagKey($t) === $fromKey) { if ($to !== '') foreach (explode(',', $to) as $x) $cur[self::tagKey($x)] ??= $x; continue; }
+                $cur[self::tagKey($t)] ??= $t;
+            }
+            if (self::update($pdo, $link, ['tags' => self::normalizeTags(implode(',', array_values($cur)))], $actor, 'tags')) $n++;
+        }
+        return $n;
     }
 
     /** datetime-local ("2026-11-05T18:30") veya "2026-11-05 18:30" → "Y-m-d H:i:s"; boş → null; geçersiz → false */
@@ -214,7 +323,7 @@ class LinkService {
             else $clean['category'] = $c === '' ? null : $c;
         }
 
-        if ($has('tags'))  $clean['tags']  = self::normalizeTags(is_array($in['tags']) ? implode(',', $in['tags']) : (string)$in['tags']);
+        if ($has('tags'))  $clean['tags']  = self::normalizeTags(is_array($in['tags']) ? implode(',', $in['tags']) : (string)$in['tags'], self::canonicalMap());
         if ($has('notes')) {
             $n = trim((string)$in['notes']);
             $clean['notes'] = $n === '' ? null : mb_substr($n, 0, 2000);
@@ -378,7 +487,8 @@ class LinkService {
             default: $where[] = 'archived_at IS NULL';
         }
         if ($category !== '' && isset(self::CATEGORIES[$category])) { $where[] = 'category = ?'; $params[] = $category; }
-        if ($tag !== '')    { $where[] = 'FIND_IN_SET(?, tags) > 0'; $params[] = $tag; }
+        if ($tag === '__none') { $where[] = "(tags IS NULL OR tags = '')"; }
+        elseif ($tag !== '')   { $where[] = 'FIND_IN_SET(?, tags) > 0'; $params[] = $tag; }
         if ($search !== '') {
             $where[] = '(slug LIKE ? OR title LIKE ? OR target_url LIKE ? OR tags LIKE ? OR notes LIKE ?)';
             $like = '%' . $search . '%';
@@ -476,7 +586,7 @@ class LinkEvents {
         return [
             'create' => 'Oluşturuldu', 'update' => 'Güncellendi', 'activate' => 'Aktif edildi',
             'deactivate' => 'Pasife alındı', 'archive' => 'Arşivlendi', 'restore' => 'Arşivden çıkarıldı',
-            'purge' => 'Kalıcı silindi',
+            'purge' => 'Kalıcı silindi', 'tags' => 'Etiket değişti',
         ][$a] ?? $a;
     }
 }

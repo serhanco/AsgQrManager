@@ -583,8 +583,8 @@ canvas.chart-canvas {
   .main { padding: 1.25rem 1rem; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .page-header { flex-direction: column; align-items: flex-start; }
-  thead th:nth-child(n+4) { display: none; }
-  tbody td:nth-child(n+4) { display: none; }
+  /* Tablolar yatay kaydırılır; sütunlar (durum, işlemler) gizlenmez */
+  .table-wrap table { min-width: 640px; }
 }
 
 /* Login sayfası (layout dışı) */
@@ -688,3 +688,78 @@ canvas.chart-canvas {
   .sticky-card { position: static; }
   .settings-grid { grid-template-columns: 1fr; }
 }
+
+/* ─── İpuçları (tooltip) ───────────────────────────────────────────────────── */
+.tip {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 1.1rem; height: 1.1rem; margin-left: .25rem; border-radius: 50%; cursor: help;
+  font-size: .72rem; font-weight: 700; line-height: 1; vertical-align: middle;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.tip:hover, .tip:focus-visible { background: var(--accent); color: #fff; outline: none; }
+.tip::after {
+  content: attr(data-tip); position: absolute; z-index: 300; left: 50%; bottom: calc(100% + .45rem);
+  transform: translateX(-.6rem); width: max-content; max-width: min(280px, 70vw);
+  padding: .5rem .7rem; border-radius: var(--radius-sm); background: #0f172a; color: #f8fafc;
+  font-size: .78rem; font-weight: 400; line-height: 1.45; text-align: left; white-space: normal;
+  box-shadow: var(--shadow-md); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s;
+}
+.tip:hover::after, .tip:focus-visible::after { opacity: 1; visibility: visible; }
+
+/* ─── Etiket girişi ────────────────────────────────────────────────────────── */
+.tag-input {
+  display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; padding: .35rem .5rem; min-height: 2.6rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: text;
+}
+.tag-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.tag-input input { flex: 1 1 8rem; min-width: 8rem; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; padding: .25rem 0; }
+.tag-input .tag-chip { margin: 0; display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; padding: .15rem .35rem .15rem .6rem; }
+.tag-input .tag-chip button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: .9rem; line-height: 1; padding: 0 .15rem; opacity: .7; }
+.tag-input .tag-chip button:hover { opacity: 1; }
+.tag-box { position: relative; }
+.tag-suggest {
+  position: absolute; z-index: 150; left: 0; right: 0; top: calc(100% + 2px); max-height: 14rem; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+}
+.tag-suggest[hidden] { display: none; }
+.tag-suggest button {
+  display: flex; justify-content: space-between; gap: 1rem; width: 100%; padding: .45rem .75rem; border: 0;
+  background: transparent; color: var(--text); font: inherit; font-size: .88rem; text-align: left; cursor: pointer;
+}
+.tag-suggest button:hover, .tag-suggest button.sel { background: var(--surface2); }
+.tag-suggest small { color: var(--text-muted); }
+.tag-meta { display: flex; justify-content: space-between; gap: 1rem; margin-top: .3rem; font-size: .78rem; color: var(--text-muted); min-height: 1.1rem; }
+.tag-meta .warn { color: var(--warning); }
+.tag-popular { margin-top: .5rem; font-size: .8rem; color: var(--text-muted); }
+.tag-popular .tag-chip { border: 0; cursor: pointer; font: inherit; font-size: .78rem; }
+.tag-popular .tag-chip small { opacity: .7; }
+.tag-guide {
+  margin-top: .75rem; padding: .75rem .9rem; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface2); font-size: .85rem;
+}
+.tag-guide summary { cursor: pointer; font-weight: 600; }
+.tag-guide dl { display: grid; grid-template-columns: auto 1fr; gap: .35rem .9rem; margin-top: .6rem; }
+.tag-guide dt { font-weight: 600; }
+.tag-guide dd { color: var(--text-muted); }
+.tag-guide .example { margin-top: .6rem; padding-top: .6rem; border-top: 1px dashed var(--border); }
+
+/* Çoklu seçim çubuğu (liste) */
+.bulk-bar {
+  position: sticky; bottom: 1rem; z-index: 120; display: none; flex-wrap: wrap; gap: .6rem; align-items: center;
+  margin: 1rem 0; padding: .7rem 1rem; background: var(--surface); border: 1px solid var(--accent);
+  border-radius: var(--radius); box-shadow: var(--shadow-md);
+}
+.bulk-bar.show { display: flex; }
+.bulk-bar .form-control { max-width: 220px; }
+td.sel-cell, th.sel-cell { width: 2rem; padding-right: 0; }
+
+/* Dashboard / boş durum ipucu kartı */
+.nudge {
+  display: flex; gap: .9rem; align-items: flex-start; padding: .9rem 1.1rem; margin-bottom: 1rem;
+  border: 1px solid color-mix(in srgb, var(--info) 35%, transparent); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--info) 8%, var(--surface));
+}
+.nudge .nudge-icon { font-size: 1.4rem; line-height: 1.2; }
+.nudge .nudge-title { font-weight: 600; }
+.nudge p { font-size: .88rem; color: var(--text-muted); margin-top: .15rem; }
+.nudge .btn-group { margin-top: .6rem; }

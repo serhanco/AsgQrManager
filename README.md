@@ -18,7 +18,7 @@ Mevcut kurulumlar **veri kaybetmeden** güncellenir. Üretilmiş hiçbir QR kodu
 | **İndirme** | SVG, PDF (vektör; 30/50/100/200 mm), PNG (600–3000 px), şeffaf PNG, tek tıkla baskı paketi (ZIP). |
 | **Paylaşım** | Panoya kopyala, cihaz paylaşım menüsü, WhatsApp, e-posta, ajans/matbaa için **imzalı ve süreli indirme bağlantısı** (giriş gerektirmez, iptal edilebilir). |
 | **Yönlendirme** | Başlangıç/bitiş zamanı, bitiş sonrası adres, yedek hedef (genel ve QR'a özel), isteğe bağlı UTM etiketleri. |
-| **Düzen** | Tür (Genel Merkez/Ofis/Etkinlik/Kampanya), etiket, not; durum/tür/etiket filtreleri; CSV dışa aktarım; CSV ile toplu oluşturma. |
+| **Düzen ve etiketler** | **Tür** (tek seçim: Genel Merkez/Ofis/Etkinlik/Kampanya) ve **etiket** (serbest, çoklu: ülke, etkinlik adı, materyal…). Formda çipli giriş, mevcut etiketlerden öneri, tür/etiket rehberi ve ⓘ ipuçları; İstanbul/istanbul/Istanbul gibi yazımlar otomatik birleşir. Etiketler sayfası (yeniden adlandır, birleştir, kaldır), listede çoklu seçimle toplu etiket ekle/çıkar, "etiketsiz" filtresi, etikete göre birleşik rapor. CSV dışa aktarım ve CSV ile toplu oluşturma. |
 | **Raporlar** | Tarih aralığı, saat/gün/ülke/cihaz kırılımı, tekil ziyaretçi tahmini. Bot ve link önizleme istekleri sayılmaz. |
 | **Denetim izi** | Kim, ne zaman, neyi değiştirdi (`Değişiklik Geçmişi`). |
 | **API** | `/api/v1` — Bearer anahtarı (yalnızca hash'i saklanır), okuma/yazma yetkisi. QR **silme uç noktası yoktur**. Belgeler: `/admin/api-docs`. |
@@ -184,6 +184,8 @@ QrManager/
 │   ├── delete.php          ← Arşivle (POST); yalnızca okutulmamış arşivler kalıcı silinebilir
 │   ├── restore.php         ← Arşivden çıkar
 │   ├── bulk.php            ← CSV ile toplu oluştur
+│   ├── tags.php            ← Etiket yönetimi (yeniden adlandır/birleştir/kaldır)
+│   ├── bulk-tags.php       ← Listeden seçili QR'lara toplu etiket (POST)
 │   ├── report.php          ← Raporlar
 │   ├── history.php        ← Değişiklik geçmişi
 │   ├── settings.php        ← Marka, yönlendirme, gizlilik, logolar, paylaşım

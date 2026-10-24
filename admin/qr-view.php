@@ -240,7 +240,7 @@ include __DIR__ . '/views/_layout.php';
       <div><div class="info-k">Tür</div><?= e(LinkService::CATEGORIES[$link['category']] ?? $link['category']) ?></div>
     <?php endif; ?>
     <?php if (!empty($link['tags'])): ?>
-      <div><div class="info-k">Etiketler</div><?php foreach (explode(',', $link['tags']) as $t): ?><span class="tag-chip">#<?= e($t) ?></span><?php endforeach; ?></div>
+      <div><div class="info-k">Etiketler</div><?php foreach (explode(',', $link['tags']) as $t): ?><a class="tag-chip" href="<?= BASE_URL ?>/admin/links?tag=<?= urlencode($t) ?>" title="Bu etiketli tüm QR'ları göster">#<?= e($t) ?></a><?php endforeach; ?></div>
     <?php endif; ?>
     <?php if (!empty($link['starts_at']) || !empty($link['ends_at'])): ?>
       <div><div class="info-k">Zamanlama</div>

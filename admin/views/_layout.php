@@ -50,6 +50,9 @@ $csrf = Auth::csrfToken();
     <li><a href="<?= $base ?>/admin/create" <?= $activePage==='create'?'class="active"':'' ?>>
       <span class="nav-icon">➕</span> Yeni Link
     </a></li>
+    <li><a href="<?= $base ?>/admin/tags" <?= $activePage==='tags'?'class="active"':'' ?>>
+      <span class="nav-icon">🏷</span> Etiketler
+    </a></li>
     <li><a href="<?= $base ?>/admin/bulk" <?= $activePage==='bulk'?'class="active"':'' ?>>
       <span class="nav-icon">📑</span> Toplu Oluştur
     </a></li>

@@ -16,6 +16,9 @@ if ($id && !$link) {
     redirect(BASE_URL . '/admin/links');
 }
 
+$tag = $link ? '' : trim((string)($_GET['tag'] ?? ''));
+if ($tag !== '' && mb_strlen($tag) > 30) $tag = '';
+
 // ─── Tarih aralığı ────────────────────────────────────────────────────────────
 $tz    = Settings::timezone();
 $today = (new DateTimeImmutable('now', $tz))->format('Y-m-d');
@@ -41,6 +44,10 @@ $linkSql = $link ? ' AND s.link_id = ?' : '';
 $base    = ['ok' => "s.is_bot = 0 AND (s.outcome IS NULL OR s.outcome = 'ok') AND s.scanned_at >= ? AND s.scanned_at < ?" . $linkSql];
 $args    = [$fromTs, $toTs];
 if ($link) $args[] = $link['id'];
+if ($tag !== '') {
+    $base['ok'] .= ' AND s.link_id IN (SELECT id FROM links WHERE FIND_IN_SET(?, tags) > 0)';
+    $args[] = $tag;
+}
 
 $q = function (string $sql, array $a) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($a); return $st; };
 
@@ -48,7 +55,7 @@ $q = function (string $sql, array $a) use ($pdo) { $st = $pdo->prepare($sql); $s
 $csv = $_GET['csv'] ?? '';
 if ($csv !== '') {
     header('Content-Type: text/csv; charset=UTF-8');
-    $name = 'rapor-' . ($link ? $link['slug'] : 'tum-qr') . '-' . $from . '_' . $to . '-' . $csv;
+    $name = 'rapor-' . ($link ? $link['slug'] : ($tag !== '' ? 'etiket-' . preg_replace('/[^A-Za-z0-9_-]+/', '-', $tag) : 'tum-qr')) . '-' . $from . '_' . $to . '-' . $csv;
     header('Content-Disposition: attachment; filename="' . $name . '.csv"');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF");
@@ -78,7 +85,7 @@ if ($csv !== '') {
 }
 
 // ─── Özet ─────────────────────────────────────────────────────────────────────
-$S = Stats::summary($pdo, $link ? (int)$link['id'] : null, $from, $to);
+$S = Stats::summary($pdo, $link ? (int)$link['id'] : null, $from, $to, $tag);
 $daily = $S['daily']; $hours = $S['hours'];
 $dev = $S['devices']; $os = $S['os']; $br = $S['browsers']; $countries = $S['countries']; $refs = $S['referrers'];
 $tot = ['c' => $S['total'], 'u' => $S['unique']];
@@ -93,6 +100,22 @@ if (!$link) {
         $perCat[$r['k'] === '' ? 'Türü seçilmemiş' : (LinkService::CATEGORIES[$r['k']] ?? $r['k'])] = (int)$r['c'];
     }
 }
+
+// Etikete göre dağılım (genel raporda): bir okutma, QR'ının her etiketine sayılır
+$perTag = [];
+if (!$link && $tag === '') {
+    $canon = [];
+    foreach ($q("SELECT l.tags t, COUNT(*) c FROM scans s JOIN links l ON l.id = s.link_id WHERE {$base['ok']} AND l.tags IS NOT NULL AND l.tags <> '' GROUP BY l.id", $args) as $r) {
+        foreach (explode(',', $r['t']) as $t) {
+            $k = LinkService::tagKey($t);
+            $canon[$k] ??= $t;
+            $perTag[$canon[$k]] = ($perTag[$canon[$k]] ?? 0) + (int)$r['c'];
+        }
+    }
+    arsort($perTag);
+    $perTag = array_slice($perTag, 0, 15, true);
+}
+$allTagList = LinkService::allTags($pdo);
 
 $flag = function (string $cc): string {
     if (!preg_match('/^[A-Z]{2}$/', $cc)) return '🌐';
@@ -110,7 +133,7 @@ function reportBars(array $data, int $total, ?callable $label = null): void {
     }
 }
 
-$qsBase = ['id' => $id ?: null, 'range' => $range, 'from' => $range === 'custom' ? $from : null, 'to' => $range === 'custom' ? $to : null];
+$qsBase = ['id' => $id ?: null, 'tag' => $tag ?: null, 'range' => $range, 'from' => $range === 'custom' ? $from : null, 'to' => $range === 'custom' ? $to : null];
 $qs = fn(array $o = []) => '?' . http_build_query(array_filter(array_merge($qsBase, $o), fn($v) => $v !== null && $v !== ''));
 
 $total = (int)$tot['c'];
@@ -120,13 +143,21 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">📊 Rapor<?= $link ? ' — <code>' . e($link['slug']) . '</code>' : ' — Tüm QR\'lar' ?></h1>
+  <h1 class="page-title">📊 Rapor<?= $link ? ' — <code>' . e($link['slug']) . '</code>' : ($tag !== '' ? ' — <span class="tag-chip" style="font-size:1rem">#' . e($tag) . '</span>' : ' — Tüm QR\'lar') ?></h1>
   <div class="btn-group">
     <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => 'daily']) ?>">⬇️ Günlük CSV</a>
     <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => $link ? 'raw' : 'links']) ?>">⬇️ <?= $link ? 'Okutma listesi CSV' : 'QR bazlı CSV' ?></a>
     <?php if ($link): ?><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>">✏️ Düzenle</a><?php endif; ?>
   </div>
 </div>
+
+<?php if ($tag !== ''): ?>
+<div class="alert alert-info">
+  <strong>#<?= e($tag) ?></strong> etiketli tüm QR’ların birleşik raporu.
+  <a href="<?= BASE_URL ?>/admin/links?tag=<?= urlencode($tag) ?>">QR’ları listele</a> ·
+  <a href="<?= BASE_URL ?>/admin/report<?= $qs(['tag' => null]) ?>">Etiket süzgecini kaldır</a>
+</div>
+<?php endif; ?>
 
 <?php if ($link): ?>
 <div class="alert alert-info">
@@ -137,6 +168,14 @@ include __DIR__ . '/views/_layout.php';
 
 <form method="GET" class="search-bar mb-4">
   <?php if ($id): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?>
+  <?php if (!$link): ?>
+  <select class="form-control" name="tag" style="max-width:200px" onchange="this.form.submit()" title="Yalnızca bu etikete sahip QR'ların birleşik raporu">
+    <option value="">Tüm etiketler</option>
+    <?php foreach ($allTagList as $t): ?>
+      <option value="<?= e($t['tag']) ?>" <?= LinkService::tagKey($tag) === LinkService::tagKey($t['tag']) && $tag !== '' ? 'selected' : '' ?>>#<?= e($t['tag']) ?> (<?= (int)$t['count'] ?>)</option>
+    <?php endforeach; ?>
+  </select>
+  <?php endif; ?>
   <select class="form-control" name="range" id="range-sel" style="max-width:190px">
     <?php foreach (['7' => 'Son 7 gün', '30' => 'Son 30 gün', '90' => 'Son 90 gün', '365' => 'Son 1 yıl', 'all' => 'Tüm zamanlar', 'custom' => 'Özel aralık'] as $k => $lbl): ?>
       <option value="<?= $k ?>" <?= $range === $k ? 'selected' : '' ?>><?= $lbl ?></option>
@@ -199,7 +238,13 @@ include __DIR__ . '/views/_layout.php';
       </tbody>
     </table></div>
   </div>
-  <div class="card"><div class="card-title mb-3">🗂 Türe göre</div><?php reportBars($perCat, $total); ?></div>
+  <div class="card"><div class="card-title mb-3">🗂 Türe göre <?= tip('Tür: QR’ın ne olduğu (tek seçim). Etiketler ise kesişen gruplardır; bir QR birden çok etikete girebilir.') ?></div><?php reportBars($perCat, $total); ?></div>
+  <div class="card"><div class="card-title mb-3">🏷 Etikete göre <?= tip('Bir okutma, QR’ın her etiketine ayrı sayılır; bu yüzden etiket toplamları genel toplamı aşabilir. Birleşik rapor için etiket adına tıklayın.') ?></div>
+    <?php if (!$perTag): ?>
+      <p class="text-sm text-muted">Bu aralıkta etiketli QR’dan okutma yok. QR’lara etiket vererek ülke, etkinlik veya materyale göre karşılaştırma yapabilirsiniz.
+        <a href="<?= BASE_URL ?>/admin/links?tag=__none">Etiketsizleri göster</a></p>
+    <?php else: reportBars($perTag, $total, fn($k) => '<a href="' . BASE_URL . '/admin/report' . $qs(['tag' => $k]) . '">#' . e($k) . '</a>'); endif; ?>
+  </div>
 </div>
 <?php endif; ?>
 

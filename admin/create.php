@@ -27,6 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 Logger::warning('İlk QR üretimi başarısız: ' . $e->getMessage());
             }
             flash('success', "Link oluşturuldu! Kısa adres: {$link['slug']}");
+            if (empty($link['tags'])) {
+                flash('info', 'İpucu: Bu QR’a etiket (ülke, etkinlik, materyal…) eklerseniz raporlarda gruplayabilirsiniz. Düzenle sayfasından ekleyebilirsiniz.');
+            }
             redirect(BASE_URL . '/admin/qr-view?slug=' . urlencode($link['slug']));
         } catch (RuntimeException $e) {
             $errors[] = $e->getMessage();

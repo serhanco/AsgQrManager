@@ -252,3 +252,162 @@ window.drawScanChart = function (canvasId, labels, data) {
     el.addEventListener('change', refreshPreview);
   });
 })();
+
+/* ─── Etiket girişi (çip + öneri + uyarı) ──────────────────────────────────── */
+(function () {
+  const box = document.querySelector('.tag-input');
+  if (!box) return;
+
+  const hidden  = document.getElementById('tags');
+  const entry   = box.querySelector('input');
+  const chipsEl = box.querySelector('.tag-chips');
+  const sugEl   = document.getElementById('tag-suggest');
+  const countEl = document.getElementById('tag-count');
+  const hintEl  = document.getElementById('tag-hint');
+  const all     = JSON.parse(box.dataset.all || '[]');            // [{tag,count}]
+  const cats    = JSON.parse(box.dataset.categories || '{}');     // {key: label}
+  const MAX     = parseInt(box.dataset.max || '10', 10);
+  const catSel  = document.getElementById('category');
+
+  // Sunucudaki LinkService::tagKey ile aynı kural: büyük/küçük harf ve Türkçe aksan farkı yok sayılır
+  const key = t => t.replace(/İ|I|ı/g, 'i').replace(/[Çç]/g, 'c').replace(/[Ğğ]/g, 'g')
+                    .replace(/[Öö]/g, 'o').replace(/[Şş]/g, 's').replace(/[Üü]/g, 'u').toLowerCase();
+  const clean = t => t.replace(/\s+/g, ' ').replace(/[^\p{L}\p{N} _\-.]/gu, '').trim();
+  const known = new Map(all.map(a => [key(a.tag), a.tag]));
+
+  let tags = (hidden.value || '').split(',').map(clean).filter(Boolean);
+  let sel = -1;
+
+  function sync() {
+    hidden.value = tags.join(',');
+    chipsEl.innerHTML = '';
+    tags.forEach((t, i) => {
+      const c = document.createElement('span');
+      c.className = 'tag-chip';
+      c.textContent = '#' + t;
+      const b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('aria-label', t + ' etiketini kaldır'); b.textContent = '×';
+      b.addEventListener('click', () => { tags.splice(i, 1); sync(); entry.focus(); });
+      c.appendChild(b);
+      chipsEl.appendChild(c);
+    });
+    countEl.textContent = tags.length + '/' + MAX + ' etiket';
+    entry.placeholder = tags.length ? '' : 'Etiket yazıp Enter’a basın (örn. UK, poster)';
+    document.querySelectorAll('.tag-popular [data-tag]').forEach(b => {
+      b.hidden = tags.some(t => key(t) === key(b.dataset.tag));
+    });
+  }
+
+  function say(msg, warn) {
+    hintEl.textContent = msg || '';
+    hintEl.className = warn ? 'warn' : '';
+  }
+
+  function add(raw) {
+    let t = clean(raw);
+    if (!t) return false;
+    if (t.length > 30) { say('Etiket en fazla 30 karakter olabilir.', true); return false; }
+    const k = key(t);
+    if (tags.some(x => key(x) === k)) { say('“' + t + '” zaten ekli.', true); return false; }
+    if (tags.length >= MAX) { say('En fazla ' + MAX + ' etiket eklenebilir.', true); return false; }
+    if (known.has(k) && known.get(k) !== t) {
+      say('“' + t + '” mevcut etiketle birleştirildi: ' + known.get(k), false);
+      t = known.get(k);
+    } else {
+      const catHit = Object.entries(cats).find(([ck, cl]) => key(cl) === k || ck === k || (k === 'ofis' && ck === 'office') || (k === 'etkinlik' && ck === 'event'));
+      say(catHit ? '“' + t + '” zaten “Tür” alanında var; etiket olarak tekrar gerekmez (yine de eklendi).'
+                 : (!known.has(k) && all.length ? 'Yeni etiket: “' + t + '”. Aynı anlama gelen bir etiket varsa onu seçin; raporlar bölünmesin.' : ''),
+          !!catHit);
+    }
+    tags.push(t);
+    entry.value = '';
+    closeSuggest();
+    sync();
+    return true;
+  }
+
+  function closeSuggest() { sugEl.hidden = true; sel = -1; }
+
+  function renderSuggest() {
+    const q = key(clean(entry.value));
+    const items = all.filter(a => !tags.some(t => key(t) === key(a.tag)) && (q === '' || key(a.tag).includes(q))).slice(0, 8);
+    sugEl.innerHTML = '';
+    if (!items.length || (q === '' && document.activeElement !== entry)) { closeSuggest(); return; }
+    items.forEach((a, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('role', 'option');
+      b.innerHTML = '<span></span><small></small>';
+      b.firstChild.textContent = '#' + a.tag;
+      b.lastChild.textContent = a.count + ' QR';
+      b.addEventListener('mousedown', e => { e.preventDefault(); add(a.tag); entry.focus(); });
+      sugEl.appendChild(b);
+    });
+    sugEl.hidden = false;
+    sel = -1;
+  }
+
+  entry.addEventListener('input', () => {
+    if (/[,;]/.test(entry.value)) {
+      entry.value.split(/[,;]/).forEach(p => add(p));
+      return;
+    }
+    say('');
+    renderSuggest();
+  });
+  entry.addEventListener('focus', renderSuggest);
+  entry.addEventListener('keydown', e => {
+    const opts = [...sugEl.querySelectorAll('button')];
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (sugEl.hidden || !opts.length) return;
+      e.preventDefault();
+      sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
+      opts.forEach((o, i) => o.classList.toggle('sel', i === sel));
+    } else if (e.key === 'Enter' || e.key === 'Tab' && entry.value.trim()) {
+      if (e.key === 'Enter') e.preventDefault();       // Enter formu göndermesin
+      if (sel >= 0 && opts[sel]) { add(all.filter(a => !tags.some(t => key(t) === key(a.tag)) && key(a.tag).includes(key(clean(entry.value))))[sel].tag); }
+      else if (entry.value.trim()) add(entry.value);
+    } else if (e.key === 'Backspace' && !entry.value && tags.length) {
+      tags.pop(); sync();
+    } else if (e.key === 'Escape') {
+      closeSuggest();
+    }
+  });
+  entry.addEventListener('blur', () => { if (entry.value.trim()) add(entry.value); closeSuggest(); });
+  box.addEventListener('click', () => entry.focus());
+  box.closest('form').addEventListener('submit', () => { if (entry.value.trim()) add(entry.value); });
+
+  // Sık kullanılan / önerilen etiket düğmeleri
+  document.querySelectorAll('.tag-popular [data-tag]').forEach(b =>
+    b.addEventListener('click', () => { add(b.dataset.tag); }));
+
+  // Tür değişince, aynı kavramı etiket olarak girmeye karşı nazik uyarı
+  if (catSel) catSel.addEventListener('change', () => {
+    const lbl = cats[catSel.value];
+    if (lbl && tags.some(t => key(t) === key(lbl))) say('“' + lbl + '” artık “Tür” alanında; etiketten çıkarabilirsiniz.', true);
+  });
+
+  sync();
+})();
+
+/* ─── Listede çoklu seçim ──────────────────────────────────────────────────── */
+(function () {
+  const bar = document.getElementById('bulk-bar');
+  if (!bar) return;
+  const boxes = () => [...document.querySelectorAll('.row-sel')];
+  const master = document.getElementById('sel-all');
+  const label = bar.querySelector('[data-count]');
+  function refresh() {
+    const n = boxes().filter(b => b.checked).length;
+    bar.classList.toggle('show', n > 0);
+    label.textContent = n + ' QR seçili';
+    if (master) master.checked = n > 0 && n === boxes().length;
+  }
+  boxes().forEach(b => b.addEventListener('change', refresh));
+  if (master) master.addEventListener('change', () => { boxes().forEach(b => b.checked = master.checked); refresh(); });
+  bar.querySelector('[data-clear]').addEventListener('click', () => { boxes().forEach(b => b.checked = false); refresh(); });
+  bar.closest('form').addEventListener('submit', e => {
+    const f = e.target;
+    if (!f.add.value.trim() && !f.remove.value.trim()) { e.preventDefault(); f.add.focus(); }
+  });
+  refresh();
+})();

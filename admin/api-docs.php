@@ -30,7 +30,8 @@ include __DIR__ . '/views/_layout.php';
     <thead><tr><th>Yöntem</th><th>Adres</th><th>Açıklama</th></tr></thead>
     <tbody>
       <tr><td>GET</td><td><code>/ping</code></td><td>Anahtarı ve bağlantıyı doğrular</td></tr>
-      <tr><td>GET</td><td><code>/links</code></td><td>Liste. Filtre: <code>q, status, category, tag, page, per_page</code> (status: live, inactive, scheduled, expired, archived)</td></tr>
+      <tr><td>GET</td><td><code>/tags</code></td><td>Kullanılan etiketler ve QR/okutma sayıları. Benzer yazımlar (İstanbul/istanbul) tek etiket sayılır; yazarken mevcut yazım korunur.</td></tr>
+      <tr><td>GET</td><td><code>/links</code></td><td>Liste. Filtre: <code>q, status, category, tag, page, per_page</code> (<code>tag=__none</code> etiketsiz QR’lar) (status: live, inactive, scheduled, expired, archived)</td></tr>
       <tr><td>POST</td><td><code>/links</code></td><td>QR oluştur (yazma yetkisi)</td></tr>
       <tr><td>GET</td><td><code>/links/{slug}</code></td><td>Tek QR</td></tr>
       <tr><td>PATCH</td><td><code>/links/{slug}</code></td><td>Gönderilen alanları güncelle (örn. yeni hedef URL)</td></tr>

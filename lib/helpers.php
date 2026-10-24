@@ -338,3 +338,11 @@ function maybeAnonymizeScans(PDO $pdo): void {
         Logger::warning('IP anonimleştirme hatası: ' . $e->getMessage());
     }
 }
+
+/**
+ * Bilgi (ⓘ) simgesi: üzerine gelince veya klavye ile odaklanınca açıklama gösterir.
+ * Metin kaçışlıdır; HTML kabul etmez.
+ */
+function tip(string $text): string {
+    return '<span class="tip" tabindex="0" role="note" aria-label="' . e($text) . '" data-tip="' . e($text) . '">ⓘ</span>';
+}

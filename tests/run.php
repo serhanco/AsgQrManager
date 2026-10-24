@@ -108,6 +108,33 @@ ok(count($e) > 0, 'bitiş başlangıçtan önce olamaz');
 [$c, $e] = LinkService::normalize(['category' => 'nope', 'target_url' => 'https://a.com']);
 ok(count($e) > 0, 'geçersiz kategori reddedilir');
 
+// ─── Etiketler ────────────────────────────────────────────────────────────────
+section('Etiketler');
+ok(LinkService::tagKey('İstanbul') === LinkService::tagKey('istanbul') && LinkService::tagKey('Istanbul') === LinkService::tagKey('İSTANBUL'), 'İstanbul / istanbul / Istanbul aynı etiket sayılır');
+ok(LinkService::normalizeTags('Afiş, AFİŞ, afis') === 'Afiş', 'aksan/harf farkı tek etikete iner');
+ok(LinkService::normalizeTags('istanbul, kongre', ['istanbul' => 'İstanbul']) === 'İstanbul,kongre', 'mevcut etiketin yazımı korunur');
+ok(LinkService::normalizeTags(implode(',', range(1, 15))) === implode(',', range(1, 10)), 'en fazla 10 etiket');
+$long = LinkService::normalizeTags(implode(',', array_map(fn($i) => str_repeat(chr(97 + $i), 29), range(0, 9))));
+ok(strlen((string)$long) <= 255, 'toplam uzunluk 255 karakteri aşmaz');
+
+$tpdo = getPdo();
+$tpdo->exec("DELETE FROM links WHERE slug LIKE 'tagtest%'");
+$actor = ['id' => null, 'name' => 'test'];
+$mk = fn(string $slug, string $tags) => LinkService::create($tpdo, ['target_url' => 'https://acibadem.world', 'tags' => $tags ?: null], $slug, $actor);
+$l1 = $mk('tagtest1', 'ttUK,ttPoster'); $l2 = $mk('tagtest2', 'ttPoster'); $l3 = $mk('tagtest3', '');
+ok(LinkService::bulkTags($tpdo, [$l2['id'], $l3['id']], ['ttuk', 'ttKongre-2027'], [], $actor) === 2, 'toplu etiket ekleme iki QR\'ı günceller');
+ok(LinkService::find($tpdo, $l3['id'])['tags'] === 'ttUK,ttKongre-2027', 'mevcut yazım (ttUK) kullanıldı');
+ok(LinkService::bulkTags($tpdo, [$l1['id']], ['ttuk'], [], $actor) === 0, 'zaten ekli etiket değişiklik sayılmaz');
+ok(LinkService::bulkTags($tpdo, [$l1['id']], [], ['ttposter'], $actor) === 1 && LinkService::find($tpdo, $l1['id'])['tags'] === 'ttUK', 'toplu etiket çıkarma (büyük/küçük harf duyarsız)');
+ok(LinkService::renameTag($tpdo, 'ttkongre-2027', 'ttKongre 2027', $actor) === 2 && LinkService::find($tpdo, $l3['id'])['tags'] === 'ttUK,ttKongre 2027', 'yeniden adlandırma');
+ok(LinkService::renameTag($tpdo, 'ttPoster', 'ttUK', $actor) >= 1 && LinkService::find($tpdo, $l2['id'])['tags'] === 'ttUK,ttKongre 2027', 'birleştirme çift etiket üretmez');
+ok(LinkService::renameTag($tpdo, 'ttKongre 2027', '', $actor) === 2 && LinkService::find($tpdo, $l3['id'])['tags'] === 'ttUK', 'etiket kaldırma');
+ok(count($tpdo->query("SELECT 1 FROM link_events WHERE action='tags' AND slug LIKE 'tagtest%'")->fetchAll()) >= 4, 'etiket değişiklikleri geçmişe yazıldı');
+[$w, $p] = LinkService::buildFilter(['tag' => '__none']);
+ok(str_contains($w, "tags IS NULL") && $p === [], 'etiketsiz filtresi');
+$tpdo->exec("DELETE FROM link_events WHERE slug LIKE 'tagtest%'");
+$tpdo->exec("DELETE FROM links WHERE slug LIKE 'tagtest%'");
+
 // ─── Yardımcılar ──────────────────────────────────────────────────────────────
 section('Yardımcılar');
 ok(maskIp('203.0.113.77', 'mask') === '203.0.113.0', 'IPv4 maskelenir');
