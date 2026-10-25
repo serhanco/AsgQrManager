@@ -56,13 +56,13 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">📋 Log Görüntüleyici</h1>
+  <h1 class="page-title"><?= icon('file') ?> Log Görüntüleyici</h1>
   <div class="btn-group">
     <a href="?type=scans" class="btn <?= $type==='scans' ? 'btn-primary' : 'btn-ghost' ?> btn-sm">
-      📊 Tarama Logları
+      <?= icon('chart') ?> Tarama Logları
     </a>
     <a href="?type=app" class="btn <?= $type==='app' ? 'btn-primary' : 'btn-ghost' ?> btn-sm">
-      ⚠️ Uygulama Logları
+      <?= icon('alert') ?> Uygulama Logları
     </a>
   </div>
 </div>
@@ -71,16 +71,16 @@ include __DIR__ . '/views/_layout.php';
 
 <!-- Sol: Dosya ağacı -->
 <div class="card" style="padding:1rem">
-  <div class="card-title mb-3 text-sm">📁 Dosyalar</div>
+  <div class="card-title mb-3 text-sm"><?= icon('folder') ?> Dosyalar</div>
   <?php if (empty($tree)): ?>
     <p class="text-sm text-muted">Henüz log yok.</p>
   <?php else: ?>
     <?php foreach ($tree as $year => $months): ?>
       <div style="margin-bottom:.5rem">
-        <div class="fw-bold text-sm mb-1">📅 <?= e($year) ?></div>
+        <div class="fw-bold text-sm mb-1"><?= icon('calendar') ?> <?= e($year) ?></div>
         <?php foreach ($months as $mon => $files): ?>
           <div style="margin-left:.75rem;margin-bottom:.25rem">
-            <div class="text-muted text-xs mb-1">📂 <?= e($year) ?>-<?= e($mon) ?></div>
+            <div class="text-muted text-xs mb-1"><?= icon('folder') ?> <?= e($year) ?>-<?= e($mon) ?></div>
             <?php foreach ($files as $file): ?>
               <?php
                 $isActive = ($selYear==$year && $selMon==$mon && $selFile==$file);
@@ -114,18 +114,18 @@ include __DIR__ . '/views/_layout.php';
           <input class="form-control form-control" type="search" id="log-search"
                  placeholder="Filtre…" style="max-width:180px;padding:.3rem .6rem;font-size:.8rem">
           <a href="<?= BASE_URL ?>/admin/log-download?type=<?= $type ?>&year=<?= $selYear ?>&mon=<?= $selMon ?>&file=<?= urlencode($selFile) ?>"
-             class="btn btn-ghost btn-sm">⬇️ İndir</a>
+             class="btn btn-ghost btn-sm"><?= icon('download') ?> İndir</a>
         </div>
       </div>
       <pre class="log-viewer"><?= htmlspecialchars($logContent, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></pre>
       <?php if ($fileSize > 524288): ?>
-        <p class="text-xs text-muted mt-2">⚠️ Dosya büyük; yalnızca son 512 KB gösteriliyor.</p>
+        <p class="text-xs text-muted mt-2"><?= icon('alert') ?> Dosya büyük; yalnızca son 512 KB gösteriliyor.</p>
       <?php endif; ?>
     </div>
   <?php else: ?>
     <div class="card" style="display:flex;align-items:center;justify-content:center;min-height:200px;color:var(--text-muted)">
       <div style="text-align:center">
-        <div style="font-size:3rem;margin-bottom:1rem">📋</div>
+        <div style="font-size:3rem;margin-bottom:1rem"><?= icon('copy') ?></div>
         <p>Soldaki listeden bir dosya seçin.</p>
       </div>
     </div>

@@ -18,7 +18,7 @@ $pdo  = getPdo();
 $link = Auth::requireLinkAccess(LinkService::find($pdo, (int)($_POST['id'] ?? 0)));
 
 if (!$link) {
-    flash('danger', 'Link bulunamadı.');
+    flash('danger', 'QR bulunamadı.');
 } elseif (!empty($_POST['purge'])) {
     if (LinkService::purge($pdo, $link, Auth::actor())) {
         flash('success', 'Kayıt kalıcı olarak silindi.');

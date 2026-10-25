@@ -41,16 +41,14 @@ document.addEventListener('click', function (e) {
   const btn = e.target.closest('.copy-btn[data-copy]');
   if (!btn) return;
   const text = btn.dataset.copy;
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent;
-    btn.textContent = '✓';
-    btn.style.color = 'var(--success)';
-    setTimeout(() => {
-      btn.textContent = orig;
-      btn.style.color = '';
-    }, 1500);
-  }).catch(() => {
-    // Fallback: eski yöntem
+  const done = () => {
+    btn.classList.add('copied');
+    const prev = btn.getAttribute('title');
+    btn.setAttribute('title', 'Kopyalandı');
+    setTimeout(() => { btn.classList.remove('copied'); if (prev !== null) btn.setAttribute('title', prev); }, 1500);
+  };
+  navigator.clipboard.writeText(text).then(done).catch(() => {
+    // Yedek yöntem (HTTP veya eski tarayıcı)
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.style.position = 'fixed';
@@ -59,8 +57,22 @@ document.addEventListener('click', function (e) {
     ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
+    done();
   });
 });
+
+/* ─── Açık / koyu tema ─────────────────────────────────────────────────── */
+(function () {
+  const root = document.documentElement;
+  const mq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+  if (!root.dataset.theme) root.dataset.theme = mq && mq.matches ? 'dark' : 'light';
+  document.querySelectorAll('.theme-toggle').forEach(btn => btn.addEventListener('click', () => {
+    const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try { localStorage.setItem('qrm-theme', next); } catch (e) {}
+    window.dispatchEvent(new Event('themechange'));
+  }));
+})();
 
 /* ─── Silme Onayı ──────────────────────────────────────────────────────── */
 document.addEventListener('submit', function (e) {
@@ -107,6 +119,14 @@ document.addEventListener('submit', function (e) {
 window.drawScanChart = function (canvasId, labels, data) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
+  if (!canvas.dataset.bound) {
+    // Boyut veya tema değişince yeniden çiz
+    canvas.dataset.bound = '1';
+    let t;
+    const redraw = () => { clearTimeout(t); t = setTimeout(() => window.drawScanChart(canvasId, labels, data), 120); };
+    window.addEventListener('resize', redraw);
+    window.addEventListener('themechange', redraw);
+  }
   const ctx  = canvas.getContext('2d');
   const w    = canvas.offsetWidth;
   const h    = canvas.offsetHeight;
@@ -122,7 +142,7 @@ window.drawScanChart = function (canvasId, labels, data) {
 
   // Renk (CSS değişkeni)
   const style = getComputedStyle(document.documentElement);
-  const accent  = style.getPropertyValue('--accent').trim()  || '#6366f1';
+  const accent  = style.getPropertyValue('--accent').trim()  || '#1F4BA8';
   const muted   = style.getPropertyValue('--border').trim()  || '#e2e8f0';
   const textColor = style.getPropertyValue('--text-muted').trim() || '#64748b';
 
@@ -138,7 +158,7 @@ window.drawScanChart = function (canvasId, labels, data) {
     ctx.stroke();
     // Y eksen etiket
     ctx.fillStyle = textColor;
-    ctx.font = `${11 * devicePixelRatio / devicePixelRatio}px system-ui`;
+    ctx.font = '11px ' + (style.getPropertyValue('--font').trim() || 'system-ui');
     ctx.textAlign = 'right';
     const val = Math.round(max * (1 - i / gridCount));
     ctx.fillText(val, padL - 5, y + 4);
@@ -163,7 +183,7 @@ window.drawScanChart = function (canvasId, labels, data) {
   // Çizgi
   ctx.beginPath();
   ctx.strokeStyle = accent;
-  ctx.lineWidth   = 2;
+  ctx.lineWidth   = 2.25;
   ctx.lineJoin    = 'round';
   ctx.moveTo(xs[0], ys[0]);
   for (let i = 1; i < n; i++) ctx.lineTo(xs[i], ys[i]);
@@ -181,7 +201,7 @@ window.drawScanChart = function (canvasId, labels, data) {
   // X eksen etiketleri (sadece 7'de bir)
   ctx.fillStyle  = textColor;
   ctx.textAlign  = 'center';
-  ctx.font       = '11px system-ui';
+  ctx.font       = '11px ' + (style.getPropertyValue('--font').trim() || 'system-ui');
   const step = Math.max(1, Math.ceil(n / 6));
   for (let i = 0; i < n; i += step) {
     const d = labels[i] ? labels[i].slice(5) : ''; // MM-DD

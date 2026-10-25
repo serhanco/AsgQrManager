@@ -15,5 +15,5 @@ if ($link) {
     flash('success', "'{$link['slug']}' arşivden çıkarıldı.");
     redirect(BASE_URL . '/admin/edit?id=' . (int)$link['id']);
 }
-flash('danger', 'Link bulunamadı.');
+flash('danger', 'QR bulunamadı.');
 redirect(BASE_URL . '/admin/links');

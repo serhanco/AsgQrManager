@@ -52,29 +52,32 @@ $qs = fn(array $over = []) => '?' . http_build_query(array_filter(
 ));
 
 $stateLabels = ['live' => ['● Aktif', 'badge-success'], 'inactive' => ['○ Pasif', 'badge-danger'],
-                'scheduled' => ['⏳ Başlamadı', 'badge-muted'], 'expired' => ['⌛ Süresi doldu', 'badge-muted'],
-                'archived' => ['🗄 Arşivde', 'badge-muted']];
+                'scheduled' => ['◷ Başlamadı', 'badge-muted'], 'expired' => ['◌ Süresi doldu', 'badge-muted'],
+                'archived' => ['▪ Arşivde', 'badge-muted']];
 
-$pageTitle  = 'Tüm Linkler';
+$pageTitle  = "Tüm QR'lar";
 $activePage = 'links';
 include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">🔗 Tüm Linkler</h1>
+  <div>
+    <h1 class="page-title"><?= icon('qr') ?> Tüm QR'lar</h1>
+    <p class="page-sub"><?= number_format($total, 0, ',', '.') ?> kayıt</p>
+  </div>
   <div class="btn-group">
-    <a href="<?= BASE_URL ?>/admin/links-export<?= $qs() ?>" class="btn btn-ghost">⬇️ CSV</a>
-    <?php if ($isAdmin): ?><a href="<?= BASE_URL ?>/admin/tags" class="btn btn-ghost" title="Etiketleri yeniden adlandır, birleştir, kaldır">🏷 Etiketler</a><?php endif; ?>
+    <a href="<?= BASE_URL ?>/admin/links-export<?= $qs() ?>" class="btn btn-ghost"><?= icon('download') ?> CSV</a>
+    <?php if ($isAdmin): ?><a href="<?= BASE_URL ?>/admin/tags" class="btn btn-ghost" title="Etiketleri yeniden adlandır, birleştir, kaldır"><?= icon('tag') ?> Etiketler</a><?php endif; ?>
     <?php if ($canEdit): ?>
-    <a href="<?= BASE_URL ?>/admin/bulk" class="btn btn-ghost" title="CSV ile birden çok QR oluştur">📑 Toplu</a>
-    <a href="<?= BASE_URL ?>/admin/create" class="btn btn-primary">➕ Yeni Link</a>
+    <a href="<?= BASE_URL ?>/admin/bulk" class="btn btn-ghost" title="CSV ile birden çok QR oluştur"><?= icon('layers') ?> Toplu</a>
+    <a href="<?= BASE_URL ?>/admin/create" class="btn btn-primary"><?= icon('plus') ?> Yeni QR</a>
     <?php endif; ?>
   </div>
 </div>
 
 <?php if ($untaggedCount > 0 && $tag !== '__none' && !$search && !$status && !$category && $total >= 3): ?>
 <div class="nudge">
-  <div class="nudge-icon">🏷</div>
+  <div class="nudge-icon"><?= icon('tag') ?></div>
   <div>
     <div class="nudge-title"><?= $untaggedCount ?> QR’ın etiketi yok</div>
     <p>Etiketli QR’lar raporlarda gruplanabilir (ülke, etkinlik, materyal…). Aşağıdan QR’ları seçip toplu etiket ekleyebilirsiniz.</p>
@@ -85,7 +88,7 @@ include __DIR__ . '/views/_layout.php';
 
 <!-- Arama + filtre -->
 <form class="search-bar mb-4" method="GET" action="" style="flex-wrap:wrap">
-  <input class="form-control" type="search" name="q" placeholder="Kısa ad, başlık, URL, etiket veya not…" value="<?= e($search) ?>">
+  <div class="search-input"><?= icon('search') ?><input class="form-control" type="search" name="q" placeholder="Kısa ad, başlık, URL, etiket veya not…" value="<?= e($search) ?>"></div>
   <select class="form-control" name="status" style="max-width:190px" onchange="this.form.submit()">
     <?php foreach ($statuses as $k => $label): ?>
       <option value="<?= e($k) ?>" <?= $status === $k ? 'selected' : '' ?>><?= e($label) ?></option>
@@ -104,14 +107,14 @@ include __DIR__ . '/views/_layout.php';
       <option value="<?= e($t['tag']) ?>" <?= LinkService::tagKey($tag) === LinkService::tagKey($t['tag']) ? 'selected' : '' ?>><?= e($t['tag']) ?> (<?= (int)$t['active'] ?>)</option>
     <?php endforeach; ?>
   </select>
-  <button class="btn btn-ghost" type="submit">🔍 Ara</button>
+  <button class="btn btn-ghost" type="submit"><?= icon('search') ?> Ara</button>
   <?php if ($search || $status || $category || $tag): ?>
-    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost">✕ Temizle</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost"><?= icon('x') ?> Temizle</a>
   <?php endif; ?>
 </form>
 
 <div class="card" style="padding:0">
-  <div class="table-wrap">
+  <div class="table-wrap cards-on-mobile">
     <table>
       <thead>
         <tr>
@@ -126,19 +129,19 @@ include __DIR__ . '/views/_layout.php';
       </thead>
       <tbody>
         <?php if (empty($links)): ?>
-          <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Hiç link bulunamadı.</td></tr>
+          <tr class="empty-row"><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Bu ölçütlere uyan QR bulunamadı.</td></tr>
         <?php else: foreach ($links as $link):
             $state = Redirector::state($link)['state'];
             $editable = Access::canEditLink($link); ?>
           <tr>
-            <td class="sel-cell"><?php if ($editable): ?><input type="checkbox" class="row-sel" form="bulk-form" name="ids[]" value="<?= (int)$link['id'] ?>" aria-label="<?= e($link['slug']) ?> seç"><?php endif; ?></td>
-            <td>
+            <td class="sel-cell" data-cell="sel"><?php if ($editable): ?><input type="checkbox" class="row-sel" form="bulk-form" name="ids[]" value="<?= (int)$link['id'] ?>" aria-label="<?= e($link['slug']) ?> seç"><?php endif; ?></td>
+            <td data-cell="slug">
               <div class="copy-wrap">
                 <span class="col-slug"><?= e($link['slug']) ?></span>
-                <button class="copy-btn" data-copy="<?= e(BASE_URL . '/r/' . $link['slug']) ?>" title="Kısa URL'yi kopyala">📋</button>
+                <button class="copy-btn" data-copy="<?= e(BASE_URL . '/r/' . $link['slug']) ?>" title="Kısa URL'yi kopyala"><?= icon('copy') ?></button>
               </div>
             </td>
-            <td>
+            <td data-cell="title">
               <div style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">
                 <?= e($link['title'] ?: '—') ?>
                 <?php if (!empty($link['category'])): ?>
@@ -150,13 +153,13 @@ include __DIR__ . '/views/_layout.php';
                 <a class="tag-chip" href="<?= BASE_URL ?>/admin/links<?= $qs(['tag' => $t, 'page' => null]) ?>" title="Bu etiketli tüm QR'ları göster">#<?= e($t) ?></a>
               <?php endforeach; endif; ?>
               <?php if (!empty($link['ends_at'])): ?>
-                <div class="text-xs text-muted">⏱ Bitiş: <?= e(substr($link['ends_at'], 0, 16)) ?></div>
+                <div class="text-xs text-muted"><?= icon('clock') ?> Bitiş: <?= e(substr($link['ends_at'], 0, 16)) ?></div>
               <?php endif; ?>
             </td>
-            <td class="fw-bold"><?= formatCount((int)$link['scan_count']) ?></td>
-            <td>
+            <td class="fw-bold" data-cell="scans"><?= formatCount((int)$link['scan_count']) ?></td>
+            <td data-cell="state">
               <?php if ($state === 'archived'): ?>
-                <span class="badge badge-muted">🗄 Arşivde</span>
+                <span class="badge badge-muted"><?= icon('archive') ?> Arşivde</span>
               <?php elseif ($editable && ($state === 'live' || $state === 'inactive')): ?>
                 <form method="POST" action="<?= BASE_URL ?>/admin/toggle" style="display:inline">
                   <?= Auth::csrfField() ?>
@@ -170,23 +173,23 @@ include __DIR__ . '/views/_layout.php';
                 <span class="badge <?= $stateLabels[$state][1] ?>"><?= $stateLabels[$state][0] ?></span>
               <?php endif; ?>
             </td>
-            <td class="text-sm text-muted"><?= e(substr($link['created_at'], 0, 10)) ?></td>
-            <td>
+            <td class="text-sm text-muted" data-cell="date"><?= e(substr($link['created_at'], 0, 10)) ?></td>
+            <td data-cell="actions">
               <div class="btn-group" style="flex-wrap:nowrap">
-                <a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($link['slug']) ?>" class="btn btn-ghost btn-sm" title="QR / İndir / Paylaş">📱</a>
-                <a href="<?= BASE_URL ?>/admin/report?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm" title="Rapor">📊</a>
-                <?php if ($editable): ?><a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm" title="Düzenle">✏️</a><?php endif; ?>
+                <a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($link['slug']) ?>" class="btn btn-ghost btn-sm" title="QR / İndir / Paylaş"><?= icon('qr') ?></a>
+                <a href="<?= BASE_URL ?>/admin/report?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm" title="Rapor"><?= icon('chart') ?></a>
+                <?php if ($editable): ?><a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm" title="Düzenle"><?= icon('pencil') ?></a><?php endif; ?>
                 <?php if (!$canArchive): ?>
                 <?php elseif ($state === 'archived'): ?>
                   <form method="POST" action="<?= BASE_URL ?>/admin/restore">
                     <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= $link['id'] ?>">
-                    <button type="submit" class="btn btn-ghost btn-sm" title="Arşivden çıkar">♻️</button>
+                    <button type="submit" class="btn btn-ghost btn-sm" title="Arşivden çıkar"><?= icon('restore') ?></button>
                   </form>
                 <?php else: ?>
                   <form method="POST" action="<?= BASE_URL ?>/admin/delete"
                         data-confirm="Bu QR arşivlenecek ve okutulduğunda hedefe gitmeyecek (geçmişi korunur, geri alınabilir). Devam edilsin mi?">
                     <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= $link['id'] ?>">
-                    <button type="submit" class="btn btn-ghost btn-sm" title="Arşivle">🗄</button>
+                    <button type="submit" class="btn btn-ghost btn-sm" title="Arşivle"><?= icon('archive') ?></button>
                   </form>
                 <?php endif; ?>
               </div>
@@ -222,6 +225,6 @@ include __DIR__ . '/views/_layout.php';
 </div>
 <?php endif; ?>
 
-<p class="text-sm text-muted mt-2">Toplam <?= $total ?> link</p>
+<p class="text-sm text-muted mt-2">Toplam <?= $total ?> QR</p>
 
 <?php include __DIR__ . '/views/_layout_end.php'; ?>

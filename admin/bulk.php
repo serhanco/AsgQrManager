@@ -205,10 +205,10 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">📑 Toplu QR Oluştur</h1>
+  <h1 class="page-title"><?= icon('layers') ?> Toplu QR Oluştur</h1>
   <div class="btn-group">
-    <a href="<?= BASE_URL ?>/admin/bulk?template=1" class="btn btn-ghost">⬇️ CSV şablonu</a>
-    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost">← Linkler</a>
+    <a href="<?= BASE_URL ?>/admin/bulk?template=1" class="btn btn-ghost"><?= icon('download') ?> CSV şablonu</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost"><?= icon('arrow-left') ?> Linkler</a>
   </div>
 </div>
 
@@ -217,14 +217,14 @@ include __DIR__ . '/views/_layout.php';
 <?php if ($results !== null): ?>
 <div class="card mb-4">
   <div class="card-header">
-    <span class="card-title"><?= $dryRun ? '🔎 Doğrulama sonucu (henüz kaydedilmedi)' : '✅ Toplu oluşturma tamamlandı' ?></span>
+    <span class="card-title"><?= $dryRun ? icon('search') . ' Doğrulama sonucu (henüz kaydedilmedi)' : icon('check-circle') . ' Toplu oluşturma tamamlandı' ?></span>
     <span class="text-sm">
       <span class="badge badge-success"><?= $okCount ?> <?= $dryRun ? 'uygun' : 'oluşturuldu' ?></span>
       <?php if ($errCount): ?><span class="badge badge-danger"><?= $errCount ?> hatalı</span><?php endif; ?>
     </span>
   </div>
   <?php if (!$dryRun && $okCount && class_exists('ZipArchive')): ?>
-    <p style="margin:.5rem 0 1rem"><a class="btn btn-primary" href="<?= BASE_URL ?>/admin/bulk?zip=1">📦 Tüm QR'ları indir (ZIP: SVG + PDF + PNG)</a></p>
+    <p style="margin:.5rem 0 1rem"><a class="btn btn-primary" href="<?= BASE_URL ?>/admin/bulk?zip=1"><?= icon('package') ?> Tüm QR'ları indir (ZIP: SVG + PDF + PNG)</a></p>
   <?php endif; ?>
   <div class="table-wrap">
     <table>
@@ -292,9 +292,9 @@ include __DIR__ . '/views/_layout.php';
     </label>
     <?php endif; ?>
     <div class="btn-group">
-      <button class="btn btn-ghost" type="submit" name="mode" value="validate">🔎 Doğrula</button>
+      <button class="btn btn-ghost" type="submit" name="mode" value="validate"><?= icon('search') ?> Doğrula</button>
       <button class="btn btn-primary" type="submit" name="mode" value="create"
-              onclick="return confirm('Geçerli satırlar için QR oluşturulsun mu? Hatalı satırlar atlanır.')">🚀 Oluştur</button>
+              onclick="return confirm('Geçerli satırlar için QR oluşturulsun mu? Hatalı satırlar atlanır.')"><?= icon('sparkles') ?> Oluştur</button>
     </div>
   </form>
 </div>

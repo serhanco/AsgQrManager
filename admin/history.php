@@ -39,7 +39,7 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">🕘 Değişiklik Geçmişi<?= $slug !== '' ? ' — <code>' . e($slug) . '</code>' : '' ?></h1>
+  <h1 class="page-title"><?= icon('history') ?> Değişiklik Geçmişi<?= $slug !== '' ? ' — <code>' . e($slug) . '</code>' : '' ?></h1>
   <?php if ($slug !== ''): ?><a href="<?= BASE_URL ?>/admin/history" class="btn btn-ghost">Tümünü göster</a><?php endif; ?>
 </div>
 

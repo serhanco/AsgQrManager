@@ -25,7 +25,7 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
 <div class="form-main">
 
   <div class="card">
-    <div class="card-title mb-4">🔗 Bağlantı Bilgileri</div>
+    <div class="card-title mb-4"><?= icon('link') ?> Bağlantı Bilgileri</div>
 
     <?php if ($mode === 'create'): ?>
     <div class="form-group">
@@ -95,7 +95,7 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
       </div>
 
       <details class="tag-guide" <?= !$hasTags && $mode === 'create' ? 'open' : '' ?>>
-        <summary>💡 Tür mü, etiket mi?</summary>
+        <summary><?= icon('bulb') ?> Tür mü, etiket mi?</summary>
         <dl>
           <dt>Tür</dt><dd>QR’ın <strong>ne olduğu</strong>. Tek seçim: Genel Merkez, Ofis, Etkinlik, Kampanya.</dd>
           <dt>Etiket</dt><dd>QR’ın <strong>hangi gruplara girdiği</strong>. Serbest ve çoklu: ülke, etkinlik adı, materyal, dönem.</dd>
@@ -125,7 +125,7 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
   </div>
 
   <div class="card mt-4">
-    <div class="card-title mb-2">⏱ Zamanlama ve Yedek Hedef</div>
+    <div class="card-title mb-2"><?= icon('clock') ?> Zamanlama ve Yedek Hedef</div>
     <p class="text-sm text-muted mb-4">
       Etkinlik QR'ı için: başlangıç ve bitiş verin, bitince QR kendiliğinden başka bir sayfaya (örn. ofis sayfası) geçsin.
       Saatler <strong><?= e($tzName) ?></strong> saat dilimine göredir. Boş bırakırsanız QR süresiz çalışır.
@@ -156,7 +156,7 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
   </div>
 
   <div class="card mt-4">
-    <div class="card-title mb-2">📈 Takip (UTM) <?= tip('UTM, hedef sitenizin analitiğinde ziyaretin QR’dan geldiğini gösteren etikettir. Bu panel zaten okutmaları sayar; UTM yalnızca hedef sitedeki analitik içindir.') ?></div>
+    <div class="card-title mb-2"><?= icon('trending') ?> Takip (UTM) <?= tip('UTM, hedef sitenizin analitiğinde ziyaretin QR’dan geldiğini gösteren etikettir. Bu panel zaten okutmaları sayar; UTM yalnızca hedef sitedeki analitik içindir.') ?></div>
     <div class="form-group">
       <label class="form-check">
         <input type="checkbox" name="utm_enabled" value="1" <?= !empty($f['utm_enabled']) ? 'checked' : '' ?>>
@@ -173,7 +173,7 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
   </div>
 
   <div class="card mt-4">
-    <div class="card-title mb-2">🎨 Marka ve Görünüm</div>
+    <div class="card-title mb-2"><?= icon('palette') ?> Marka ve Görünüm</div>
 
     <div class="form-group">
       <label class="form-check">
@@ -231,7 +231,7 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
         <input type="checkbox" id="use-logo-checkbox" name="use_logo" value="1" <?= !empty($f['logo_file']) ? 'checked' : '' ?>>
         <span>QR'ın ortasına logo ekle</span>
         <?php if (!$logoSupport['supported']): ?>
-          <span class="badge badge-muted" title="GD veya Imagick bulunamadı">⚠️ PNG logosuz</span>
+          <span class="badge badge-muted" title="GD veya Imagick bulunamadı"><?= icon('alert') ?> PNG logosuz</span>
         <?php endif; ?>
       </label>
     </div>
@@ -258,7 +258,7 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
 <!-- Sağ: canlı önizleme -->
 <aside class="form-side">
   <div class="card sticky-card">
-    <div class="card-title mb-2">📱 Canlı Önizleme</div>
+    <div class="card-title mb-2"><?= icon('qr') ?> Canlı Önizleme</div>
     <div class="qr-preview-box" style="min-height:240px">
       <img id="qr-live-preview" alt="QR önizleme" style="width:100%;max-width:300px;height:auto"
            data-base="<?= e(BASE_URL) ?>" data-slug="<?= e($previewSlug ?? '') ?>">
@@ -295,8 +295,8 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
     if (!ok(fg.value) || !ok(bg.value)) { el.textContent = 'Renk #RRGGBB biçiminde olmalı.'; el.style.color = 'var(--danger)'; return; }
     const a = lum(fg.value), b = lum(bg.value);
     const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-    if (a >= b) { el.textContent = '⚠️ QR rengi arka plandan koyu olmalı.'; el.style.color = 'var(--danger)'; }
-    else if (ratio < 4) { el.textContent = '⚠️ Kontrast düşük (' + ratio.toFixed(1) + ':1). En az 4:1 gerekir.'; el.style.color = 'var(--danger)'; }
+    if (a >= b) { el.textContent = 'QR rengi arka plandan koyu olmalı.'; el.style.color = 'var(--danger)'; }
+    else if (ratio < 4) { el.textContent = 'Kontrast düşük (' + ratio.toFixed(1) + ':1). En az 4:1 gerekir.'; el.style.color = 'var(--danger)'; }
     else { el.textContent = '✓ Kontrast yeterli (' + ratio.toFixed(1) + ':1)'; el.style.color = 'var(--success)'; }
   }
 

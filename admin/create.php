@@ -42,18 +42,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $mode       = 'create';
 $previewSlug = '';
-$formActions = '<button class="btn btn-primary mt-4" type="submit" style="width:100%;padding:.75rem">🚀 Oluştur ve QR Üret</button>';
+$formActions = '<button class="btn btn-primary mt-4" type="submit" style="width:100%;padding:.75rem">' . icon('qr') . ' Oluştur ve QR Üret</button>';
 
-$pageTitle  = 'Yeni Link Oluştur';
+$pageTitle  = 'Yeni QR Oluştur';
 $activePage = 'create';
 include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">➕ Yeni Link Oluştur</h1>
+  <h1 class="page-title"><?= icon('plus') ?> Yeni QR Oluştur</h1>
   <div class="btn-group">
-    <a href="<?= BASE_URL ?>/admin/bulk" class="btn btn-ghost">📑 Toplu Oluştur (CSV)</a>
-    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost">← Geri</a>
+    <a href="<?= BASE_URL ?>/admin/bulk" class="btn btn-ghost"><?= icon('layers') ?> Toplu Oluştur (CSV)</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost"><?= icon('arrow-left') ?> Geri</a>
   </div>
 </div>
 

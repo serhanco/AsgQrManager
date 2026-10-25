@@ -60,8 +60,8 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">👥 Kullanıcılar</h1>
-  <?php if ($editing): ?><a class="btn btn-ghost" href="<?= BASE_URL ?>/admin/users">← Tüm kullanıcılar</a><?php endif; ?>
+  <h1 class="page-title"><?= icon('users') ?> Kullanıcılar</h1>
+  <?php if ($editing): ?><a class="btn btn-ghost" href="<?= BASE_URL ?>/admin/users"><?= icon('arrow-left') ?> Tüm kullanıcılar</a><?php endif; ?>
 </div>
 
 <?php foreach ($errors as $err): ?><div class="alert alert-danger"><?= e($err) ?></div><?php endforeach; ?>
@@ -71,7 +71,7 @@ include __DIR__ . '/views/_layout.php';
   <strong><?= e($tempPw['user']) ?> için geçici şifre. Şimdi kopyalayın, bir daha gösterilmeyecek.</strong>
   <div class="share-box mt-2">
     <input class="form-control font-mono" type="text" readonly value="<?= e($tempPw['pw']) ?>" onclick="this.select()">
-    <button class="copy-btn" data-copy="<?= e($tempPw['pw']) ?>" title="Kopyala">📋</button>
+    <button class="copy-btn" data-copy="<?= e($tempPw['pw']) ?>" title="Kopyala"><?= icon('copy') ?></button>
   </div>
   <p class="text-xs mt-2">Kullanıcı ilk girişte bu şifreyi kendi şifresiyle değiştirmek zorunda. Şifreyi e-postayla değil, ayrı bir kanaldan iletin.</p>
 </div>
@@ -79,7 +79,7 @@ include __DIR__ . '/views/_layout.php';
 
 <div class="card mb-4">
   <div class="card-title mb-2">Roller</div>
-  <div class="table-wrap"><table>
+  <div class="table-wrap"><table class="compact">
     <tbody>
     <?php foreach (Access::ROLES as $r => $label): ?>
       <tr><td class="fw-bold" style="white-space:nowrap"><?= e($label) ?></td><td class="text-sm"><?= e(Access::ROLE_HELP[$r]) ?></td></tr>
@@ -92,7 +92,7 @@ include __DIR__ . '/views/_layout.php';
 <form method="POST" class="card mb-4" action="<?= BASE_URL ?>/admin/users<?= $editing ? '?id=' . (int)$editing['id'] : '' ?>">
   <?= Auth::csrfField() ?>
   <input type="hidden" name="action" value="<?= $editing ? 'update' : 'create' ?>">
-  <div class="card-title mb-3"><?= $editing ? '✏️ ' . e($editing['username']) . ' düzenle' : '➕ Yeni kullanıcı' ?></div>
+  <div class="card-title mb-3"><?= $editing ? icon('pencil') . ' ' . e($editing['username']) . ' düzenle' : icon('plus') . ' Yeni kullanıcı' ?></div>
 
   <div class="form-row">
     <div class="form-group">
@@ -155,7 +155,7 @@ include __DIR__ . '/views/_layout.php';
   </fieldset>
 
   <div class="btn-group mt-2">
-    <button class="btn btn-primary" type="submit"><?= $editing ? '💾 Kaydet' : 'Kullanıcı oluştur (geçici şifre üretilir)' ?></button>
+    <button class="btn btn-primary" type="submit"><?= $editing ? icon('save') . ' Kaydet' : 'Kullanıcı oluştur (geçici şifre üretilir)' ?></button>
     <?php if ($editing): ?><a class="btn btn-ghost" href="<?= BASE_URL ?>/admin/users">İptal</a><?php endif; ?>
   </div>
 </form>
@@ -164,7 +164,7 @@ include __DIR__ . '/views/_layout.php';
 <form method="POST" class="card mb-4" action="<?= BASE_URL ?>/admin/users?id=<?= (int)$editing['id'] ?>"
       data-confirm="<?= e($editing['username']) ?> için yeni geçici şifre üretilecek; eski şifresi çalışmayacak. Devam edilsin mi?">
   <?= Auth::csrfField() ?><input type="hidden" name="action" value="reset">
-  <div class="card-title mb-2">🔑 Şifre sıfırla</div>
+  <div class="card-title mb-2"><?= icon('key') ?> Şifre sıfırla</div>
   <p class="text-sm text-muted mb-3">Yeni bir geçici şifre üretilir; kullanıcı ilk girişte değiştirmek zorunda kalır.</p>
   <button class="btn btn-ghost" type="submit">Geçici şifre üret</button>
 </form>
@@ -184,7 +184,7 @@ include __DIR__ . '/views/_layout.php';
         <td><?php if (!(int)($u['is_active'] ?? 1)): ?><span class="badge badge-muted">Devre dışı</span>
             <?php elseif (!empty($u['must_change_password'])): ?><span class="badge badge-muted" title="İlk girişte şifresini değiştirecek">Şifre bekliyor</span>
             <?php else: ?><span class="badge badge-success">Etkin</span><?php endif; ?></td>
-        <td><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/users?id=<?= (int)$u['id'] ?>">✏️</a></td>
+        <td><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/users?id=<?= (int)$u['id'] ?>" title="Düzenle"><?= icon('pencil', '', 'Düzenle') ?></a></td>
       </tr>
     <?php endforeach; ?>
     </tbody>

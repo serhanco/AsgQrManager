@@ -85,7 +85,7 @@ class Auth {
     /** Link kapsam dışındaysa (veya yoksa) 404 gibi davranır; $edit ise düzenleme yetkisi de aranır. */
     public static function requireLinkAccess(?array $link, bool $edit = false): array {
         if (!$link || !Access::canSeeLink($link)) {
-            flash('danger', 'Link bulunamadı.');
+            flash('danger', 'QR bulunamadı.');
             redirect(BASE_URL . '/admin/links');
         }
         if ($edit && !Access::canEditLink($link)) self::forbidden();
