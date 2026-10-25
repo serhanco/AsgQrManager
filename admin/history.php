@@ -11,8 +11,14 @@ $pdo  = getPdo();
 $slug = preg_replace('/[^A-Za-z0-9_-]/', '', $_GET['slug'] ?? '');
 $page = max(1, (int)($_GET['page'] ?? 1));
 
-$where = $slug !== '' ? 'WHERE slug = ?' : '';
+$where = $slug !== '' ? 'WHERE slug = ?' : 'WHERE 1 = 1';
 $args  = $slug !== '' ? [$slug] : [];
+// Yönetici dışındakiler yalnızca kapsamındaki QR'ların geçmişini görür (sistem/ayar kayıtları hariç)
+if (!Access::isAdmin()) {
+    [$scopeSql, $scopeArgs] = Access::linkIdFilter('link_id');
+    $where .= $scopeSql !== '' ? $scopeSql : ' AND link_id IS NOT NULL';
+    array_push($args, ...$scopeArgs);
+}
 
 $cnt = $pdo->prepare("SELECT COUNT(*) FROM link_events {$where}");
 $cnt->execute($args);

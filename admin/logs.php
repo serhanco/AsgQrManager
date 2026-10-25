@@ -3,6 +3,7 @@ require_once __DIR__ . '/../lib/bootstrap.php';
 
 Auth::startSession();
 Auth::requireLogin();
+Auth::requirePerm('admin');
 
 // Log türü: 'scans' | 'app'
 $reqType = strtolower($_GET['type'] ?? '');

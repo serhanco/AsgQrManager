@@ -228,14 +228,15 @@ function paginate(int $total, int $perPage, int $page): array {
  * @return array  [['date'=>'YYYY-MM-DD', 'count'=>int], ...]
  */
 function getDailyScanStats(PDO $pdo, int $days = 30): array {
+    [$scopeSql, $scopeArgs] = Access::linkIdFilter('link_id');
     $stmt = $pdo->prepare(
         'SELECT DATE(scanned_at) AS `date`, COUNT(*) AS `count`
          FROM scans
-         WHERE scanned_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY) AND is_bot = 0 AND (outcome IS NULL OR outcome = \'ok\')
+         WHERE scanned_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY) AND is_bot = 0 AND (outcome IS NULL OR outcome = \'ok\')' . $scopeSql . '
          GROUP BY DATE(scanned_at)
          ORDER BY `date` ASC'
     );
-    $stmt->execute([$days]);
+    $stmt->execute(array_merge([$days], $scopeArgs));
     $rows = $stmt->fetchAll();
 
     // Boş günleri de doldur
@@ -254,13 +255,20 @@ function getDailyScanStats(PDO $pdo, int $days = 30): array {
 function getDashboardStats(PDO $pdo): array {
     $stats = [];
 
-    $row = $pdo->query('SELECT COUNT(*) AS total, SUM(is_active) AS active, SUM(scan_count) AS scans FROM links WHERE archived_at IS NULL')->fetch();
+    [$scopeSql, $scopeArgs] = Access::linkScopeSql();
+    $scope = $scopeSql !== '' ? " AND {$scopeSql}" : '';
+    $st = $pdo->prepare('SELECT COUNT(*) AS total, SUM(is_active) AS active, SUM(scan_count) AS scans FROM links WHERE archived_at IS NULL' . $scope);
+    $st->execute($scopeArgs);
+    $row = $st->fetch();
     $stats['total_links']  = (int)($row['total']  ?? 0);
     $stats['active_links'] = (int)($row['active'] ?? 0);
     $stats['total_scans']  = (int)($row['scans']  ?? 0);
     $stats['inactive_links'] = $stats['total_links'] - $stats['active_links'];
 
-    $row2 = $pdo->query("SELECT COUNT(*) AS today FROM scans WHERE DATE(scanned_at) = CURDATE() AND is_bot = 0 AND (outcome IS NULL OR outcome = 'ok')")->fetch();
+    [$idSql, $idArgs] = Access::linkIdFilter('link_id');
+    $st = $pdo->prepare("SELECT COUNT(*) AS today FROM scans WHERE DATE(scanned_at) = CURDATE() AND is_bot = 0 AND (outcome IS NULL OR outcome = 'ok')" . $idSql);
+    $st->execute($idArgs);
+    $row2 = $st->fetch();
     $stats['today_scans'] = (int)($row2['today'] ?? 0);
 
     return $stats;
@@ -270,10 +278,14 @@ function getDashboardStats(PDO $pdo): array {
  * En çok taranan linkleri döndürür.
  */
 function getTopLinks(PDO $pdo, int $limit = 10): array {
+    [$scopeSql, $scopeArgs] = Access::linkScopeSql();
     $stmt = $pdo->prepare(
-        'SELECT id, slug, title, target_url, scan_count, is_active FROM links WHERE archived_at IS NULL ORDER BY scan_count DESC LIMIT ?'
+        'SELECT id, slug, title, target_url, scan_count, is_active FROM links WHERE archived_at IS NULL'
+        . ($scopeSql !== '' ? " AND {$scopeSql}" : '') . ' ORDER BY scan_count DESC LIMIT ?'
     );
-    $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+    $i = 1;
+    foreach ($scopeArgs as $a) $stmt->bindValue($i++, $a);
+    $stmt->bindValue($i, $limit, PDO::PARAM_INT);
     $stmt->execute();
     return $stmt->fetchAll();
 }

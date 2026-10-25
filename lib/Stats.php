@@ -22,6 +22,10 @@ class Stats {
             $linkSql .= ' AND s.link_id IN (SELECT id FROM links WHERE FIND_IN_SET(?, tags) > 0)';
             $args[] = $tag;
         }
+        // Kullanıcı kapsamı (Yönetici için boş)
+        [$scopeSql, $scopeArgs] = Access::linkIdFilter('s.link_id');
+        $linkSql .= $scopeSql;
+        array_push($args, ...$scopeArgs);
         $ok   = "s.is_bot = 0 AND (s.outcome IS NULL OR s.outcome = 'ok') AND s.scanned_at >= ? AND s.scanned_at < ?" . $linkSql;
         $q = function (string $sql) use ($pdo, $args) { $st = $pdo->prepare($sql); $st->execute($args); return $st; };
 

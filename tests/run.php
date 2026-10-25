@@ -64,6 +64,8 @@ if ($dump) {
     $after = $pdo->query('SELECT id, slug, target_url, is_active FROM links ORDER BY id')->fetchAll();
     ok($after == $before['slugs'], 'kısa ad / hedef URL / aktiflik birebir aynı');
     ok((int)$pdo->query('SELECT COUNT(*) FROM links WHERE archived_at IS NOT NULL')->fetchColumn() === 0, 'hiçbir eski link arşivlenmedi');
+    ok((int)$pdo->query("SELECT COUNT(*) FROM users WHERE role <> 'admin' OR is_active <> 1")->fetchColumn() === 0, 'mevcut kullanıcılar Yönetici ve etkin kaldı');
+    ok((int)$pdo->query('SELECT COUNT(*) FROM links WHERE created_by IS NOT NULL')->fetchColumn() === 0, 'eski QR\'lara sahip atanmadı (yalnızca yönetici kapsamında)');
 
     // Her eski kısa ad hâlâ aynı yere yönlendiriyor mu?
     $bad = 0;
@@ -141,6 +143,78 @@ ok(str_contains($w, "tags IS NULL") && $p === [], 'etiketsiz filtresi');
 $tpdo->exec("DELETE FROM link_events WHERE slug LIKE 'tagtest%'");
 $tpdo->exec("DELETE FROM links WHERE slug LIKE 'tagtest%'");
 
+// ─── Roller ve kapsam ─────────────────────────────────────────────────────────
+section('Roller ve kapsam');
+$apdo = getPdo();
+$apdo->exec("DELETE FROM user_scopes WHERE user_id IN (SELECT id FROM users WHERE username LIKE 'acctest%')");
+$apdo->exec("DELETE FROM users WHERE username LIKE 'acctest%'");
+$apdo->exec("DELETE FROM links WHERE slug LIKE 'acctest%'");
+$apdo->prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')->execute(['acctest-old', password_hash('eski-sifre', PASSWORD_DEFAULT)]);
+$old = $apdo->query("SELECT * FROM users WHERE username = 'acctest-old'")->fetch();
+ok($old['role'] === 'admin' && (int)$old['is_active'] === 1, 'rol belirtilmeden eklenen (eski) hesap Yönetici ve etkin');
+
+$adminActor = ['id' => (int)$old['id'], 'name' => 'acctest-old'];
+ok(UserService::passwordError('kisa1') !== null && UserService::passwordError('sadeceharfler') !== null, 'zayıf şifre reddedilir');
+ok(UserService::passwordError(UserService::tempPassword()) === null, 'geçici şifre kurala uyar');
+[$edId, $e] = UserService::create($apdo, ['username' => 'acctest-ed', 'role' => 'editor', 'password' => 'Gecici12345',
+    'scope_tags' => 'ttAlmanya', 'scope_categories' => ['event', 'yok']], $adminActor);
+ok($edId && !$e, 'editör oluşturulur');
+[$x, $e] = UserService::create($apdo, ['username' => 'acctest-ed', 'role' => 'editor', 'password' => 'Gecici12345'], $adminActor);
+ok($x === null && $e, 'aynı kullanıcı adı reddedilir');
+[$viId, $e] = UserService::create($apdo, ['username' => 'acctest-vi', 'role' => 'viewer', 'password' => 'Gecici12345', 'scope_all' => 1], $adminActor);
+$ed = UserService::find($apdo, $edId);
+ok((int)$ed['must_change_password'] === 1, 'yeni kullanıcı ilk girişte şifre değiştirmeli');
+ok($ed['scope']['tags'] === ['ttAlmanya'] && $ed['scope']['categories'] === ['event'], 'kapsam kaydedilir, geçersiz tür atılır');
+
+$mkA = fn(string $slug, array $extra, array $actor) => LinkService::create($apdo, ['target_url' => 'https://acibadem.world'] + $extra, $slug, $actor);
+$L1 = $mkA('acctest1', ['tags' => 'ttalmanya,Poster'], $adminActor);
+$L2 = $mkA('acctest2', ['category' => 'event'], $adminActor);
+$L3 = $mkA('acctest3', ['category' => 'office', 'tags' => 'ttDubai'], $adminActor);
+$L4 = $mkA('acctest4', [], ['id' => $edId, 'name' => 'acctest-ed']);
+ok((int)$L4['created_by'] === $edId, 'QR sahibi kaydedilir');
+
+Access::setUser($ed, $apdo);
+ok(Access::canSeeLink($L1) && Access::canSeeLink($L2) && Access::canSeeLink($L4), 'editör: etiket, tür ve kendi QR\'ı görünür (etiket harf duyarsız)');
+ok(!Access::canSeeLink($L3), 'editör: kapsam dışı QR görünmez');
+[$w, $p] = LinkService::buildFilter(['q' => 'acctest']);
+$st = $apdo->prepare("SELECT slug FROM links {$w} ORDER BY slug"); $st->execute($p);
+ok($st->fetchAll(PDO::FETCH_COLUMN) === ['acctest1', 'acctest2', 'acctest4'], 'liste filtresi kapsamla aynı');
+ok(Access::can('links.edit') && !Access::can('links.archive') && !Access::can('admin'), 'editör: düzenler, arşivleyemez, yönetemez');
+$apdo->prepare("INSERT INTO scans (link_id, ip, user_agent, scanned_at) VALUES (?, '1.1.1.0', 'Mozilla', NOW()), (?, '1.1.1.0', 'Mozilla', NOW())")
+     ->execute([$L1['id'], $L3['id']]);
+$today = date('Y-m-d');
+ok(Stats::summary($apdo, null, $today, $today)['total'] === 1, 'editör raporu kapsam dışı okutmayı saymaz');
+
+Access::setUser(UserService::find($apdo, $viId), $apdo);
+ok(Access::canSeeLink($L3) && !Access::can('links.edit'), 'izleyici (tüm QR\'lar): görür, düzenleyemez');
+$tokV = ApiAuth::create($apdo, 'acctest', 'read,write', 'test', $viId);
+$rowV = ApiAuth::verify($apdo, $tokV['token']);
+ok(ApiAuth::applyContext($apdo, $rowV) && ApiAuth::can($rowV, 'read') && !ApiAuth::can($rowV, 'write'), 'izleyiciye bağlı API anahtarı yazamaz');
+
+Access::setUser($old, $apdo);
+ok(Stats::summary($apdo, null, $today, $today)['total'] >= 2 && Access::canSeeLink($L3), 'yönetici her şeyi görür');
+
+$apdo->exec("UPDATE users SET role = 'editor' WHERE role = 'admin' AND username <> 'acctest-old'");
+$errs = UserService::update($apdo, $old, ['role' => 'editor', 'is_active' => 1], ['id' => $viId, 'name' => 'x']);
+ok((bool)$errs, 'son etkin yönetici düşürülemez');
+$apdo->exec("UPDATE users SET role = 'admin' WHERE username NOT LIKE 'acctest%'");
+ok((bool)UserService::update($apdo, $old, ['role' => 'admin', 'is_active' => 0], $adminActor), 'kendi hesabını devre dışı bırakamaz');
+ok(!UserService::update($apdo, $ed, ['role' => 'editor', 'is_active' => 0], $adminActor), 'editör devre dışı bırakılır');
+ok(Auth::verifyUser($apdo, 'acctest-ed', 'Gecici12345') === null, 'devre dışı hesap giriş yapamaz');
+$tokE = ApiAuth::verify($apdo, ApiAuth::create($apdo, 'acctest', 'read', 'test', $edId)['token']);
+ok(!ApiAuth::applyContext($apdo, $tokE), 'devre dışı kullanıcının API anahtarı çalışmaz');
+ok(UserService::changeOwnPassword($apdo, $viId, 'yanlis', 'YeniSifre123', 'YeniSifre123') !== null, 'yanlış mevcut şifreyle değiştirilemez');
+ok(UserService::changeOwnPassword($apdo, $viId, 'Gecici12345', 'YeniSifre123', 'YeniSifre123') === null
+   && (int)UserService::find($apdo, $viId)['must_change_password'] === 0, 'kendi şifresini değiştirir, zorunluluk kalkar');
+
+Access::setUser(null);
+$apdo->exec("DELETE FROM api_tokens WHERE name = 'acctest'");
+$apdo->exec("DELETE FROM scans WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'acctest%')");
+$apdo->exec("DELETE FROM link_events WHERE slug LIKE 'acctest%' OR username LIKE 'acctest%'");
+$apdo->exec("DELETE FROM links WHERE slug LIKE 'acctest%'");
+$apdo->exec("DELETE FROM user_scopes WHERE user_id IN (SELECT id FROM users WHERE username LIKE 'acctest%')");
+$apdo->exec("DELETE FROM users WHERE username LIKE 'acctest%'");
+
 // ─── Yardımcılar ──────────────────────────────────────────────────────────────
 section('Yardımcılar');
 ok(maskIp('203.0.113.77', 'mask') === '203.0.113.0', 'IPv4 maskelenir');
@@ -176,6 +250,33 @@ ok(str_contains($eps, '%%BoundingBox: 0 0 142 142') && str_ends_with($eps, "%%EO
 ok(QrPdf::color('#000000', true) === '0 0 0 1 k', 'siyah yalnızca K kanalında');
 ok(str_ends_with(Share::render($link, 'eps', 100)['name'], '-100mm.eps'), 'EPS dosya adı');
 QrRenderer::clearCache('testqr1');
+
+// ─── Okunabilirlik: üretilen QR gerçekten okunuyor mu? (zbarimg varsa) ─────────
+section('QR okunabilirlik');
+$zbar = trim((string)shell_exec('command -v zbarimg 2>/dev/null'));
+if ($zbar === '') {
+    echo "  - zbarimg yok, atlandı (CI'da çalışır; yerelde: apt install zbar-tools)\n";
+} else {
+    $logoFile = is_file(LOGO_DIR . '/acibadem-logo-1.png') ? 'acibadem-logo-1.png' : null;
+    $tmpBase = tempnam(sys_get_temp_dir(), 'qrdec');
+    $tmpPng = $tmpBase . '.png';
+    $combos = 0; $bad = [];
+    foreach (array_keys(LinkService::SHAPES) as $shape) {
+        foreach ([['#000000', '#FFFFFF'], ['#0B2A5B', '#FFFFFF']] as [$fg, $bg]) {
+            foreach (array_unique([null, $logoFile]) as $logo) {
+                $slug = 'okuma' . (++$combos);
+                $l = ['slug' => $slug, 'title' => 'T', 'target_url' => 'https://acibadem.world', 'logo' => $logo,
+                      'fg_color' => $fg, 'bg_color' => $bg, 'shape' => $shape];
+                file_put_contents($tmpPng, Share::render($l, 'png', 600)['data']);
+                $got = trim((string)shell_exec(escapeshellarg($zbar) . ' --raw -q ' . escapeshellarg($tmpPng) . ' 2>/dev/null'));
+                if ($got !== BASE_URL . '/r/' . $slug) $bad[] = "{$shape} {$fg}" . ($logo ? ' +logo' : '') . " → '{$got}'";
+                QrRenderer::clearCache($slug);
+            }
+        }
+    }
+    @unlink($tmpPng); @unlink($tmpBase);
+    ok(!$bad, "{$combos} stil/logo birleşiminin tamamı okunuyor" . ($bad ? ': ' . implode('; ', $bad) : ''));
+}
 
 // ─── Bilgi sayfası ────────────────────────────────────────────────────────────
 section('Bilgi sayfası');

@@ -5,12 +5,15 @@
  */
 class ApiAuth {
 
-    /** @return array{token:string,id:int} */
-    public static function create(PDO $pdo, string $name, string $scopes, string $createdBy): array {
+    /**
+     * @param ?int $userId anahtar bu kullanıcının rolü ve kapsamıyla çalışır (null = tam yetki)
+     * @return array{token:string,id:int}
+     */
+    public static function create(PDO $pdo, string $name, string $scopes, string $createdBy, ?int $userId = null): array {
         $token = 'qrm_' . bin2hex(random_bytes(24));
-        $pdo->prepare('INSERT INTO api_tokens (name, token_hash, token_prefix, scopes, created_by) VALUES (?,?,?,?,?)')
+        $pdo->prepare('INSERT INTO api_tokens (name, token_hash, token_prefix, scopes, created_by, user_id) VALUES (?,?,?,?,?,?)')
             ->execute([mb_substr($name, 0, 100), hash('sha256', $token), substr($token, 0, 12),
-                       $scopes === 'read' ? 'read' : 'read,write', $createdBy]);
+                       $scopes === 'read' ? 'read' : 'read,write', $createdBy, $userId]);
         return ['token' => $token, 'id' => (int)$pdo->lastInsertId()];
     }
 
@@ -29,6 +32,21 @@ class ApiAuth {
     }
 
     public static function can(array $tokenRow, string $scope): bool {
-        return in_array($scope, explode(',', $tokenRow['scopes']), true);
+        if (!in_array($scope, explode(',', $tokenRow['scopes']), true)) return false;
+        // Kullanıcıya bağlı anahtar, kullanıcının rolünü aşamaz
+        return $scope !== 'write' || Access::can('links.edit');
+    }
+
+    /**
+     * Anahtarın yetki bağlamını kurar. Kullanıcıya bağlı anahtarda kullanıcı devre dışıysa false döner.
+     */
+    public static function applyContext(PDO $pdo, array $tokenRow): bool {
+        if (empty($tokenRow['user_id'])) { Access::setSystem(); return true; }
+        $st = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
+        $st->execute([(int)$tokenRow['user_id']]);
+        $u = $st->fetch();
+        if (!$u || !(int)($u['is_active'] ?? 1)) return false;
+        Access::setUser($u, $pdo);
+        return true;
     }
 }

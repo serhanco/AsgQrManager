@@ -11,10 +11,7 @@ Auth::requireLogin();
 $pdo  = getPdo();
 $id   = (int)($_GET['id'] ?? 0);
 $link = $id ? LinkService::find($pdo, $id) : null;
-if ($id && !$link) {
-    flash('danger', 'Link bulunamadı.');
-    redirect(BASE_URL . '/admin/links');
-}
+if ($id) $link = Auth::requireLinkAccess($link);
 
 $tag = $link ? '' : trim((string)($_GET['tag'] ?? ''));
 if ($tag !== '' && mb_strlen($tag) > 30) $tag = '';
@@ -48,6 +45,10 @@ if ($tag !== '') {
     $base['ok'] .= ' AND s.link_id IN (SELECT id FROM links WHERE FIND_IN_SET(?, tags) > 0)';
     $args[] = $tag;
 }
+// Kullanıcı kapsamı: yalnızca görebildiği QR'ların okutmaları
+[$scopeSql, $scopeArgs] = Access::linkIdFilter('s.link_id');
+$base['ok'] .= $scopeSql;
+array_push($args, ...$scopeArgs);
 
 $q = function (string $sql, array $a) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($a); return $st; };
 
@@ -147,7 +148,7 @@ include __DIR__ . '/views/_layout.php';
   <div class="btn-group">
     <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => 'daily']) ?>">⬇️ Günlük CSV</a>
     <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => $link ? 'raw' : 'links']) ?>">⬇️ <?= $link ? 'Okutma listesi CSV' : 'QR bazlı CSV' ?></a>
-    <?php if ($link): ?><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>">✏️ Düzenle</a><?php endif; ?>
+    <?php if ($link && Access::canEditLink($link)): ?><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>">✏️ Düzenle</a><?php endif; ?>
   </div>
 </div>
 

@@ -6,6 +6,7 @@ require_once __DIR__ . '/../lib/bootstrap.php';
 
 Auth::startSession();
 Auth::requireLogin();
+Auth::requirePerm('admin');
 
 $pdo    = getPdo();
 $errors = [];

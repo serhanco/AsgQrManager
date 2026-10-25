@@ -5,6 +5,9 @@ Auth::startSession();
 Auth::requireLogin();
 
 $pdo = getPdo();
+$isAdmin    = Access::isAdmin();
+$canEdit    = Access::can('links.edit');
+$canArchive = Access::can('links.archive');
 
 // ─── Filtreler ────────────────────────────────────────────────────────────────
 $search   = trim($_GET['q'] ?? '');
@@ -36,7 +39,12 @@ $links = $listStmt->fetchAll();
 
 // Etiket listesi (filtre ve toplu etiketleme için)
 $tagCounts = LinkService::allTags($pdo);
-$untaggedCount = (int)$pdo->query("SELECT COUNT(*) FROM links WHERE archived_at IS NULL AND (tags IS NULL OR tags = '')")->fetchColumn();
+$untaggedCount = (function () use ($pdo) {
+    [$sc, $sa] = Access::linkScopeSql();
+    $st = $pdo->prepare("SELECT COUNT(*) FROM links WHERE archived_at IS NULL AND (tags IS NULL OR tags = '')" . ($sc !== '' ? " AND {$sc}" : ''));
+    $st->execute($sa);
+    return (int)$st->fetchColumn();
+})();
 
 $qs = fn(array $over = []) => '?' . http_build_query(array_filter(
     array_merge(['q' => $search, 'status' => $status, 'category' => $category, 'tag' => $tag], $over),
@@ -56,9 +64,11 @@ include __DIR__ . '/views/_layout.php';
   <h1 class="page-title">🔗 Tüm Linkler</h1>
   <div class="btn-group">
     <a href="<?= BASE_URL ?>/admin/links-export<?= $qs() ?>" class="btn btn-ghost">⬇️ CSV</a>
-    <a href="<?= BASE_URL ?>/admin/tags" class="btn btn-ghost" title="Etiketleri yeniden adlandır, birleştir, kaldır">🏷 Etiketler</a>
+    <?php if ($isAdmin): ?><a href="<?= BASE_URL ?>/admin/tags" class="btn btn-ghost" title="Etiketleri yeniden adlandır, birleştir, kaldır">🏷 Etiketler</a><?php endif; ?>
+    <?php if ($canEdit): ?>
     <a href="<?= BASE_URL ?>/admin/bulk" class="btn btn-ghost" title="CSV ile birden çok QR oluştur">📑 Toplu</a>
     <a href="<?= BASE_URL ?>/admin/create" class="btn btn-primary">➕ Yeni Link</a>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -105,7 +115,7 @@ include __DIR__ . '/views/_layout.php';
     <table>
       <thead>
         <tr>
-          <th class="sel-cell"><input type="checkbox" id="sel-all" aria-label="Sayfadaki tümünü seç" title="Sayfadaki tümünü seç"></th>
+          <th class="sel-cell"><?php if ($canEdit): ?><input type="checkbox" id="sel-all" aria-label="Sayfadaki tümünü seç" title="Sayfadaki tümünü seç"><?php endif; ?></th>
           <th>Kısa ad</th>
           <th>Başlık / Hedef URL</th>
           <th>Okutma <?= tip('Bot ve link önizlemeleri sayılmaz; yalnızca hedefe giden gerçek okutmalar.') ?></th>
@@ -118,9 +128,10 @@ include __DIR__ . '/views/_layout.php';
         <?php if (empty($links)): ?>
           <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Hiç link bulunamadı.</td></tr>
         <?php else: foreach ($links as $link):
-            $state = Redirector::state($link)['state']; ?>
+            $state = Redirector::state($link)['state'];
+            $editable = Access::canEditLink($link); ?>
           <tr>
-            <td class="sel-cell"><input type="checkbox" class="row-sel" form="bulk-form" name="ids[]" value="<?= (int)$link['id'] ?>" aria-label="<?= e($link['slug']) ?> seç"></td>
+            <td class="sel-cell"><?php if ($editable): ?><input type="checkbox" class="row-sel" form="bulk-form" name="ids[]" value="<?= (int)$link['id'] ?>" aria-label="<?= e($link['slug']) ?> seç"><?php endif; ?></td>
             <td>
               <div class="copy-wrap">
                 <span class="col-slug"><?= e($link['slug']) ?></span>
@@ -146,7 +157,7 @@ include __DIR__ . '/views/_layout.php';
             <td>
               <?php if ($state === 'archived'): ?>
                 <span class="badge badge-muted">🗄 Arşivde</span>
-              <?php elseif ($state === 'live' || $state === 'inactive'): ?>
+              <?php elseif ($editable && ($state === 'live' || $state === 'inactive')): ?>
                 <form method="POST" action="<?= BASE_URL ?>/admin/toggle" style="display:inline">
                   <?= Auth::csrfField() ?>
                   <input type="hidden" name="id" value="<?= $link['id'] ?>">
@@ -164,8 +175,9 @@ include __DIR__ . '/views/_layout.php';
               <div class="btn-group" style="flex-wrap:nowrap">
                 <a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($link['slug']) ?>" class="btn btn-ghost btn-sm" title="QR / İndir / Paylaş">📱</a>
                 <a href="<?= BASE_URL ?>/admin/report?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm" title="Rapor">📊</a>
-                <a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm" title="Düzenle">✏️</a>
-                <?php if ($state === 'archived'): ?>
+                <?php if ($editable): ?><a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm" title="Düzenle">✏️</a><?php endif; ?>
+                <?php if (!$canArchive): ?>
+                <?php elseif ($state === 'archived'): ?>
                   <form method="POST" action="<?= BASE_URL ?>/admin/restore">
                     <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= $link['id'] ?>">
                     <button type="submit" class="btn btn-ghost btn-sm" title="Arşivden çıkar">♻️</button>
@@ -186,6 +198,7 @@ include __DIR__ . '/views/_layout.php';
   </div>
 </div>
 
+<?php if ($canEdit): ?>
 <form id="bulk-form" method="POST" action="<?= BASE_URL ?>/admin/bulk-tags">
   <?= Auth::csrfField() ?>
   <input type="hidden" name="back" value="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>">
@@ -199,6 +212,7 @@ include __DIR__ . '/views/_layout.php';
     <button class="btn btn-ghost btn-sm" type="button" data-clear>Seçimi temizle</button>
   </div>
 </form>
+<?php endif; ?>
 
 <?php if ($paged['totalPages'] > 1): ?>
 <div class="pagination">

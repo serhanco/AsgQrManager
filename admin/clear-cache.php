@@ -6,6 +6,7 @@ require_once __DIR__ . '/../lib/bootstrap.php';
 
 Auth::startSession();
 Auth::requireLogin();
+Auth::requirePerm('admin');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect(BASE_URL . '/admin/dashboard');

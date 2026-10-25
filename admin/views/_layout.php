@@ -31,7 +31,7 @@ $csrf = Auth::csrfToken();
   </a>
   <div class="topbar-spacer"></div>
   <div class="topbar-user">
-    <span>👤 <?= e($_SESSION['username'] ?? '') ?></span>
+    <a href="<?= $base ?>/admin/account" title="Hesabım · <?= e(Access::ROLES[Access::role()] ?? '') ?>">👤 <?= e(($_SESSION['display_name'] ?? '') ?: ($_SESSION['username'] ?? '')) ?></a>
     <a href="<?= $base ?>/admin/logout">Çıkış</a>
   </div>
 </header>
@@ -47,15 +47,21 @@ $csrf = Auth::csrfToken();
     <li><a href="<?= $base ?>/admin/links" <?= $activePage==='links'?'class="active"':'' ?>>
       <span class="nav-icon">🔗</span> Tüm Linkler
     </a></li>
+    <?php if (Access::can('links.edit')): ?>
     <li><a href="<?= $base ?>/admin/create" <?= $activePage==='create'?'class="active"':'' ?>>
       <span class="nav-icon">➕</span> Yeni Link
     </a></li>
+    <?php endif; ?>
+    <?php if (Access::isAdmin()): ?>
     <li><a href="<?= $base ?>/admin/tags" <?= $activePage==='tags'?'class="active"':'' ?>>
       <span class="nav-icon">🏷</span> Etiketler
     </a></li>
+    <?php endif; ?>
+    <?php if (Access::can('links.edit')): ?>
     <li><a href="<?= $base ?>/admin/bulk" <?= $activePage==='bulk'?'class="active"':'' ?>>
       <span class="nav-icon">📑</span> Toplu Oluştur
     </a></li>
+    <?php endif; ?>
     <li class="sidebar-section">Raporlama</li>
     <li><a href="<?= $base ?>/admin/report" <?= $activePage==='report'?'class="active"':'' ?>>
       <span class="nav-icon">📈</span> Raporlar
@@ -64,6 +70,13 @@ $csrf = Auth::csrfToken();
       <span class="nav-icon">🕘</span> Değişiklik Geçmişi
     </a></li>
     <li class="sidebar-section">Sistem</li>
+    <li><a href="<?= $base ?>/admin/account" <?= $activePage==='account'?'class="active"':'' ?>>
+      <span class="nav-icon">👤</span> Hesabım
+    </a></li>
+    <?php if (Access::isAdmin()): ?>
+    <li><a href="<?= $base ?>/admin/users" <?= $activePage==='users'?'class="active"':'' ?>>
+      <span class="nav-icon">👥</span> Kullanıcılar
+    </a></li>
     <li><a href="<?= $base ?>/admin/settings" <?= $activePage==='settings'?'class="active"':'' ?>>
       <span class="nav-icon">⚙️</span> Ayarlar
     </a></li>
@@ -82,6 +95,7 @@ $csrf = Auth::csrfToken();
         </button>
       </form>
     </li>
+    <?php endif; ?>
   </ul>
 </nav>
 

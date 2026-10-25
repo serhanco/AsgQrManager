@@ -6,12 +6,7 @@ Auth::requireLogin();
 
 $pdo = getPdo();
 $id  = (int)($_GET['id'] ?? 0);
-$link = LinkService::find($pdo, $id);
-
-if (!$link) {
-    flash('danger', 'Link bulunamadı.');
-    redirect(BASE_URL . '/admin/links');
-}
+$link = Auth::requireLinkAccess(LinkService::find($pdo, $id), true);
 
 $logos       = listLogos();
 $logoSupport = QrRenderer::logoSupport();
@@ -101,6 +96,7 @@ include __DIR__ . '/views/_layout.php';
 </form>
 
 <!-- Arşivle / Geri al -->
+<?php if (Access::can('links.archive')): ?>
 <div class="card mt-4">
   <div class="card-title mb-2">🗄 Arşiv</div>
   <?php if (!empty($link['archived_at'])): ?>
@@ -124,6 +120,8 @@ include __DIR__ . '/views/_layout.php';
     </form>
   <?php endif; ?>
 </div>
+
+<?php endif; ?>
 
 <!-- Değişiklik geçmişi -->
 <div class="card mt-4">

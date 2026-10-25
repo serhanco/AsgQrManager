@@ -12,6 +12,11 @@ if (!Auth::isLoggedIn()) {
     echo json_encode(['ok' => false, 'error' => 'Yetkisiz']);
     exit;
 }
+Auth::requireLogin();
+if (!Access::can('admin')) {
+    echo json_encode(['ok' => false, 'error' => 'Yetkisiz']);
+    exit;
+}
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !Auth::verifyCsrf()) {
     echo json_encode(['ok' => false, 'error' => 'CSRF hatası']);
     exit;

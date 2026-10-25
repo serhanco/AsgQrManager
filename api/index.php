@@ -44,11 +44,11 @@ try {
     Logger::error('API doğrulama hatası: ' . $e->getMessage());
     apiError(500, 'server_error', 'Geçici bir hata oluştu.');
 }
-if (!$tok) {
+if (!$tok || !ApiAuth::applyContext($pdo, $tok)) {
     header('WWW-Authenticate: Bearer realm="qr-manager"');
     apiError(401, 'unauthorized', 'Geçersiz veya eksik API anahtarı.');
 }
-$actor = ['id' => null, 'name' => 'api:' . $tok['name']];
+$actor = ['id' => Access::userId(), 'name' => 'api:' . $tok['name']];
 
 // ─── Yönlendirme ──────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
@@ -73,7 +73,7 @@ function needWrite(array $tok): void {
 }
 function loadLink(PDO $pdo, string $slug): array {
     $l = LinkService::findBySlug($pdo, preg_replace('/[^A-Za-z0-9_-]/', '', $slug));
-    if (!$l) apiError(404, 'not_found', 'QR bulunamadı.');
+    if (!$l || !Access::canSeeLink($l)) apiError(404, 'not_found', 'QR bulunamadı.');
     return $l;
 }
 
@@ -180,6 +180,9 @@ try {
         }
         if ($method === 'POST' && in_array($sub, ['activate', 'deactivate', 'archive', 'restore'], true)) {
             needWrite($tok);
+            if (in_array($sub, ['archive', 'restore'], true) && !Access::can('links.archive')) {
+                apiError(403, 'forbidden', 'Arşivleme yalnızca yönetici yetkisiyle yapılabilir.');
+            }
             switch ($sub) {
                 case 'activate': case 'deactivate':
                     $new = $sub === 'activate' ? 1 : 0;

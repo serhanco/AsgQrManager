@@ -89,6 +89,31 @@ class Migrator {
                     PRIMARY KEY (`skey`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
             }],
+            // 007 portal kayıtları (PR #3) için ayrıldı.
+            '008_users_roles' => ['Kullanıcı rolleri ve hesap alanları (mevcut hesaplar Yönetici kalır)', function (PDO $p) {
+                self::addColumn($p, 'users', 'role',                 "VARCHAR(10) NOT NULL DEFAULT 'admin'");
+                self::addColumn($p, 'users', 'display_name',         'VARCHAR(100) NULL DEFAULT NULL');
+                self::addColumn($p, 'users', 'email',                'VARCHAR(190) NULL DEFAULT NULL');
+                self::addColumn($p, 'users', 'is_active',            'TINYINT(1) NOT NULL DEFAULT 1');
+                self::addColumn($p, 'users', 'must_change_password', 'TINYINT(1) NOT NULL DEFAULT 0');
+                self::addColumn($p, 'users', 'last_login_at',        'DATETIME NULL DEFAULT NULL');
+                self::addColumn($p, 'users', 'created_by',           'VARCHAR(64) NULL DEFAULT NULL');
+            }],
+            '009_user_scopes' => ['Kullanıcı kapsamı (hangi QR\'ları görür / düzenler)', function (PDO $p) {
+                $p->exec("CREATE TABLE IF NOT EXISTS `user_scopes` (
+                    `id`      INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    `user_id` INT UNSIGNED NOT NULL,
+                    `kind`    VARCHAR(10)  NOT NULL,
+                    `value`   VARCHAR(100) NOT NULL DEFAULT '',
+                    PRIMARY KEY (`id`),
+                    KEY `idx_user_scopes_user` (`user_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            }],
+            '010_owners' => ['QR sahibi ve API anahtarının bağlı olduğu kullanıcı', function (PDO $p) {
+                self::addColumn($p, 'links', 'created_by', 'INT UNSIGNED NULL DEFAULT NULL');
+                self::addIndex($p, 'links', 'idx_links_created_by', '(`created_by`)');
+                self::addColumn($p, 'api_tokens', 'user_id', 'INT UNSIGNED NULL DEFAULT NULL');
+            }],
         ];
     }
 
