@@ -28,6 +28,10 @@ function linkToForm(array $l): array {
     ];
 }
 $f = linkToForm($link);
+$qrType = VCard::isVcard($link) ? 'vcard' : 'link';
+$vcardRow = $qrType === 'vcard' ? VCard::find($pdo, (int)$link['id']) : null;
+$vcardHasPhoto = !empty($vcardRow['has_photo']);
+if ($vcardRow) $f['vc'] = array_intersect_key($vcardRow, VCard::FIELDS);
 $canToggle  = Access::canToggleLink($link);
 $canRequest = Access::canRequestToggle($link);
 $pendingReq = LinkRequests::pendingFor($pdo, (int)$link['id']);
@@ -38,11 +42,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = LinkService::fromForm($_POST, true);
     // Aktif/pasif yalnızca yetkili kullanıcı formdan değiştirir; editör talep kartını kullanır
     if (!$canToggle) unset($input['is_active']);
+    $vc = $photo = null; $vErrors = [];
+    if ($qrType === 'vcard') {
+        [$vc, $vErrors] = VCard::normalize(VCard::fromPost($_POST));
+        [$photo, $pErr] = VCard::photoFromUpload($_FILES['vc_photo'] ?? null);
+        if ($pErr) $vErrors[] = $pErr;
+        if (!$photo && !empty($_POST['vc_photo_remove'])) $photo = false;
+        $input['target_url']  = VCard::fallbackTarget($vc);
+        $input['utm_enabled'] = 0;
+        if (trim($input['title']) === '') $input['title'] = VCard::fullName($vc);
+    }
     [$clean, $errors] = LinkService::normalize($input, $link);
+    $errors = array_merge($vErrors, $errors);
 
     if (!$errors) {
         $wasActive = (int)$link['is_active'];
         $changes   = LinkService::update($pdo, $link, $clean, Auth::actor());
+        if ($qrType === 'vcard') {
+            $vcDiff = VCard::diff($vcardRow, $vc);
+            if ($photo !== null) $vcDiff['Fotoğraf'] = [$vcardHasPhoto ? 'var' : null, $photo ? 'yeni' : null];
+            VCard::save($pdo, (int)$id, $vc, $photo);
+            if ($vcDiff) {
+                LinkEvents::log($pdo, (int)$id, $link['slug'], Auth::actor(), 'vcard', $vcDiff);
+                $changes += $vcDiff;
+            }
+        }
         if (array_key_exists('is_active', $changes)) {
             // Aktif/pasif değişimi geçmişte ayrıca görünsün
             LinkEvents::log($pdo, (int)$id, $link['slug'], Auth::actor(), $clean['is_active'] ? 'activate' : 'deactivate');
@@ -69,13 +93,13 @@ $previewSlug = $link['slug'];
 $formActions = '<div class="btn-group mt-4"><button class="btn btn-primary" type="submit">' . icon('save') . ' Kaydet</button>'
              . '<a href="' . e(BASE_URL) . '/admin/links" class="btn btn-ghost">İptal</a></div>';
 
-$pageTitle  = 'QR Düzenle';
+$pageTitle  = $qrType === 'vcard' ? 'Kartvizit Düzenle' : 'QR Düzenle';
 $activePage = 'links';
 include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title"><?= icon('pencil') ?> QR Düzenle</h1>
+  <h1 class="page-title"><?= icon($qrType === 'vcard' ? 'contact' : 'pencil') ?> <?= e($pageTitle) ?></h1>
   <div class="btn-group">
     <a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($link['slug']) ?>" class="btn btn-ghost"><?= icon('qr') ?> QR / İndir / Paylaş</a>
     <a href="<?= BASE_URL ?>/admin/report?id=<?= $id ?>" class="btn btn-ghost"><?= icon('chart') ?> Rapor</a>
@@ -95,7 +119,7 @@ include __DIR__ . '/views/_layout.php';
   &nbsp; <span class="text-muted text-sm"><?= formatCount((int)$link['scan_count']) ?> okutma</span>
 </div>
 
-<form method="POST" action="">
+<form method="POST" action="" enctype="multipart/form-data">
   <?= Auth::csrfField() ?>
   <?php include __DIR__ . '/views/_link_form.php'; ?>
 </form>

@@ -20,12 +20,62 @@ $shapeVal   = $f['shape'] ?? '';
 $allTags    = array_values(array_map(fn($t) => ['tag' => $t['tag'], 'count' => $t['count']], LinkService::allTags(getPdo())));
 $starterTags = ['poster', 'broşür', 'stand', 'kartvizit', 'sunum', 'e-posta', 'sosyal-medya'];
 $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
+$isVcardForm = ($qrType ?? 'link') === 'vcard';
 ?>
 <div class="form-layout">
 <div class="form-main">
 
+<?php if ($isVcardForm):
+    $vcv = is_array($f['vc'] ?? null) ? $f['vc'] : [];
+    $vfield = function (string $k, string $type = 'text', string $ph = '', string $extra = '') use ($vcv) {
+        [$label, $max] = VCard::FIELDS[$k];
+        return '<div class="form-group"><label class="form-label" for="vc-' . $k . '">' . e($label) . '</label>'
+             . '<input class="form-control" type="' . $type . '" id="vc-' . $k . '" name="vc[' . $k . ']" maxlength="' . $max . '"'
+             . ' placeholder="' . e($ph) . '" value="' . e($vcv[$k] ?? '') . '"' . $extra . '></div>';
+    }; ?>
+  <div class="card mb-4">
+    <div class="card-title mb-2"><?= icon('contact') ?> Kişi Bilgileri</div>
+    <p class="text-sm text-muted mb-4">QR okutulunca bu bilgilerle bir kişi sayfası açılır; "Rehbere ekle" ile telefona kaydedilir. Bilgileri sonradan değiştirebilirsiniz, basılı QR aynı kalır.</p>
+    <div class="form-row">
+      <?= $vfield('first_name', 'text', 'Ayşe', ' required autocomplete="off"') ?>
+      <?= $vfield('last_name', 'text', 'Yılmaz', ' autocomplete="off"') ?>
+    </div>
+    <div class="form-row">
+      <?= $vfield('title', 'text', 'Uluslararası Hasta Koordinatörü') ?>
+      <?= $vfield('department', 'text', 'Uluslararası Hasta Merkezi') ?>
+    </div>
+    <div class="form-row">
+      <?= $vfield('phone_mobile', 'tel', '+90 532 000 00 00') ?>
+      <?= $vfield('phone_work', 'tel', '+90 216 000 00 00') ?>
+    </div>
+    <div class="form-row">
+      <?= $vfield('email', 'email', 'ad.soyad@acibadem.com') ?>
+      <?= $vfield('org', 'text', VCard::DEFAULT_ORG) ?>
+    </div>
+    <div class="form-row">
+      <?= $vfield('website', 'url', 'https://acibadem.world/') ?>
+      <?= $vfield('linkedin', 'url', 'https://www.linkedin.com/in/…') ?>
+    </div>
+    <?= $vfield('address', 'text', 'Kozyatağı, İstanbul') ?>
+    <div class="form-group">
+      <label class="form-label" for="vc-note"><?= e(VCard::FIELDS['note'][0]) ?> <span class="hint">Kişi sayfasında ve rehber kaydında görünür</span></label>
+      <textarea class="form-control" id="vc-note" name="vc[note]" rows="2" maxlength="500"><?= e($vcv['note'] ?? '') ?></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="vc-photo">Fotoğraf <span class="hint">JPG, PNG veya WebP, en fazla 5 MB. Kare kırpılır ve küçültülür.</span></label>
+      <?php if (!empty($vcardHasPhoto) && !empty($previewSlug)): ?>
+        <div class="vc-photo-row">
+          <img class="vc-photo" src="<?= e(BASE_URL . '/r/' . $previewSlug) ?>?photo=1&amp;v=<?= time() ?>" alt="">
+          <label class="form-check"><input type="checkbox" name="vc_photo_remove" value="1"><span>Fotoğrafı kaldır</span></label>
+        </div>
+      <?php endif; ?>
+      <input class="form-control" type="file" id="vc-photo" name="vc_photo" accept="image/jpeg,image/png,image/webp">
+    </div>
+  </div>
+<?php endif; ?>
+
   <div class="card">
-    <div class="card-title mb-4"><?= icon('link') ?> Bağlantı Bilgileri</div>
+    <div class="card-title mb-4"><?= icon($isVcardForm ? 'qr' : 'link') ?> <?= $isVcardForm ? 'QR Bilgileri' : 'Bağlantı Bilgileri' ?></div>
 
     <?php if ($mode === 'create'): ?>
     <div class="form-group">
@@ -33,11 +83,12 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
         Kısa Ad (slug) <?= tip('QR’ın kısa adresinde görünen kısım: /r/<slug>. QR basıldıktan sonra değiştirilemez; hedef adres ise istediğiniz zaman değişebilir.') ?> <span class="hint">Boş bırakırsanız otomatik üretilir. Basıldıktan sonra değiştirilemez.</span>
       </label>
       <input class="form-control" type="text" id="custom_slug" name="custom_slug"
-             placeholder="london-office" value="<?= e($f['custom_slug'] ?? '') ?>"
+             placeholder="<?= $isVcardForm ? 'ad-soyad' : 'london-office' ?>" value="<?= e($f['custom_slug'] ?? '') ?>"
              pattern="[A-Za-z0-9_\-]{0,16}" maxlength="16">
     </div>
     <?php endif; ?>
 
+    <?php if (!$isVcardForm): ?>
     <div class="form-group">
       <label class="form-label" for="target_url">Hedef URL <?= tip('QR okutulunca ziyaretçinin gideceği sayfa. Basılı QR aynı kalır; bu adresi değiştirerek QR’ı başka sayfaya yönlendirebilirsiniz.') ?> <span class="hint">* Zorunlu</span></label>
       <input class="form-control" type="url" id="target_url" name="target_url"
@@ -46,15 +97,16 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
         <small class="text-muted text-xs">Bu adresi değiştirdiğinizde aynı QR yeni sayfaya yönlendirir.</small>
       <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="title">Başlık</label>
         <input class="form-control" type="text" id="title" name="title" maxlength="255"
-               placeholder="Londra Ofisi" value="<?= e($f['title'] ?? '') ?>">
+               placeholder="<?= $isVcardForm ? 'Boş bırakılırsa ad soyad' : 'Londra Ofisi' ?>" value="<?= e($f['title'] ?? '') ?>">
       </div>
       <div class="form-group">
-        <label class="form-label" for="category">Tür <?= tip('QR\'ın ne olduğunu söyler; tek seçimlidir (Genel Merkez, Ofis, Etkinlik…). Raporlarda “türe göre” dağılım verir. Ülke, etkinlik adı veya materyal gibi gruplar için Etiketler alanını kullanın.') ?></label>
+        <label class="form-label" for="category">Kategori <?= tip('QR\'ın neye ait olduğunu söyler; tek seçimlidir (Genel Merkez, Ofis, Etkinlik…). Raporlarda “kategoriye göre” dağılım verir. Ülke, etkinlik adı veya materyal gibi gruplar için Etiketler alanını kullanın.') ?></label>
         <select class="form-control" id="category" name="category">
           <option value="">— Seçilmedi —</option>
           <?php foreach (LinkService::CATEGORIES as $k => $label): ?>
@@ -95,14 +147,14 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
       </div>
 
       <details class="tag-guide" <?= !$hasTags && $mode === 'create' ? 'open' : '' ?>>
-        <summary><?= icon('bulb') ?> Tür mü, etiket mi?</summary>
+        <summary><?= icon('bulb') ?> Kategori mi, etiket mi?</summary>
         <dl>
-          <dt>Tür</dt><dd>QR’ın <strong>ne olduğu</strong>. Tek seçim: Genel Merkez, Ofis, Etkinlik, Kampanya.</dd>
+          <dt>Kategori</dt><dd>QR’ın <strong>ne olduğu</strong>. Tek seçim: Genel Merkez, Ofis, Etkinlik, Kampanya.</dd>
           <dt>Etiket</dt><dd>QR’ın <strong>hangi gruplara girdiği</strong>. Serbest ve çoklu: ülke, etkinlik adı, materyal, dönem.</dd>
         </dl>
         <div class="example">
           <strong>Örnek:</strong> Londra ofisinin kongre posteri →
-          Tür: <span class="tag-chip">Ofis</span> Etiketler: <span class="tag-chip">#UK</span> <span class="tag-chip">#poster</span> <span class="tag-chip">#kongre-2027</span><br>
+          Kategori: <span class="tag-chip">Ofis</span> Etiketler: <span class="tag-chip">#UK</span> <span class="tag-chip">#poster</span> <span class="tag-chip">#kongre-2027</span><br>
           <span class="text-muted">Böylece raporda “kongre-2027 etiketli tüm QR’lar” veya “tüm posterler” tek tıkla görülür. Etiketleri sonradan
           <a href="<?= BASE_URL ?>/admin/tags">Etiketler</a> sayfasından toplu yeniden adlandırabilir veya birleştirebilirsiniz.</span>
         </div>
@@ -155,6 +207,7 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
     </div>
   </div>
 
+  <?php if (!$isVcardForm): ?>
   <div class="card mt-4">
     <div class="card-title mb-2"><?= icon('trending') ?> Takip (UTM) <?= tip('UTM, hedef sitenizin analitiğinde ziyaretin QR’dan geldiğini gösteren etikettir. Bu panel zaten okutmaları sayar; UTM yalnızca hedef sitedeki analitik içindir.') ?></div>
     <div class="form-group">
@@ -171,6 +224,7 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
              placeholder="arabhealth-2027" pattern="[A-Za-z0-9_\-.]{0,100}" value="<?= e($f['utm_campaign'] ?? '') ?>">
     </div>
   </div>
+  <?php endif; ?>
 
   <div class="card mt-4">
     <div class="card-title mb-2"><?= icon('palette') ?> Marka ve Görünüm</div>

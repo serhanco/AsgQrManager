@@ -86,7 +86,7 @@ include __DIR__ . '/views/_layout.php';
     <?php endforeach; ?>
     </tbody>
   </table></div>
-  <p class="text-xs text-muted mt-2">Kapsam, Editörün hangi QR'ları <strong>göreceğini</strong> ve raporlayacağını belirler: seçilen türler ve etiketler + kendi oluşturduğu QR'lar. Editör yalnızca kendi oluşturduğu QR'ları düzenleyebilir.</p>
+  <p class="text-xs text-muted mt-2">Kapsam, Editörün hangi QR'ları <strong>göreceğini</strong> ve raporlayacağını belirler: seçilen kategoriler ve etiketler + kendi oluşturduğu QR'lar. Editör yalnızca kendi oluşturduğu QR'ları düzenleyebilir.</p>
 </div>
 
 <form method="POST" class="card mb-4" action="<?= BASE_URL ?>/admin/users<?= $editing ? '?id=' . (int)$editing['id'] : '' ?>">
@@ -141,7 +141,7 @@ include __DIR__ . '/views/_layout.php';
       <input type="checkbox" name="scope_all" value="1" <?= !empty($scope['all']) ? 'checked' : '' ?>>
       <span>Tüm QR'lar</span>
     </label>
-    <div class="text-sm mb-2">Türler:
+    <div class="text-sm mb-2">Kategoriler:
       <?php foreach (LinkService::CATEGORIES as $c => $label): ?>
         <label class="form-check" style="display:inline-flex;margin-right:1rem">
           <input type="checkbox" name="scope_categories[]" value="<?= e($c) ?>" <?= in_array($c, $scope['categories'], true) ? 'checked' : '' ?>>

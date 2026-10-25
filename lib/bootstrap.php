@@ -13,6 +13,7 @@ require_once __DIR__ . '/Settings.php';
 require_once __DIR__ . '/Migrator.php';
 require_once __DIR__ . '/LinkService.php';
 require_once __DIR__ . '/LinkRequests.php';
+require_once __DIR__ . '/VCard.php';
 require_once __DIR__ . '/Redirector.php';
 require_once __DIR__ . '/QrRenderer.php';
 require_once __DIR__ . '/Share.php';

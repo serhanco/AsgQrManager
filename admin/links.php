@@ -14,13 +14,15 @@ $search   = trim($_GET['q'] ?? '');
 $status   = $_GET['status'] ?? '';
 $category = $_GET['category'] ?? '';
 $tag      = trim($_GET['tag'] ?? '');
+$vcardReady = VCard::available($pdo);
+$qrTypeF  = $vcardReady && in_array($_GET['type'] ?? '', ['link', 'vcard'], true) ? $_GET['type'] : '';
 $page     = max(1, (int)($_GET['page'] ?? 1));
 
 $statuses = LinkService::STATUSES;
 if (!isset($statuses[$status])) $status = '';
 if ($category !== '' && !isset(LinkService::CATEGORIES[$category])) $category = '';
 
-[$whereSql, $params] = LinkService::buildFilter(['q' => $search, 'status' => $status, 'category' => $category, 'tag' => $tag]);
+[$whereSql, $params] = LinkService::buildFilter(['q' => $search, 'status' => $status, 'category' => $category, 'tag' => $tag, 'type' => $qrTypeF]);
 
 $countStmt = $pdo->prepare("SELECT COUNT(*) FROM links {$whereSql}");
 $countStmt->execute($params);
@@ -47,7 +49,7 @@ $untaggedCount = (function () use ($pdo) {
 })();
 
 $qs = fn(array $over = []) => '?' . http_build_query(array_filter(
-    array_merge(['q' => $search, 'status' => $status, 'category' => $category, 'tag' => $tag], $over),
+    array_merge(['q' => $search, 'status' => $status, 'category' => $category, 'tag' => $tag, 'type' => $qrTypeF], $over),
     fn($v) => $v !== '' && $v !== null
 ));
 
@@ -94,8 +96,15 @@ include __DIR__ . '/views/_layout.php';
       <option value="<?= e($k) ?>" <?= $status === $k ? 'selected' : '' ?>><?= e($label) ?></option>
     <?php endforeach; ?>
   </select>
-  <select class="form-control" name="category" style="max-width:160px" onchange="this.form.submit()">
+  <?php if ($vcardReady): ?>
+  <select class="form-control" name="type" style="max-width:150px" onchange="this.form.submit()" aria-label="QR türü">
     <option value="">Tüm türler</option>
+    <option value="link" <?= $qrTypeF === 'link' ? 'selected' : '' ?>>Link</option>
+    <option value="vcard" <?= $qrTypeF === 'vcard' ? 'selected' : '' ?>>Kartvizit</option>
+  </select>
+  <?php endif; ?>
+  <select class="form-control" name="category" style="max-width:160px" onchange="this.form.submit()">
+    <option value="">Tüm kategoriler</option>
     <?php foreach (LinkService::CATEGORIES as $k => $label): ?>
       <option value="<?= e($k) ?>" <?= $category === $k ? 'selected' : '' ?>><?= e($label) ?></option>
     <?php endforeach; ?>
@@ -108,7 +117,7 @@ include __DIR__ . '/views/_layout.php';
     <?php endforeach; ?>
   </select>
   <button class="btn btn-ghost" type="submit"><?= icon('search') ?> Ara</button>
-  <?php if ($search || $status || $category || $tag): ?>
+  <?php if ($search || $status || $category || $tag || $qrTypeF): ?>
     <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost"><?= icon('x') ?> Temizle</a>
   <?php endif; ?>
 </form>
@@ -148,6 +157,7 @@ include __DIR__ . '/views/_layout.php';
             </td>
             <td data-cell="title">
               <div style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">
+                <?php if (VCard::isVcard($link)): ?><span class="type-badge" title="Kartvizit QR"><?= icon('contact') ?> Kartvizit</span><?php endif; ?>
                 <?= e($link['title'] ?: '—') ?>
                 <?php if (!empty($link['category'])): ?>
                   <span class="badge badge-muted" style="font-weight:500"><?= e(LinkService::CATEGORIES[$link['category']] ?? $link['category']) ?></span>

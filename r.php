@@ -12,6 +12,7 @@ require_once __DIR__ . '/lib/helpers.php';
 require_once __DIR__ . '/lib/Settings.php';
 require_once __DIR__ . '/lib/LinkService.php';
 require_once __DIR__ . '/lib/Redirector.php';
+require_once __DIR__ . '/lib/VCard.php';
 
 Logger::registerHandlers();
 
@@ -75,8 +76,36 @@ try {
         : ['action' => 'notfound', 'url' => null, 'outcome' => 'dead', 'state' => 'inactive'];
 }
 
+// ─── Kartvizit: aktifse yönlendirme yerine kişi sayfası ─────────────────────
+// Kayıt okunamazsa $vcard null kalır ve QR web sitesine (target_url) yönlenir.
+$vcard = null;
+if ($decision['outcome'] === 'ok' && VCard::isVcard($link)) {
+    $vcard = VCard::find($pdo, (int)$link['id']);
+    if ($vcard && isset($_GET['photo'])) {
+        $ph = VCard::photo($pdo, (int)$link['id']);
+        if (!$ph) { http_response_code(404); exit; }
+        header('Content-Type: ' . $ph[1]);
+        header('Cache-Control: public, max-age=3600');
+        echo $ph[0];
+        exit;
+    }
+    if ($vcard && isset($_GET['vcf'])) {
+        // "Rehbere ekle": okutma sayılmaz, ayrı sayaç
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD' && !isBotUserAgent($_SERVER['HTTP_USER_AGENT'] ?? '')) {
+            VCard::countSave($pdo, (int)$link['id']);
+        }
+        $pageUrl = (defined('BASE_URL') ? BASE_URL : '') . '/r/' . $link['slug'];
+        header('Content-Type: text/vcard; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . VCard::fileName($vcard) . '"');
+        header('Cache-Control: no-store');
+        echo VCard::toVcf($vcard, $pageUrl, $vcard['has_photo'] ? VCard::photo($pdo, (int)$link['id']) : null);
+        exit;
+    }
+}
+
 // ─── Scan sayacı & loglama (best-effort) ─────────────────────────────────────
-$isHead = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'HEAD';
+$isHead = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'HEAD'
+       || ($vcard && isset($_GET['preview'])); // panelden kartvizit önizlemesi okutma sayılmaz
 try {
     $ua    = $_SERVER['HTTP_USER_AGENT'] ?? '';
     $isBot = isBotUserAgent($ua);
@@ -118,6 +147,11 @@ if ($decision['action'] === 'notfound') {
     http_response_code(404);
     $infoState = $decision['state'];
     include __DIR__ . '/admin/views/info.php';
+    exit;
+}
+
+if ($vcard) {
+    include __DIR__ . '/admin/views/vcard.php';
     exit;
 }
 
