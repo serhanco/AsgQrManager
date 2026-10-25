@@ -81,12 +81,12 @@ include __DIR__ . '/views/_layout.php';
   <div class="card-title mb-2">Roller</div>
   <div class="table-wrap"><table class="compact">
     <tbody>
-    <?php foreach (Access::ROLES as $r => $label): ?>
+    <?php foreach (Access::ASSIGNABLE_ROLES as $r): $label = Access::ROLES[$r]; ?>
       <tr><td class="fw-bold" style="white-space:nowrap"><?= e($label) ?></td><td class="text-sm"><?= e(Access::ROLE_HELP[$r]) ?></td></tr>
     <?php endforeach; ?>
     </tbody>
   </table></div>
-  <p class="text-xs text-muted mt-2">Kapsam, Editör ve Rapor izleyicinin hangi QR'ları göreceğini belirler: seçilen türler ve etiketler + kendi oluşturduğu QR'lar.</p>
+  <p class="text-xs text-muted mt-2">Kapsam, Editörün hangi QR'ları <strong>göreceğini</strong> ve raporlayacağını belirler: seçilen türler ve etiketler + kendi oluşturduğu QR'lar. Editör yalnızca kendi oluşturduğu QR'ları düzenleyebilir.</p>
 </div>
 
 <form method="POST" class="card mb-4" action="<?= BASE_URL ?>/admin/users<?= $editing ? '?id=' . (int)$editing['id'] : '' ?>">
@@ -118,7 +118,8 @@ include __DIR__ . '/views/_layout.php';
     <div class="form-group">
       <label class="form-label" for="u-role">Rol</label>
       <select class="form-control" id="u-role" name="role">
-        <?php foreach (Access::ROLES as $r => $label): ?>
+        <?php foreach (Access::ROLES as $r => $label):
+            if (!in_array($r, Access::ASSIGNABLE_ROLES, true) && ($editing['role'] ?? '') !== $r) continue; ?>
           <option value="<?= e($r) ?>" <?= $val('role', 'editor') === $r ? 'selected' : '' ?>><?= e($label) ?></option>
         <?php endforeach; ?>
       </select>
@@ -135,7 +136,7 @@ include __DIR__ . '/views/_layout.php';
   </div>
 
   <fieldset class="form-group" id="scope-box" style="border:1px solid var(--border);border-radius:.5rem;padding:.75rem 1rem">
-    <legend class="form-label" style="padding:0 .25rem">Kapsam <?= tip('Yönetici her zaman tüm QR\'ları görür. Editör ve Rapor izleyici yalnızca burada seçilenleri ve kendi oluşturduklarını görür.') ?></legend>
+    <legend class="form-label" style="padding:0 .25rem">Kapsam <?= tip('Yönetici her zaman tüm QR\'ları görür. Editör burada seçilenleri ve kendi oluşturduklarını görür; düzenleyebildiği yalnızca kendi oluşturduklarıdır.') ?></legend>
     <label class="form-check mb-2">
       <input type="checkbox" name="scope_all" value="1" <?= !empty($scope['all']) ? 'checked' : '' ?>>
       <span>Tüm QR'lar</span>

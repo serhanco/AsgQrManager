@@ -122,7 +122,7 @@ include __DIR__ . '/views/_layout.php';
           <th>Kısa ad</th>
           <th>Başlık / Hedef URL</th>
           <th>Okutma <?= tip('Bot ve link önizlemeleri sayılmaz; yalnızca hedefe giden gerçek okutmalar.') ?></th>
-          <th>Durum <?= tip('Aktif/Pasif’e tıklayarak geçiş yapabilirsiniz. Zamanlı QR’lar tarihe göre kendiliğinden değişir; arşivdekiler hedefe gitmez.') ?></th>
+          <th>Durum <?= tip(Access::isAdmin() ? 'Aktif/Pasif’e tıklayarak geçiş yapabilirsiniz. Zamanlı QR’lar tarihe göre kendiliğinden değişir; arşivdekiler hedefe gitmez.' : 'Kendi QR’ınızda Aktif/Pasif’e tıklayınca yöneticiye onay talebi gider. Zamanlı QR’lar tarihe göre kendiliğinden değişir; arşivdekiler hedefe gitmez.') ?></th>
           <th>Oluşturulma</th>
           <th>İşlemler</th>
         </tr>
@@ -130,9 +130,14 @@ include __DIR__ . '/views/_layout.php';
       <tbody>
         <?php if (empty($links)): ?>
           <tr class="empty-row"><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Bu ölçütlere uyan QR bulunamadı.</td></tr>
-        <?php else: foreach ($links as $link):
+        <?php else:
+          $pendingReqs = LinkRequests::pendingMap($pdo, array_column($links, 'id'));
+          foreach ($links as $link):
             $state = Redirector::state($link)['state'];
-            $editable = Access::canEditLink($link); ?>
+            $editable  = Access::canEditLink($link);
+            $toggles   = Access::canToggleLink($link);
+            $requests  = Access::canRequestToggle($link);
+            $pendingRq = $pendingReqs[(int)$link['id']] ?? null; ?>
           <tr>
             <td class="sel-cell" data-cell="sel"><?php if ($editable): ?><input type="checkbox" class="row-sel" form="bulk-form" name="ids[]" value="<?= (int)$link['id'] ?>" aria-label="<?= e($link['slug']) ?> seç"><?php endif; ?></td>
             <td data-cell="slug">
@@ -160,7 +165,21 @@ include __DIR__ . '/views/_layout.php';
             <td data-cell="state">
               <?php if ($state === 'archived'): ?>
                 <span class="badge badge-muted"><?= icon('archive') ?> Arşivde</span>
-              <?php elseif ($editable && ($state === 'live' || $state === 'inactive')): ?>
+              <?php elseif ($pendingRq): ?>
+                <span class="badge <?= $stateLabels[$state][1] ?>"><?= $stateLabels[$state][0] ?></span>
+                <a class="badge badge-warning" href="<?= BASE_URL ?>/admin/<?= Access::isAdmin() ? 'requests' : 'edit?id=' . (int)$link['id'] . '#durum-talebi' ?>"
+                   title="<?= e(LinkRequests::KINDS[$pendingRq['kind']] ?? '') ?> talebi yönetici onayı bekliyor"><?= icon('clock') ?> Onayda</a>
+              <?php elseif ($requests && ($state === 'live' || $state === 'inactive')): ?>
+                <form method="POST" action="<?= BASE_URL ?>/admin/toggle" style="display:inline"
+                      data-confirm="<?= $state === 'live' ? 'Pasife alma' : 'Yeniden açma' ?> talebi yöneticiye gönderilsin mi? Onaylanana kadar QR olduğu gibi çalışır.">
+                  <?= Auth::csrfField() ?>
+                  <input type="hidden" name="id" value="<?= $link['id'] ?>">
+                  <input type="hidden" name="back" value="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>">
+                  <button type="submit" class="badge <?= $stateLabels[$state][1] ?>"
+                          style="cursor:pointer;border:none;font-family:inherit"
+                          title="<?= $state === 'live' ? 'Pasife alma talebi gönder (yönetici onayı)' : 'Yeniden açma talebi gönder (yönetici onayı)' ?>"><?= $stateLabels[$state][0] ?></button>
+                </form>
+              <?php elseif ($toggles && ($state === 'live' || $state === 'inactive')): ?>
                 <form method="POST" action="<?= BASE_URL ?>/admin/toggle" style="display:inline">
                   <?= Auth::csrfField() ?>
                   <input type="hidden" name="id" value="<?= $link['id'] ?>">

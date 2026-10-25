@@ -12,15 +12,17 @@ Tek yönetici hesabının yanına sınırlı yetkili hesaplar eklenir (`Sistem �
 
 | Rol | Yapabildikleri |
 |---|---|
-| **Yönetici** | Her şey: tüm QR'lar, kullanıcılar, ayarlar, API anahtarları, etiket yönetimi, arşivleme. |
-| **Editör** | Kapsamındaki QR'ları oluşturur, hedefini değiştirir, açar/kapatır, etiketler; raporlarını görür. Arşivleyemez. |
-| **Rapor izleyici** | Kapsamındaki QR'ları ve raporlarını görür, QR indirir. Değişiklik yapamaz. |
+| **Yönetici** | Her şey: tüm QR'lar, kullanıcılar, ayarlar, API anahtarları, etiket yönetimi, arşivleme; editör taleplerini onaylar. |
+| **Editör** | QR oluşturur ve **yalnızca kendi oluşturduğu** QR'ları düzenler. Pasife alma / yeniden açma için yönetici onayına talep gönderir (`QR Kodlar → Taleplerim`). Kapsamındaki diğer QR'ları ve raporlarını yalnızca görür. Arşivleyemez. |
+
+Eski sürümde oluşturulmuş **Rapor izleyici** hesapları çalışmaya devam eder (görür, değiştiremez), ancak yeni kullanıcıya bu rol atanmaz.
 
 - **Kapsam:** "Tüm QR'lar" ya da tür (Ofis, Etkinlik…) ve etiket (ör. `Almanya`) seçimi. Kullanıcı ayrıca kendi oluşturduğu QR'ları her zaman görür. Liste, rapor, gösterge paneli, CSV, değişiklik geçmişi ve API aynı kapsamla süzülür.
 - **Hesaplar silinmez**, devre dışı bırakılır; devre dışı hesabın oturumu ve API anahtarları hemen çalışmaz hale gelir. Son etkin yönetici düşürülemez.
 - **Geçici şifre:** yeni kullanıcıya ve şifre sıfırlamada sistem geçici şifre üretir; kullanıcı ilk girişte değiştirmeden ilerleyemez (en az 10 karakter, harf + rakam).
-- **API anahtarı → kullanıcı:** anahtar bir kullanıcıya bağlanırsa onun rolü ve kapsamıyla çalışır (Rapor izleyicinin anahtarı yazamaz). Bağlanmayan anahtar eskisi gibi tam yetkilidir.
-- Şema: `008_users_roles`, `009_user_scopes`, `010_owners` (yalnızca ekleme; `007` portal entegrasyonuna ayrıldı).
+- **Onay akışı:** editör kendi QR'ının Aktif/Pasif rozetine (veya düzenleme sayfasındaki karta) tıklayınca talep oluşur; QR onaylanana kadar olduğu gibi çalışır. Yönetici `Onay Bekleyenler` sayfasından onaylar veya reddeder; her adım QR'ın değişiklik geçmişine yazılır.
+- **API anahtarı → kullanıcı:** anahtar bir kullanıcıya bağlanırsa onun rolü ve kapsamıyla çalışır (Rapor izleyicinin anahtarı yazamaz; editörün anahtarı yalnızca kendi QR'larını değiştirir, `POST /links/{slug}/deactivate` onay talebi açar ve `202` döner). Bağlanmayan anahtar eskisi gibi tam yetkilidir.
+- Şema: `008_users_roles`, `009_user_scopes`, `010_owners`, `011_link_requests` (yalnızca ekleme; `007` portal entegrasyonuna ayrıldı).
 - **CI:** `.github/workflows/tests.yml` her PR'da testleri, örnek v1 veritabanından migration zincirini ve üretilen QR'ların `zbarimg` ile okunduğunu doğrular.
 
 ## Sürüm 2 — Neler değişti?

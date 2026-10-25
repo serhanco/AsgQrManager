@@ -606,6 +606,8 @@ class LinkEvents {
             'create' => 'Oluşturuldu', 'update' => 'Güncellendi', 'activate' => 'Aktif edildi',
             'deactivate' => 'Pasife alındı', 'archive' => 'Arşivlendi', 'restore' => 'Arşivden çıkarıldı',
             'purge' => 'Kalıcı silindi', 'tags' => 'Etiket değişti',
+            'request' => 'Onay talebi', 'request_ok' => 'Talep onaylandı', 'request_no' => 'Talep reddedildi',
+            'request_cancel' => 'Talep geri çekildi',
         ][$a] ?? $a;
     }
 }

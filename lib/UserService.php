@@ -64,7 +64,7 @@ class UserService {
         $username = trim((string)($in['username'] ?? ''));
         if (!preg_match('/^[A-Za-z0-9._@-]{3,64}$/', $username)) $errors[] = 'Kullanıcı adı 3-64 karakter olmalı; harf, rakam ve . _ @ - kullanılabilir.';
         $role = (string)($in['role'] ?? '');
-        if (!isset(Access::ROLES[$role])) $errors[] = 'Geçersiz rol.';
+        if (!in_array($role, Access::ASSIGNABLE_ROLES, true)) $errors[] = 'Geçersiz rol.';
         $email = trim((string)($in['email'] ?? ''));
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'E-posta adresi geçersiz.';
         $pw = (string)($in['password'] ?? '');
@@ -90,7 +90,8 @@ class UserService {
     public static function update(PDO $pdo, array $user, array $in, array $actor): array {
         $errors = [];
         $role = (string)($in['role'] ?? $user['role']);
-        if (!isset(Access::ROLES[$role])) $errors[] = 'Geçersiz rol.';
+        // Atanabilir roller + kullanıcının mevcut rolü (eski Rapor izleyici hesapları olduğu gibi kalabilir)
+        if (!in_array($role, Access::ASSIGNABLE_ROLES, true) && $role !== ($user['role'] ?? '')) $errors[] = 'Geçersiz rol.';
         $active = !empty($in['is_active']) ? 1 : 0;
         $email = trim((string)($in['email'] ?? ''));
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'E-posta adresi geçersiz.';

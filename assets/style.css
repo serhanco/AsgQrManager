@@ -339,6 +339,8 @@ fieldset { min-width: 0; }
 .badge-success { background: color-mix(in srgb, var(--success) 13%, transparent); color: var(--success); }
 .badge-danger  { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 .badge-muted   { background: color-mix(in srgb, var(--text-muted) 13%, transparent); color: var(--text-muted); }
+.badge-warning { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); }
+.nav-count { margin-left: auto; min-width: 1.35rem; height: 1.35rem; padding: 0 .4rem; border-radius: 999px; background: var(--brand-sky); color: var(--brand-deep); font-size: .72rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 
 /* ─── Uyarılar ────────────────────────────────────────────────────────────── */
 .alert {

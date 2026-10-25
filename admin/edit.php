@@ -28,11 +28,16 @@ function linkToForm(array $l): array {
     ];
 }
 $f = linkToForm($link);
+$canToggle  = Access::canToggleLink($link);
+$canRequest = Access::canRequestToggle($link);
+$pendingReq = LinkRequests::pendingFor($pdo, (int)$link['id']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Auth::requireCsrf();
 
     $input = LinkService::fromForm($_POST, true);
+    // Aktif/pasif yalnızca yetkili kullanıcı formdan değiştirir; editör talep kartını kullanır
+    if (!$canToggle) unset($input['is_active']);
     [$clean, $errors] = LinkService::normalize($input, $link);
 
     if (!$errors) {
@@ -47,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $f = $_POST;
     $f['logo_file'] = !empty($_POST['use_logo']) ? ($_POST['logo_file'] ?? '') : '';
-    $f['is_active'] = !empty($_POST['is_active']) ? 1 : 0;
+    $f['is_active'] = $canToggle ? (!empty($_POST['is_active']) ? 1 : 0) : (int)$link['is_active'];
 }
 
 $state = Redirector::state($link)['state'];
@@ -94,6 +99,42 @@ include __DIR__ . '/views/_layout.php';
   <?= Auth::csrfField() ?>
   <?php include __DIR__ . '/views/_link_form.php'; ?>
 </form>
+
+<?php if ($canRequest || $pendingReq): ?>
+<!-- Editör: aktif/pasif değişikliği yönetici onayıyla -->
+<div class="card mt-4" id="durum-talebi">
+  <div class="card-title mb-2"><?= icon('power') ?> <?= (int)$link['is_active'] ? 'Pasife alma' : 'Yeniden açma' ?></div>
+  <?php if ($pendingReq): ?>
+    <p class="text-sm mb-3"><span class="badge badge-warning"><?= icon('clock') ?> Onay bekliyor</span>
+      <?= e(LinkRequests::KINDS[$pendingReq['kind']] ?? $pendingReq['kind']) ?> talebi <?= e(substr($pendingReq['created_at'], 0, 16)) ?> tarihinde
+      <?= e($pendingReq['requester'] ?: '—') ?> tarafından gönderildi. Yönetici onaylayana kadar QR olduğu gibi çalışır.</p>
+    <?php if (Access::isAdmin()): ?>
+      <a class="btn btn-primary btn-sm" href="<?= BASE_URL ?>/admin/requests"><?= icon('check-circle') ?> Taleplere git</a>
+    <?php elseif ((int)($pendingReq['requested_by'] ?? 0) === Access::userId()): ?>
+      <form method="POST" action="<?= BASE_URL ?>/admin/requests">
+        <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= (int)$pendingReq['id'] ?>"><input type="hidden" name="action" value="cancel">
+        <input type="hidden" name="back" value="<?= e(BASE_PATH . '/admin/edit?id=' . $id) ?>">
+        <button class="btn btn-ghost btn-sm" type="submit"><?= icon('x') ?> Talebi geri çek</button>
+      </form>
+    <?php endif; ?>
+  <?php else: ?>
+    <p class="text-sm text-muted mb-3">
+      <?= (int)$link['is_active']
+          ? 'QR\'ı pasife almak yönetici onayı gerektirir. Onaylanınca okutan kişi yedek hedefe veya bilgi sayfasına yönlenir.'
+          : 'QR\'ı yeniden açmak yönetici onayı gerektirir.' ?>
+    </p>
+    <form method="POST" action="<?= BASE_URL ?>/admin/toggle">
+      <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= $id ?>">
+      <input type="hidden" name="back" value="<?= e(BASE_PATH . '/admin/edit?id=' . $id) ?>">
+      <div class="form-group">
+        <label class="form-label" for="req-note">Gerekçe <span class="hint">Yönetici görür (isteğe bağlı)</span></label>
+        <input class="form-control" id="req-note" type="text" name="note" maxlength="500" placeholder="ör. Etkinlik bitti, afişler toplandı">
+      </div>
+      <button class="btn btn-ghost" type="submit"><?= icon('power') ?> <?= (int)$link['is_active'] ? 'Pasife alma talebi gönder' : 'Yeniden açma talebi gönder' ?></button>
+    </form>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <!-- Arşivle / Geri al -->
 <?php if (Access::can('links.archive')): ?>

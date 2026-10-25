@@ -136,6 +136,12 @@ include __DIR__ . '/views/_layout.php';
   <div class="card">
     <div class="card-header"><div class="card-title"><?= icon('alert') ?> Dikkat isteyenler</div></div>
     <ul class="attention-list">
+      <?php $pendingReqCount = Access::isAdmin() ? LinkRequests::pendingCount($pdo) : 0;
+      if ($pendingReqCount > 0): ?>
+        <li><span class="dot warn"><?= icon('check-circle') ?></span>
+          <div><a href="<?= BASE_URL ?>/admin/requests" class="fw-bold"><?= $pendingReqCount ?> talep onay bekliyor</a>
+          <small>Editörlerin pasife alma / yeniden açma talepleri</small></div></li>
+      <?php endif; ?>
       <?php foreach ($soon as $l): ?>
         <li><span class="dot warn"><?= icon('clock') ?></span>
           <div><a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($l['slug']) ?>" class="fw-bold"><?= e($l['title'] ?: $l['slug']) ?></a>
@@ -151,7 +157,7 @@ include __DIR__ . '/views/_layout.php';
           <div><a href="<?= BASE_URL ?>/admin/report?id=<?= (int)$l['id'] ?>" class="fw-bold"><?= e($l['title'] ?: $l['slug']) ?></a>
           <small>Son 30 günde hiç okutulmadı</small></div></li>
       <?php endforeach; ?>
-      <?php if (!$soon && !$silent && $stats['inactive_links'] === 0): ?>
+      <?php if (!$soon && !$silent && $stats['inactive_links'] === 0 && !$pendingReqCount): ?>
         <li><span class="dot ok"><?= icon('check') ?></span><div>Her şey yolunda<small>Yakında biten, pasif veya sessiz QR yok.</small></div></li>
       <?php endif; ?>
     </ul>
