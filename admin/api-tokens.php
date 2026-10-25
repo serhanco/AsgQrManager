@@ -44,8 +44,8 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">🔌 API Anahtarları</h1>
-  <a class="btn btn-ghost" href="<?= BASE_URL ?>/admin/api-docs">📖 Dokümantasyon</a>
+  <h1 class="page-title"><?= icon('code') ?> API Anahtarları</h1>
+  <a class="btn btn-ghost" href="<?= BASE_URL ?>/admin/api-docs"><?= icon('book') ?> Dokümantasyon</a>
 </div>
 
 <?php foreach ($errors as $err): ?><div class="alert alert-danger"><?= e($err) ?></div><?php endforeach; ?>
@@ -55,7 +55,7 @@ include __DIR__ . '/views/_layout.php';
   <strong>Yeni anahtar oluşturuldu. Şimdi kopyalayın — bir daha gösterilmeyecek.</strong>
   <div class="share-box mt-2">
     <input class="form-control font-mono" type="text" readonly value="<?= e($newToken) ?>" onclick="this.select()">
-    <button class="copy-btn" data-copy="<?= e($newToken) ?>" title="Kopyala">📋</button>
+    <button class="copy-btn" data-copy="<?= e($newToken) ?>" title="Kopyala"><?= icon('copy') ?></button>
   </div>
   <p class="text-xs mt-2">Anahtarı yalnızca sunucudan sunucuya (backend) kullanın; tarayıcı kodunda veya herkese açık dosyalarda paylaşmayın.</p>
 </div>
@@ -63,7 +63,7 @@ include __DIR__ . '/views/_layout.php';
 
 <form method="POST" class="card mb-4">
   <?= Auth::csrfField() ?><input type="hidden" name="action" value="create">
-  <div class="card-title mb-3">➕ Yeni anahtar</div>
+  <div class="card-title mb-3"><?= icon('plus') ?> Yeni anahtar</div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Ad</label>
       <input class="form-control" type="text" name="name" maxlength="100" placeholder="ACIBADEM.WORLD portalı" required></div>
@@ -93,7 +93,7 @@ include __DIR__ . '/views/_layout.php';
         <td class="fw-bold"><?= e($t['name']) ?></td>
         <td class="font-mono text-xs"><?= e($t['token_prefix']) ?>…</td>
         <td class="text-sm"><?= $t['scopes'] === 'read' ? 'Okuma' : 'Okuma + yazma' ?>
-          <br><span class="text-xs text-muted"><?= !empty($t['user_id']) ? e('👤 ' . ($userNames[(int)$t['user_id']]['username'] ?? '#' . $t['user_id'])) : 'tam yetki' ?></span></td>
+          <br><span class="text-xs text-muted"><?= !empty($t['user_id']) ? e(($userNames[(int)$t['user_id']]['username'] ?? '#' . $t['user_id'])) : 'tam yetki' ?></span></td>
         <td class="text-sm"><?= e($t['created_by'] ?: '—') ?><br><span class="text-xs text-muted"><?= e(substr($t['created_at'], 0, 10)) ?></span></td>
         <td class="text-sm text-muted"><?= $t['last_used_at'] ? e(substr($t['last_used_at'], 0, 16)) : 'hiç' ?></td>
         <td><?= $t['revoked_at'] ? '<span class="badge badge-muted">İptal</span>' : '<span class="badge badge-success">Etkin</span>' ?></td>

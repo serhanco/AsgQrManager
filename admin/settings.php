@@ -163,7 +163,7 @@ $activePage = 'settings';
 include __DIR__ . '/views/_layout.php';
 ?>
 
-<div class="page-header"><h1 class="page-title">⚙️ Ayarlar</h1></div>
+<div class="page-header"><h1 class="page-title"><?= icon('settings') ?> Ayarlar</h1></div>
 
 <?php foreach ($errors as $err): ?><div class="alert alert-danger"><?= e($err) ?></div><?php endforeach; ?>
 
@@ -172,7 +172,7 @@ include __DIR__ . '/views/_layout.php';
 <!-- Marka -->
 <form method="POST" class="card">
   <?= Auth::csrfField() ?><input type="hidden" name="action" value="brand">
-  <div class="card-title mb-2">🎨 Marka varsayılanları</div>
+  <div class="card-title mb-2"><?= icon('palette') ?> Marka varsayılanları</div>
   <p class="text-sm text-muted mb-3">"Marka varsayılanı" seçili tüm QR'lar bu görünümle üretilir; burada değiştirince hepsi birlikte güncellenir. Yeni QR formunda varsayılan logo da buradan gelir.</p>
   <div class="form-row">
     <div class="form-group"><label class="form-label">QR rengi</label>
@@ -200,7 +200,7 @@ include __DIR__ . '/views/_layout.php';
 <!-- Yönlendirme -->
 <form method="POST" class="card">
   <?= Auth::csrfField() ?><input type="hidden" name="action" value="routing">
-  <div class="card-title mb-2">🔀 Yönlendirme</div>
+  <div class="card-title mb-2"><?= icon('shuffle') ?> Yönlendirme</div>
   <div class="form-group">
     <label class="form-label">Genel yedek hedef <span class="hint">Pasif, arşivlenmiş veya süresi dolmuş QR okutulunca (QR'a özel yedek yoksa) ziyaretçi buraya gider. Boşsa aşağıdaki bilgi sayfası gösterilir.</span></label>
     <input class="form-control" type="url" name="fallback_url" placeholder="https://acibadem.world/" value="<?= e(Settings::get('fallback_url')) ?>">
@@ -221,7 +221,7 @@ include __DIR__ . '/views/_layout.php';
 <!-- Bilgi sayfası -->
 <form method="POST" class="card">
   <?= Auth::csrfField() ?><input type="hidden" name="action" value="info_page">
-  <div class="card-title mb-2">🪧 Bilgi sayfası</div>
+  <div class="card-title mb-2"><?= icon('info') ?> Bilgi sayfası</div>
   <p class="text-sm text-muted mb-2">Pasif, arşivlenmiş, zamanı gelmemiş veya süresi dolmuş bir QR okutulduğunda yedek hedef tanımlı değilse ziyaretçi 404 yerine Acıbadem logolu bu sayfayı görür (Türkçe/İngilizce, tarayıcı diline göre).
     Önizle:
     <?php foreach (['inactive' => 'pasif', 'expired' => 'süresi dolmuş', 'scheduled' => 'zamanı gelmemiş', 'unknown' => 'bilinmeyen'] as $st => $lbl): ?>
@@ -245,7 +245,7 @@ include __DIR__ . '/views/_layout.php';
 
 <!-- Gizlilik -->
 <div class="card">
-  <div class="card-title mb-2">🔒 Gizlilik (KVKK)</div>
+  <div class="card-title mb-2"><?= icon('lock') ?> Gizlilik (KVKK)</div>
   <form method="POST">
     <?= Auth::csrfField() ?><input type="hidden" name="action" value="privacy">
     <div class="form-group">
@@ -270,7 +270,7 @@ include __DIR__ . '/views/_layout.php';
 
 <!-- Paylaşım -->
 <div class="card">
-  <div class="card-title mb-2">📤 İndirme bağlantıları</div>
+  <div class="card-title mb-2"><?= icon('share') ?> İndirme bağlantıları</div>
   <form method="POST">
     <?= Auth::csrfField() ?><input type="hidden" name="action" value="share">
     <div class="form-group"><label class="form-label">Varsayılan geçerlilik süresi</label>
@@ -287,7 +287,7 @@ include __DIR__ . '/views/_layout.php';
 
 <!-- API -->
 <div class="card">
-  <div class="card-title mb-2">🔌 API erişimi</div>
+  <div class="card-title mb-2"><?= icon('code') ?> API erişimi</div>
   <p class="text-sm text-muted mb-3">ACIBADEM.WORLD paneli veya başka sistemler QR üretebilir, hedefi güncelleyebilir, istatistik çekebilir. Etkin anahtar: <strong><?= $tokens ?></strong></p>
   <a class="btn btn-primary" href="<?= BASE_URL ?>/admin/api-tokens">API anahtarlarını yönet</a>
   <a class="btn btn-ghost" href="<?= BASE_URL ?>/admin/api-docs">Dokümantasyon</a>
@@ -295,7 +295,7 @@ include __DIR__ . '/views/_layout.php';
 
 <!-- Logo galerisi -->
 <div class="card" style="grid-column:1/-1">
-  <div class="card-title mb-2">🖼 Logo galerisi</div>
+  <div class="card-title mb-2"><?= icon('image') ?> Logo galerisi</div>
   <div class="logo-gallery mb-3">
     <?php if (!$logos): ?><p class="text-sm text-muted">Henüz logo yok.</p><?php endif; ?>
     <?php foreach ($logos as $lf): $used = (int)($usage[$lf] ?? 0) + (Settings::get('brand_logo') === $lf ? 1 : 0); ?>
@@ -322,7 +322,7 @@ include __DIR__ . '/views/_layout.php';
 
 <!-- Veritabanı -->
 <div class="card" style="grid-column:1/-1">
-  <div class="card-title mb-2">🗄 Veritabanı ve yedek</div>
+  <div class="card-title mb-2"><?= icon('archive') ?> Veritabanı ve yedek</div>
   <p class="text-sm text-muted mb-3">
     <?= $linkRows ?> QR kaydı, <?= $scanRows ?> okutma kaydı. Güncellemeler yalnızca <strong>ekleme</strong> yapar (yeni sütun/tablo); mevcut kayıtlar silinmez ve değiştirilmez. Her güncellemeden önce <code>links</code> tablosunun yedeği <code>logs/backups/</code> klasörüne alınır.
   </p>
@@ -331,7 +331,7 @@ include __DIR__ . '/views/_layout.php';
     <tbody>
     <?php foreach ($migs as $m): ?>
       <tr><td class="font-mono text-xs"><?= e($m['id']) ?></td><td class="text-sm"><?= e($m['description']) ?></td>
-          <td class="text-sm"><?= $m['applied_at'] ? '✓ ' . e(substr($m['applied_at'], 0, 16)) : '⏳ bekliyor' ?></td></tr>
+          <td class="text-sm"><?= $m['applied_at'] ? '✓ ' . e(substr($m['applied_at'], 0, 16)) : 'bekliyor' ?></td></tr>
     <?php endforeach; ?>
     </tbody>
   </table></div>

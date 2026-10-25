@@ -144,11 +144,11 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">📊 Rapor<?= $link ? ' — <code>' . e($link['slug']) . '</code>' : ($tag !== '' ? ' — <span class="tag-chip" style="font-size:1rem">#' . e($tag) . '</span>' : ' — Tüm QR\'lar') ?></h1>
+  <h1 class="page-title"><?= icon('chart') ?> Rapor<?= $link ? ' — <code>' . e($link['slug']) . '</code>' : ($tag !== '' ? ' — <span class="tag-chip" style="font-size:1rem">#' . e($tag) . '</span>' : ' — Tüm QR\'lar') ?></h1>
   <div class="btn-group">
-    <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => 'daily']) ?>">⬇️ Günlük CSV</a>
-    <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => $link ? 'raw' : 'links']) ?>">⬇️ <?= $link ? 'Okutma listesi CSV' : 'QR bazlı CSV' ?></a>
-    <?php if ($link && Access::canEditLink($link)): ?><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>">✏️ Düzenle</a><?php endif; ?>
+    <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => 'daily']) ?>"><?= icon('download') ?> Günlük CSV</a>
+    <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => $link ? 'raw' : 'links']) ?>"><?= icon('download') ?> <?= $link ? 'Okutma listesi CSV' : 'QR bazlı CSV' ?></a>
+    <?php if ($link && Access::canEditLink($link)): ?><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>"><?= icon('pencil') ?> Düzenle</a><?php endif; ?>
   </div>
 </div>
 
@@ -179,7 +179,7 @@ include __DIR__ . '/views/_layout.php';
   <?php endif; ?>
   <select class="form-control" name="range" id="range-sel" style="max-width:190px">
     <?php foreach (['7' => 'Son 7 gün', '30' => 'Son 30 gün', '90' => 'Son 90 gün', '365' => 'Son 1 yıl', 'all' => 'Tüm zamanlar', 'custom' => 'Özel aralık'] as $k => $lbl): ?>
-      <option value="<?= $k ?>" <?= $range === $k ? 'selected' : '' ?>><?= $lbl ?></option>
+      <option value="<?= $k ?>" <?= $range === (string)$k ? 'selected' : '' ?>><?= $lbl ?></option>
     <?php endforeach; ?>
   </select>
   <input class="form-control" type="date" name="from" value="<?= e($from) ?>" style="max-width:160px">
@@ -189,26 +189,26 @@ include __DIR__ . '/views/_layout.php';
 </form>
 
 <div class="stat-grid">
-  <div class="stat-card accent"><div class="stat-icon">📈</div><div class="stat-label">Okutma</div><div class="stat-value"><?= formatCount($total) ?></div></div>
-  <div class="stat-card success"><div class="stat-icon">👥</div><div class="stat-label">Tahmini tekil ziyaretçi</div><div class="stat-value"><?= formatCount((int)$tot['u']) ?></div></div>
-  <div class="stat-card"><div class="stat-icon">🔁</div><div class="stat-label">Yedek hedefe giden</div><div class="stat-value"><?= (int)($other['redirected'] ?? 0) ?></div></div>
-  <div class="stat-card warning"><div class="stat-icon">🤖</div><div class="stat-label">Bot / önizleme (sayılmadı)</div><div class="stat-value"><?= (int)($other['bots'] ?? 0) ?></div></div>
+  <div class="stat-card accent"><div class="stat-icon"><?= icon('trending') ?></div><div class="stat-label">Okutma</div><div class="stat-value"><?= formatCount($total) ?></div></div>
+  <div class="stat-card success"><div class="stat-icon"><?= icon('users') ?></div><div class="stat-label">Tahmini tekil ziyaretçi</div><div class="stat-value"><?= formatCount((int)$tot['u']) ?></div></div>
+  <div class="stat-card"><div class="stat-icon"><?= icon('repeat') ?></div><div class="stat-label">Yedek hedefe giden</div><div class="stat-value"><?= (int)($other['redirected'] ?? 0) ?></div></div>
+  <div class="stat-card warning"><div class="stat-icon"><?= icon('bot') ?></div><div class="stat-label">Bot / önizleme (sayılmadı)</div><div class="stat-value"><?= (int)($other['bots'] ?? 0) ?></div></div>
 </div>
 
 <div class="card mb-4">
-  <div class="card-header"><span class="card-title">📉 Günlük okutma</span></div>
+  <div class="card-header"><span class="card-title"><?= icon('trending') ?> Günlük okutma</span></div>
   <div class="chart-wrap" style="height:200px"><canvas id="report-chart" class="chart-canvas"></canvas></div>
 </div>
 
 <div class="report-grid">
-  <div class="card"><div class="card-title mb-3">📱 Cihaz</div><?php reportBars($dev, $total); ?></div>
-  <div class="card"><div class="card-title mb-3">💻 İşletim sistemi</div><?php reportBars($os, $total); ?></div>
-  <div class="card"><div class="card-title mb-3">🌐 Tarayıcı</div><?php reportBars($br, $total); ?></div>
-  <div class="card"><div class="card-title mb-3">🌍 Ülke
+  <div class="card"><div class="card-title mb-3"><?= icon('qr') ?> Cihaz</div><?php reportBars($dev, $total); ?></div>
+  <div class="card"><div class="card-title mb-3"><?= icon('monitor') ?> İşletim sistemi</div><?php reportBars($os, $total); ?></div>
+  <div class="card"><div class="card-title mb-3"><?= icon('globe') ?> Tarayıcı</div><?php reportBars($br, $total); ?></div>
+  <div class="card"><div class="card-title mb-3"><?= icon('globe') ?> Ülke
       <?php if (!$countries || array_keys($countries) === ['??']): ?><span class="text-xs text-muted">(ülke bilgisi Cloudflare üzerinden gelir)</span><?php endif; ?></div>
     <?php reportBars($countries, $total, fn($k) => $flag($k) . ' ' . ($k === '??' ? 'Bilinmiyor' : e($k))); ?></div>
-  <div class="card"><div class="card-title mb-3">🔗 Kaynak</div><?php reportBars($refs, $total); ?></div>
-  <div class="card"><div class="card-title mb-3">🕐 Saat dağılımı</div>
+  <div class="card"><div class="card-title mb-3"><?= icon('link') ?> Kaynak</div><?php reportBars($refs, $total); ?></div>
+  <div class="card"><div class="card-title mb-3"><?= icon('clock') ?> Saat dağılımı</div>
     <div class="hour-chart">
       <?php $hm = max($hours) ?: 1; foreach ($hours as $h => $c): ?>
         <div class="hour-col" title="<?= sprintf('%02d:00 — %d okutma', $h, $c) ?>">
@@ -223,7 +223,7 @@ include __DIR__ . '/views/_layout.php';
 <?php if (!$link): ?>
 <div class="report-grid mt-4">
   <div class="card" style="grid-column:1/-1">
-    <div class="card-title mb-3">🏆 QR bazında (ilk 25)</div>
+    <div class="card-title mb-3"><?= icon('award') ?> QR bazında (ilk 25)</div>
     <div class="table-wrap"><table>
       <thead><tr><th>QR</th><th>Tür</th><th>Okutma</th><th></th></tr></thead>
       <tbody>
@@ -239,8 +239,8 @@ include __DIR__ . '/views/_layout.php';
       </tbody>
     </table></div>
   </div>
-  <div class="card"><div class="card-title mb-3">🗂 Türe göre <?= tip('Tür: QR’ın ne olduğu (tek seçim). Etiketler ise kesişen gruplardır; bir QR birden çok etikete girebilir.') ?></div><?php reportBars($perCat, $total); ?></div>
-  <div class="card"><div class="card-title mb-3">🏷 Etikete göre <?= tip('Bir okutma, QR’ın her etiketine ayrı sayılır; bu yüzden etiket toplamları genel toplamı aşabilir. Birleşik rapor için etiket adına tıklayın.') ?></div>
+  <div class="card"><div class="card-title mb-3"><?= icon('folder') ?> Türe göre <?= tip('Tür: QR’ın ne olduğu (tek seçim). Etiketler ise kesişen gruplardır; bir QR birden çok etikete girebilir.') ?></div><?php reportBars($perCat, $total); ?></div>
+  <div class="card"><div class="card-title mb-3"><?= icon('tag') ?> Etikete göre <?= tip('Bir okutma, QR’ın her etiketine ayrı sayılır; bu yüzden etiket toplamları genel toplamı aşabilir. Birleşik rapor için etiket adına tıklayın.') ?></div>
     <?php if (!$perTag): ?>
       <p class="text-sm text-muted">Bu aralıkta etiketli QR’dan okutma yok. QR’lara etiket vererek ülke, etkinlik veya materyale göre karşılaştırma yapabilirsiniz.
         <a href="<?= BASE_URL ?>/admin/links?tag=__none">Etiketsizleri göster</a></p>
@@ -251,7 +251,7 @@ include __DIR__ . '/views/_layout.php';
 
 <script>
 (function () {
-  requestAnimationFrame(() => window.drawScanChart('report-chart', <?= json_encode(array_keys($daily)) ?>, <?= json_encode(array_values($daily)) ?>));
+  document.addEventListener('DOMContentLoaded', () => window.drawScanChart('report-chart', <?= json_encode(array_keys($daily)) ?>, <?= json_encode(array_values($daily)) ?>));
   document.getElementById('range-sel').addEventListener('change', function () { if (this.value !== 'custom') this.form.submit(); });
 })();
 </script>

@@ -12,8 +12,8 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">📖 API Dokümantasyonu</h1>
-  <a class="btn btn-ghost" href="<?= BASE_URL ?>/admin/api-tokens">🔌 Anahtarlar</a>
+  <h1 class="page-title"><?= icon('book') ?> API Dokümantasyonu</h1>
+  <a class="btn btn-ghost" href="<?= BASE_URL ?>/admin/api-tokens"><?= icon('code') ?> Anahtarlar</a>
 </div>
 
 <div class="card doc">

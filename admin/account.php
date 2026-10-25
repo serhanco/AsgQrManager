@@ -31,13 +31,13 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">👤 Hesabım</h1>
+  <h1 class="page-title"><?= icon('user') ?> Hesabım</h1>
 </div>
 
 <?php if ($error): ?><div class="alert alert-danger"><?= e($error) ?></div><?php endif; ?>
 
 <div class="card mb-4">
-  <div class="table-wrap"><table><tbody>
+  <div class="table-wrap"><table class="compact"><tbody>
     <tr><td class="text-muted">Kullanıcı adı</td><td class="fw-bold"><?= e($user['username']) ?></td></tr>
     <?php if (!empty($user['display_name'])): ?><tr><td class="text-muted">Ad Soyad</td><td><?= e($user['display_name']) ?></td></tr><?php endif; ?>
     <tr><td class="text-muted">Rol</td><td><?= e(Access::ROLES[$role] ?? $role) ?> <span class="text-xs text-muted">— <?= e(Access::ROLE_HELP[$role] ?? '') ?></span></td></tr>
@@ -47,7 +47,7 @@ include __DIR__ . '/views/_layout.php';
 
 <form method="POST" class="card" style="max-width:520px">
   <?= Auth::csrfField() ?>
-  <div class="card-title mb-3">🔑 Şifre değiştir</div>
+  <div class="card-title mb-3"><?= icon('key') ?> Şifre değiştir</div>
   <div class="form-group">
     <label class="form-label" for="pw-current">Mevcut şifre</label>
     <input class="form-control" id="pw-current" type="password" name="current" required autocomplete="current-password">

@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Aktif/pasif değişimi geçmişte ayrıca görünsün
             LinkEvents::log($pdo, (int)$id, $link['slug'], Auth::actor(), $clean['is_active'] ? 'activate' : 'deactivate');
         }
-        flash('success', $changes ? 'Link başarıyla güncellendi.' : 'Değişiklik yok.');
+        flash('success', $changes ? 'QR başarıyla güncellendi.' : 'Değişiklik yok.');
         redirect(BASE_URL . '/admin/edit?id=' . $id);
     }
     $f = $_POST;
@@ -52,8 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $state = Redirector::state($link)['state'];
 $stateLabels = ['live' => ['● Aktif', 'badge-success'], 'inactive' => ['○ Pasif', 'badge-danger'],
-                'scheduled' => ['⏳ Başlamadı', 'badge-muted'], 'expired' => ['⌛ Süresi doldu', 'badge-muted'],
-                'archived' => ['🗄 Arşivde', 'badge-muted']];
+                'scheduled' => ['◷ Başlamadı', 'badge-muted'], 'expired' => ['◌ Süresi doldu', 'badge-muted'],
+                'archived' => ['▪ Arşivde', 'badge-muted']];
 
 $events = $pdo->prepare('SELECT * FROM link_events WHERE link_id = ? ORDER BY id DESC LIMIT 15');
 $events->execute([$id]);
@@ -61,20 +61,20 @@ $events = $events->fetchAll();
 
 $mode        = 'edit';
 $previewSlug = $link['slug'];
-$formActions = '<div class="btn-group mt-4"><button class="btn btn-primary" type="submit">💾 Kaydet</button>'
+$formActions = '<div class="btn-group mt-4"><button class="btn btn-primary" type="submit">' . icon('save') . ' Kaydet</button>'
              . '<a href="' . e(BASE_URL) . '/admin/links" class="btn btn-ghost">İptal</a></div>';
 
-$pageTitle  = 'Link Düzenle';
+$pageTitle  = 'QR Düzenle';
 $activePage = 'links';
 include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">✏️ Link Düzenle</h1>
+  <h1 class="page-title"><?= icon('pencil') ?> QR Düzenle</h1>
   <div class="btn-group">
-    <a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($link['slug']) ?>" class="btn btn-ghost">📱 QR / İndir / Paylaş</a>
-    <a href="<?= BASE_URL ?>/admin/report?id=<?= $id ?>" class="btn btn-ghost">📊 Rapor</a>
-    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost">← Geri</a>
+    <a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($link['slug']) ?>" class="btn btn-ghost"><?= icon('qr') ?> QR / İndir / Paylaş</a>
+    <a href="<?= BASE_URL ?>/admin/report?id=<?= $id ?>" class="btn btn-ghost"><?= icon('chart') ?> Rapor</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost"><?= icon('arrow-left') ?> Geri</a>
   </div>
 </div>
 
@@ -83,9 +83,9 @@ include __DIR__ . '/views/_layout.php';
 <?php endforeach; ?>
 
 <div class="alert alert-info">
-  🔒 QR kodu sabit kalır. Kısa ad: <strong class="font-mono"><?= e($link['slug']) ?></strong>
+  <?= icon('lock') ?> QR kodu sabit kalır. Kısa ad: <strong class="font-mono"><?= e($link['slug']) ?></strong>
   &nbsp;→&nbsp; <span class="font-mono text-xs"><?= e(BASE_URL . '/r/' . $link['slug']) ?></span>
-  <button class="copy-btn" data-copy="<?= e(BASE_URL . '/r/' . $link['slug']) ?>" style="vertical-align:middle">📋</button>
+  <button class="copy-btn" data-copy="<?= e(BASE_URL . '/r/' . $link['slug']) ?>" style="vertical-align:middle"><?= icon('copy') ?></button>
   &nbsp; <span class="badge <?= $stateLabels[$state][1] ?>"><?= $stateLabels[$state][0] ?></span>
   &nbsp; <span class="text-muted text-sm"><?= formatCount((int)$link['scan_count']) ?> okutma</span>
 </div>
@@ -98,25 +98,25 @@ include __DIR__ . '/views/_layout.php';
 <!-- Arşivle / Geri al -->
 <?php if (Access::can('links.archive')): ?>
 <div class="card mt-4">
-  <div class="card-title mb-2">🗄 Arşiv</div>
+  <div class="card-title mb-2"><?= icon('archive') ?> Arşiv</div>
   <?php if (!empty($link['archived_at'])): ?>
     <p class="text-sm text-muted mb-3">Bu QR <?= e(substr($link['archived_at'], 0, 16)) ?> tarihinde arşivlendi. Okutulduğunda yedek hedefe gider (yoksa 404). Kayıt ve okutma geçmişi saklanıyor.</p>
     <form method="POST" action="<?= BASE_URL ?>/admin/restore" style="display:inline">
       <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= $id ?>">
-      <button class="btn btn-ghost" type="submit">♻️ Arşivden çıkar</button>
+      <button class="btn btn-ghost" type="submit"><?= icon('restore') ?> Arşivden çıkar</button>
     </form>
     <?php if ((int)$link['scan_count'] === 0): ?>
       <form method="POST" action="<?= BASE_URL ?>/admin/delete" style="display:inline"
             data-confirm="Bu kayıt KALICI olarak silinecek (hiç okutulmamış). Emin misiniz?">
         <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="purge" value="1">
-        <button class="btn btn-ghost" type="submit" style="color:var(--danger)">🗑 Kalıcı sil</button>
+        <button class="btn btn-ghost" type="submit" style="color:var(--danger)"><?= icon('trash') ?> Kalıcı sil</button>
       </form>
     <?php endif; ?>
   <?php else: ?>
     <p class="text-sm text-muted mb-3">QR'ı silmek yerine arşivleyin: basılı materyal sahada kalsa bile geçmiş ve ayarlar korunur, istediğiniz zaman geri açabilirsiniz.</p>
     <form method="POST" action="<?= BASE_URL ?>/admin/delete" data-confirm="Bu QR arşivlenecek ve okutulduğunda hedefe gitmeyecek. Devam edilsin mi?">
       <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= $id ?>">
-      <button class="btn btn-ghost" type="submit">🗄 Arşivle</button>
+      <button class="btn btn-ghost" type="submit"><?= icon('archive') ?> Arşivle</button>
     </form>
   <?php endif; ?>
 </div>
@@ -125,7 +125,7 @@ include __DIR__ . '/views/_layout.php';
 
 <!-- Değişiklik geçmişi -->
 <div class="card mt-4">
-  <div class="card-title mb-2">🕘 Değişiklik Geçmişi</div>
+  <div class="card-title mb-2"><?= icon('history') ?> Değişiklik Geçmişi</div>
   <?php if (!$events): ?>
     <p class="text-sm text-muted">Bu link için kayıtlı değişiklik yok (geçmiş, güncellemeden sonra tutulmaya başlar).</p>
   <?php else: ?>

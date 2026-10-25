@@ -47,17 +47,17 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">🏷 Etiketler</h1>
+  <h1 class="page-title"><?= icon('tag') ?> Etiketler</h1>
   <div class="btn-group">
     <?php if ($untagged): ?>
       <a href="<?= BASE_URL ?>/admin/links?tag=__none" class="btn btn-ghost btn-sm" title="Hiç etiketi olmayan QR'ları listele">Etiketsiz QR (<?= $untagged ?>)</a>
     <?php endif; ?>
-    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost btn-sm">← Linkler</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost btn-sm"><?= icon('arrow-left') ?> Linkler</a>
   </div>
 </div>
 
 <div class="nudge">
-  <div class="nudge-icon">💡</div>
+  <div class="nudge-icon"><?= icon('bulb') ?></div>
   <div>
     <div class="nudge-title">Tür mü, etiket mi?</div>
     <p><strong>Tür</strong> QR’ın ne olduğunu söyler (tek seçim: Genel Merkez, Ofis, Etkinlik, Kampanya).
@@ -101,12 +101,12 @@ include __DIR__ . '/views/_layout.php';
           </td>
           <td>
             <div class="btn-group" style="flex-wrap:nowrap">
-              <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report?tag=<?= urlencode($t['tag']) ?>" title="Bu etiketli QR'ların birleşik raporu">📊</a>
+              <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report?tag=<?= urlencode($t['tag']) ?>" title="Bu etiketli QR'ların birleşik raporu"><?= icon('chart') ?></a>
               <form method="POST" data-confirm="“<?= e($t['tag']) ?>” etiketi <?= (int)$t['count'] ?> QR’dan kaldırılacak. QR’lar silinmez, okutma geçmişi korunur. Devam edilsin mi?">
                 <?= Auth::csrfField() ?>
                 <input type="hidden" name="action" value="remove">
                 <input type="hidden" name="from" value="<?= e($t['tag']) ?>">
-                <button class="btn btn-ghost btn-sm" type="submit" title="Etiketi tüm QR'lardan kaldır">🗑</button>
+                <button class="btn btn-ghost btn-sm" type="submit" title="Etiketi tüm QR'lardan kaldır"><?= icon('trash') ?></button>
               </form>
             </div>
           </td>

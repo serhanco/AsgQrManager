@@ -103,17 +103,17 @@ include __DIR__ . '/views/_layout.php';
 ?>
 
 <div class="page-header">
-  <h1 class="page-title">📱 QR — <code><?= e($slug) ?></code></h1>
+  <h1 class="page-title"><?= icon('qr') ?> QR — <code><?= e($slug) ?></code></h1>
   <div class="btn-group">
-    <?php if (Access::canEditLink($link)): ?><a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm">✏️ Düzenle</a><?php endif; ?>
-    <a href="<?= BASE_URL ?>/admin/report?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm">📊 Rapor</a>
-    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost btn-sm">← Geri</a>
+    <?php if (Access::canEditLink($link)): ?><a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm"><?= icon('pencil') ?> Düzenle</a><?php endif; ?>
+    <a href="<?= BASE_URL ?>/admin/report?id=<?= $link['id'] ?>" class="btn btn-ghost btn-sm"><?= icon('chart') ?> Rapor</a>
+    <a href="<?= BASE_URL ?>/admin/links" class="btn btn-ghost btn-sm"><?= icon('arrow-left') ?> Geri</a>
   </div>
 </div>
 
 <div class="alert alert-info">
-  🔗 Kısa URL: <strong class="font-mono"><?= e($shortUrl) ?></strong>
-  <button class="copy-btn" data-copy="<?= e($shortUrl) ?>">📋</button>
+  <?= icon('link') ?> Kısa URL: <strong class="font-mono"><?= e($shortUrl) ?></strong>
+  <button class="copy-btn" data-copy="<?= e($shortUrl) ?>"><?= icon('copy') ?></button>
   &nbsp;→&nbsp; <span class="text-muted text-sm"><?= e($link['target_url']) ?></span>
 </div>
 
@@ -122,13 +122,13 @@ include __DIR__ . '/views/_layout.php';
 <!-- Sol: önizleme + indirme + paylaşım -->
 <div>
   <div class="card">
-    <div class="card-title mb-3">📱 QR Önizleme</div>
+    <div class="card-title mb-3"><?= icon('qr') ?> QR Önizleme</div>
     <div class="qr-preview-box"><?= $svgInline ?></div>
 
     <?php if (!empty($logos)): ?>
     <details class="mt-4" <?= $logoOverride !== null ? 'open' : '' ?>>
       <summary style="cursor:pointer;font-size:.85rem;color:var(--text-muted);padding:.4rem 0;user-select:none">
-        ⚙️ Bu indirme için logoyu değiştir (kayıtlı ayar değişmez)
+        <?= icon('settings') ?> Bu indirme için logoyu değiştir (kayıtlı ayar değişmez)
       </summary>
       <div class="mt-3">
         <div class="form-check mb-2">
@@ -149,13 +149,13 @@ include __DIR__ . '/views/_layout.php';
     </details>
     <?php endif; ?>
     <?php if (!$logoSupport['supported'] && $logoFile): ?>
-      <div class="alert alert-warning mt-3">⚠️ GD veya Imagick eklentisi bulunamadı. PNG, logo olmadan üretildi.</div>
+      <div class="alert alert-warning mt-3"><?= icon('alert') ?> GD veya Imagick eklentisi bulunamadı. PNG, logo olmadan üretildi.</div>
     <?php endif; ?>
   </div>
 
   <!-- İndirme -->
   <div class="card mt-4">
-    <div class="card-title mb-3">⬇️ İndir</div>
+    <div class="card-title mb-3"><?= icon('download') ?> İndir</div>
 
     <div class="dl-group">
       <div class="dl-label">Vektörel — baskı için önerilir</div>
@@ -190,17 +190,17 @@ include __DIR__ . '/views/_layout.php';
     </label>
 
     <div class="mt-3">
-      <a class="btn btn-primary" href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($slug) ?>&zip=1<?= $logoQs ?>">📦 Baskı paketi (ZIP: SVG + PDF + PNG)</a>
+      <a class="btn btn-primary" href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($slug) ?>&zip=1<?= $logoQs ?>"><?= icon('package') ?> Baskı paketi (ZIP: SVG + PDF + PNG)</a>
     </div>
   </div>
 
   <!-- Paylaşım -->
   <div class="card mt-4">
-    <div class="card-title mb-3">📤 Paylaş</div>
+    <div class="card-title mb-3"><?= icon('share') ?> Paylaş</div>
     <div class="btn-group">
-      <button type="button" class="btn btn-ghost" id="share-native" style="display:none">📲 Paylaş…</button>
-      <button type="button" class="btn btn-ghost" id="copy-image">🖼 QR görselini kopyala</button>
-      <button type="button" class="btn btn-ghost copy-btn-lg" data-copy="<?= e($shortUrl) ?>">🔗 Kısa linki kopyala</button>
+      <button type="button" class="btn btn-ghost" id="share-native" style="display:none"><?= icon('phone') ?> Paylaş…</button>
+      <button type="button" class="btn btn-ghost" id="copy-image"><?= icon('image') ?> QR görselini kopyala</button>
+      <button type="button" class="btn btn-ghost copy-btn-lg" data-copy="<?= e($shortUrl) ?>"><?= icon('link') ?> Kısa linki kopyala</button>
       <a class="btn btn-ghost" target="_blank" rel="noopener"
          href="https://wa.me/?text=<?= rawurlencode(($link['title'] ?: $slug) . ' — ' . $shortUrl) ?>">WhatsApp</a>
       <a class="btn btn-ghost"
@@ -223,7 +223,7 @@ include __DIR__ . '/views/_layout.php';
       <?php if ($shareUrl): ?>
         <div class="share-box mt-3">
           <input class="form-control font-mono text-xs" type="text" readonly value="<?= e($shareUrl) ?>" onclick="this.select()">
-          <button class="copy-btn" data-copy="<?= e($shareUrl) ?>" title="Kopyala">📋</button>
+          <button class="copy-btn" data-copy="<?= e($shareUrl) ?>" title="Kopyala"><?= icon('copy') ?></button>
         </div>
         <p class="text-xs text-muted mt-1">Bu bağlantıyla yalnızca QR dosyaları indirilir; hedef adres ve panel görünmez.
           Tüm paylaşım bağlantılarını <a href="<?= BASE_URL ?>/admin/settings">Ayarlar</a>'dan iptal edebilirsiniz.</p>
@@ -234,12 +234,12 @@ include __DIR__ . '/views/_layout.php';
 
 <!-- Sağ: link bilgisi -->
 <div class="card">
-  <div class="card-title mb-3">📋 Link Bilgisi</div>
+  <div class="card-title mb-3"><?= icon('info') ?> QR Bilgisi</div>
   <div class="text-sm info-list">
     <div><div class="info-k">Hedef URL</div><div style="word-break:break-all;font-weight:500"><?= e($link['target_url']) ?></div></div>
     <div><div class="info-k">Durum</div>
-      <?php $lbl = ['live' => ['● Aktif', 'badge-success'], 'inactive' => ['○ Pasif', 'badge-danger'], 'scheduled' => ['⏳ Başlamadı', 'badge-muted'],
-                    'expired' => ['⌛ Süresi doldu', 'badge-muted'], 'archived' => ['🗄 Arşivde', 'badge-muted']][$state]; ?>
+      <?php $lbl = ['live' => ['● Aktif', 'badge-success'], 'inactive' => ['○ Pasif', 'badge-danger'], 'scheduled' => ['◷ Başlamadı', 'badge-muted'],
+                    'expired' => ['◌ Süresi doldu', 'badge-muted'], 'archived' => ['▪ Arşivde', 'badge-muted']][$state]; ?>
       <span class="badge <?= $lbl[1] ?>"><?= $lbl[0] ?></span></div>
     <?php if (!empty($link['category'])): ?>
       <div><div class="info-k">Tür</div><?= e(LinkService::CATEGORIES[$link['category']] ?? $link['category']) ?></div>
@@ -267,7 +267,7 @@ include __DIR__ . '/views/_layout.php';
     <?php endif; ?>
   </div>
   <div style="margin-top:1.5rem">
-    <?php if (Access::canEditLink($link)): ?><a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-primary btn-sm" style="width:100%">✏️ Linki Düzenle</a><?php endif; ?>
+    <?php if (Access::canEditLink($link)): ?><a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-primary btn-sm" style="width:100%"><?= icon('pencil') ?> QR'ı Düzenle</a><?php endif; ?>
   </div>
 </div>
 
@@ -289,17 +289,17 @@ include __DIR__ . '/views/_layout.php';
 
   // QR görselini panoya kopyala (e-posta / sunum / mesajlaşmaya yapıştırmak için)
   document.getElementById('copy-image').addEventListener('click', async (e) => {
-    const btn = e.currentTarget, t = btn.textContent;
+    const btn = e.currentTarget, t = btn.innerHTML;
     try {
       const blob = await (await fetch(pngUrl, {credentials: 'same-origin'})).blob();
       await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
       btn.textContent = '✓ Kopyalandı';
     } catch (err) { btn.textContent = 'Tarayıcı desteklemiyor — PNG indirin'; }
-    setTimeout(() => btn.textContent = t, 2200);
+    setTimeout(() => btn.innerHTML = t, 2200);
   });
   document.querySelector('.copy-btn-lg').addEventListener('click', (e) => {
-    const b = e.currentTarget, t = b.textContent;
-    navigator.clipboard.writeText(b.dataset.copy).then(() => { b.textContent = '✓ Kopyalandı'; setTimeout(() => b.textContent = t, 1800); });
+    const b = e.currentTarget, t = b.innerHTML;
+    navigator.clipboard.writeText(b.dataset.copy).then(() => { b.textContent = '✓ Kopyalandı'; setTimeout(() => b.innerHTML = t, 1800); });
   });
 
   // Telefon / destekleyen tarayıcılarda sistem paylaşım menüsü (PNG dosyasıyla)
