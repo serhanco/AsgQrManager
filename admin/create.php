@@ -48,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 Logger::warning('İlk QR üretimi başarısız: ' . $e->getMessage());
             }
             flash('success', ($qrType === 'vcard' ? 'Kartvizit QR oluşturuldu!' : 'QR oluşturuldu!') . " Kısa adres: {$link['slug']}");
+            if ($w = LinkService::designWarnings($link)) flash('warning', 'Okunabilirlik: ' . implode(' ', $w));
             if (empty($link['tags'])) {
                 flash('info', 'İpucu: Bu QR’a etiket (ülke, etkinlik, materyal…) eklerseniz raporlarda gruplayabilirsiniz. Düzenle sayfasından ekleyebilirsiniz.');
             }

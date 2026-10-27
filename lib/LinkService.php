@@ -27,7 +27,7 @@ class LinkService {
     private const COLUMNS = [
         'target_url', 'title', 'is_active', 'logo', 'category', 'tags', 'notes',
         'fallback_url', 'starts_at', 'ends_at', 'after_end_url',
-        'utm_enabled', 'utm_campaign', 'fg_color', 'bg_color', 'shape',
+        'utm_enabled', 'utm_campaign', 'fg_color', 'bg_color', 'shape', 'template_id', 'design',
     ];
 
     // ─── Renk yardımcıları ───────────────────────────────────────────────────
@@ -71,8 +71,17 @@ class LinkService {
         return null;
     }
 
-    /** Link satırı + marka varsayılanlarından etkin QR stilini çıkarır. */
+    /**
+     * Link satırı + marka varsayılanlarından etkin QR stilini çıkarır.
+     * Öncelik: bağlı şablon → bu QR'a özel görünüm (fg/bg/shape + design) → marka varsayılanı.
+     */
     public static function effectiveStyle(array $link): array {
+        if (!empty($link['template_id'])) {
+            try {
+                $tpl = QrTemplates::find(getPdo(), (int)$link['template_id']);
+                if ($tpl) return $tpl['style'];
+            } catch (\Throwable $e) { /* şablon okunamazsa aşağıdaki stil kullanılır */ }
+        }
         $fg = self::normalizeHex($link['fg_color'] ?? null) ?? self::normalizeHex(Settings::get('brand_fg')) ?? '#000000';
         $bg = self::normalizeHex($link['bg_color'] ?? null) ?? self::normalizeHex(Settings::get('brand_bg')) ?? '#FFFFFF';
         $shape = $link['shape'] ?? '';
@@ -80,7 +89,12 @@ class LinkService {
             $shape = Settings::get('brand_shape');
             if (!isset(self::SHAPES[$shape])) $shape = 'square';
         }
-        return ['fg' => $fg, 'bg' => $bg, 'shape' => $shape];
+        return ['fg' => $fg, 'bg' => $bg, 'shape' => $shape] + QrDesign::decode($link['design'] ?? null);
+    }
+
+    /** Kaydedilmiş QR'ın okunabilirlik uyarıları (kaydı engellemez; panelde gösterilir) */
+    public static function designWarnings(array $link): array {
+        return QrDesign::check(self::effectiveStyle($link))[1];
     }
 
     /** Link logosu yoksa marka varsayılan logosu kullanılmaz (açıkça seçilmediyse logo yok). */
@@ -277,13 +291,22 @@ class LinkService {
         ];
         if ($isEdit) $in['is_active'] = !empty($post['is_active']) ? 1 : 0;
 
-        if (($post['style_mode'] ?? 'brand') === 'custom') {
+        $mode = (string)($post['style_mode'] ?? 'brand');
+        $in['fg_color'] = $in['bg_color'] = $in['shape'] = $in['template_id'] = '';
+        $in['design'] = [];
+        if ($mode === 'custom') {
             $in['fg_color'] = $post['fg_color'] ?? '';
             $in['bg_color'] = $post['bg_color'] ?? '';
             $in['shape']    = $post['shape']    ?? '';
-        } else { // marka varsayılanı
-            $in['fg_color'] = $in['bg_color'] = $in['shape'] = '';
+            $in['design']   = QrTemplates::designInput([
+                'eye' => $post['eye'] ?? '', 'eye_color' => !empty($post['eye_color_on']) ? ($post['eye_color'] ?? '') : '',
+                'gradient' => $post['gradient'] ?? '', 'fg2' => ($post['gradient'] ?? 'none') !== 'none' ? ($post['fg2'] ?? '') : '',
+            ]);
+        } elseif ($mode === 'template') {
+            $in['template_id'] = $post['template_id'] ?? '';
         }
+        // Şablon tablosu henüz yoksa (migration bekliyor) yeni sütunlara yazılmaz
+        if (!QrTemplates::available(getPdo())) unset($in['template_id'], $in['design']);
         return $in;
     }
 
@@ -361,7 +384,7 @@ class LinkService {
             }
         }
 
-        // Renkler (ikisi birlikte denetlenir)
+        // Renkler
         foreach (['fg_color' => 'QR rengi', 'bg_color' => 'Arka plan rengi'] as $k => $label) {
             if (!$has($k)) continue;
             $raw = trim((string)$in[$k]);
@@ -370,18 +393,54 @@ class LinkService {
             if ($hex === null) $errors[] = "{$label} geçersiz (örn. #1B3A6B).";
             else $clean[$k] = $hex;
         }
-        if ($has('fg_color') || $has('bg_color')) {
-            $fg = array_key_exists('fg_color', $clean) ? $clean['fg_color'] : ($existing['fg_color'] ?? null);
-            $bg = array_key_exists('bg_color', $clean) ? $clean['bg_color'] : ($existing['bg_color'] ?? null);
-            $fgEff = self::normalizeHex($fg) ?? self::normalizeHex(Settings::get('brand_fg')) ?? '#000000';
-            $bgEff = self::normalizeHex($bg) ?? self::normalizeHex(Settings::get('brand_bg')) ?? '#FFFFFF';
-            if (($err = self::colorError($fgEff, $bgEff)) !== null) $errors[] = $err;
+
+        // Köşe biçimi / rengi ve renk geçişi (design: {eye, eye_color, gradient, fg2})
+        if ($has('design')) {
+            $d = is_array($in['design']) ? $in['design'] : (is_string($in['design']) ? (json_decode($in['design'], true) ?: []) : []);
+            foreach (['eye_color' => 'Köşe rengi', 'fg2' => 'Geçiş rengi'] as $k => $label) {
+                if (trim((string)($d[$k] ?? '')) !== '' && self::normalizeHex((string)$d[$k]) === null) $errors[] = "{$label} geçersiz (örn. #0A3A86).";
+            }
+            if (($d['eye'] ?? '') !== '' && !isset(QrDesign::EYES[$d['eye']])) $errors[] = 'Geçersiz köşe biçimi.';
+            if (($d['gradient'] ?? '') !== '' && !isset(QrDesign::GRADIENTS[$d['gradient']])) $errors[] = 'Geçersiz renk geçişi.';
+            elseif (($d['gradient'] ?? 'none') !== 'none' && self::normalizeHex($d['fg2'] ?? '') === null) $errors[] = 'Renk geçişi için ikinci rengi seçin.';
+            $clean['design'] = QrDesign::encode($d);
+        }
+
+        if ($has('template_id')) {
+            $tid = trim((string)$in['template_id']);
+            if ($tid === '' || $tid === '0') $clean['template_id'] = null;
+            else {
+                $tpl = ctype_digit($tid) ? QrTemplates::find(getPdo(), (int)$tid) : null;
+                $unchanged = $tpl && (int)($existing['template_id'] ?? 0) === (int)$tid;
+                if (!$tpl || (!empty($tpl['archived_at']) && !$unchanged)) $errors[] = 'Seçilen şablon bulunamadı ya da arşivde.';
+                else $clean['template_id'] = (int)$tid;
+            }
         }
 
         if ($has('shape')) {
             $sh = trim((string)$in['shape']);
             if ($sh !== '' && !isset(self::SHAPES[$sh])) $errors[] = 'Geçersiz QR şekli.';
             else $clean['shape'] = $sh === '' ? null : $sh;
+        }
+
+        $styleKeys = ['fg_color', 'bg_color', 'shape', 'design'];
+        if (array_intersect_key($clean, array_flip($styleKeys))) {
+            // Okunabilirlik: kaydedilecek özel görünüm denetlenir (şablonlar kendi formunda denetlenir)
+            $row = [];
+            foreach ($styleKeys as $k) $row[$k] = array_key_exists($k, $clean) ? $clean[$k] : ($existing[$k] ?? null);
+            $custom = $row['fg_color'] !== null || $row['bg_color'] !== null || $row['shape'] !== null || $row['design'] !== null;
+            if ($custom && empty($clean['template_id'] ?? $existing['template_id'] ?? null)) {
+                $errors = array_merge($errors, QrDesign::check(self::effectiveStyle($row))[0]);
+            }
+            // Özel görünüm yalnızca yöneticiye açık; editör şablon ya da marka varsayılanını seçer.
+            // Editörün kendi QR'ında önceden kalan özel görünüm değiştirilmedikçe korunur.
+            $changed = false;
+            foreach ($styleKeys as $k) {
+                if (array_key_exists($k, $clean) && $clean[$k] !== null && $clean[$k] !== ($existing[$k] ?? null)) $changed = true;
+            }
+            if ($changed && !Access::can('design.custom')) {
+                $errors[] = 'Özel renk ve biçim yalnızca yöneticiye açık. Bir şablon ya da marka varsayılanını seçin.';
+            }
         }
 
         return [$clean, $errors];
@@ -561,6 +620,7 @@ class LinkService {
             'utm_campaign'  => $link['utm_campaign'] ?? null,
             'logo'          => $link['logo'],
             'style'         => $style,
+            'template_id'   => !empty($link['template_id']) ? (int)$link['template_id'] : null,
             'scan_count'    => (int)$link['scan_count'],
             'created_at'    => $link['created_at'],
             'updated_at'    => $link['updated_at'],

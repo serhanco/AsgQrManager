@@ -46,41 +46,45 @@ class QrPdf {
             $c .= self::color($style['bg'], $cmyk) . "\n0 0 {$n($W)} {$n($W)} re f\n";
         }
 
-        $c .= self::color($style['fg'], $cmyk) . "\n";
-        for ($r = 0; $r < $size; $r++) {
-            for ($col = 0; $col < $size; $col++) {
-                if ($matrix[$r][$col] !== 1) continue;
-                $x = ($col + $margin) * $u;
-                $y = $W - ($r + $margin + 1) * $u;   // PDF'de y yukarı doğru artar
-                $shape = $style['shape'];
-                if ($shape !== 'square' && QrRenderer::isFinder($r, $col, $size)) $shape = 'square';
-
-                if ($shape === 'dots') {
-                    $rad = $u * 0.46; $cx = $x + $u / 2; $cy = $y + $u / 2; $q = $rad * $k;
-                    $c .= "{$n($cx + $rad)} {$n($cy)} m "
-                        . "{$n($cx + $rad)} {$n($cy + $q)} {$n($cx + $q)} {$n($cy + $rad)} {$n($cx)} {$n($cy + $rad)} c "
-                        . "{$n($cx - $q)} {$n($cy + $rad)} {$n($cx - $rad)} {$n($cy + $q)} {$n($cx - $rad)} {$n($cy)} c "
-                        . "{$n($cx - $rad)} {$n($cy - $q)} {$n($cx - $q)} {$n($cy - $rad)} {$n($cx)} {$n($cy - $rad)} c "
-                        . "{$n($cx + $q)} {$n($cy - $rad)} {$n($cx + $rad)} {$n($cy - $q)} {$n($cx + $rad)} {$n($cy)} c h\n";
-                } elseif ($shape === 'rounded') {
-                    $rad = $u * 0.3; $q = $rad * (1 - $k);
-                    $x2 = $x + $u; $y2 = $y + $u;
-                    $c .= "{$n($x + $rad)} {$n($y)} m {$n($x2 - $rad)} {$n($y)} l "
-                        . "{$n($x2 - $q)} {$n($y)} {$n($x2)} {$n($y + $q)} {$n($x2)} {$n($y + $rad)} c "
-                        . "{$n($x2)} {$n($y2 - $rad)} l "
-                        . "{$n($x2)} {$n($y2 - $q)} {$n($x2 - $q)} {$n($y2)} {$n($x2 - $rad)} {$n($y2)} c "
-                        . "{$n($x + $rad)} {$n($y2)} l "
-                        . "{$n($x + $q)} {$n($y2)} {$n($x)} {$n($y2 - $q)} {$n($x)} {$n($y2 - $rad)} c "
-                        . "{$n($x)} {$n($y + $rad)} l "
-                        . "{$n($x)} {$n($y + $q)} {$n($x + $q)} {$n($y)} {$n($x + $rad)} {$n($y)} c h\n";
-                } else {
-                    $c .= "{$n($x)} {$n($y)} {$n($u)} {$n($u)} re\n";
-                }
+        $plan = QrDesign::layout($matrix, $margin, $style);
+        $path = function (array $p) use ($u, $W, $n, $k): string {
+            if ($p[0] === 'circle') {
+                $rad = $p[3] * $u; $cx = $p[1] * $u; $cy = $W - $p[2] * $u; $q = $rad * $k;
+                return "{$n($cx + $rad)} {$n($cy)} m "
+                    . "{$n($cx + $rad)} {$n($cy + $q)} {$n($cx + $q)} {$n($cy + $rad)} {$n($cx)} {$n($cy + $rad)} c "
+                    . "{$n($cx - $q)} {$n($cy + $rad)} {$n($cx - $rad)} {$n($cy + $q)} {$n($cx - $rad)} {$n($cy)} c "
+                    . "{$n($cx - $rad)} {$n($cy - $q)} {$n($cx - $q)} {$n($cy - $rad)} {$n($cx)} {$n($cy - $rad)} c "
+                    . "{$n($cx + $q)} {$n($cy - $rad)} {$n($cx + $rad)} {$n($cy - $q)} {$n($cx + $rad)} {$n($cy)} c h\n";
             }
-            // EPS: eski RIP'lerin yol sınırına takılmamak için satır satır doldur
-            if ($fillPerRow) $c .= "f\n";
+            $x = $p[1] * $u; $w = $p[3] * $u; $h = $p[4] * $u;
+            $y = $W - ($p[2] + $p[4]) * $u;      // PDF'de y yukarı doğru artar
+            if ($p[5] <= 0) return "{$n($x)} {$n($y)} {$n($w)} {$n($h)} re\n";
+            $rad = $p[5] * $u; $q = $rad * (1 - $k);
+            $x2 = $x + $w; $y2 = $y + $h;
+            return "{$n($x + $rad)} {$n($y)} m {$n($x2 - $rad)} {$n($y)} l "
+                . "{$n($x2 - $q)} {$n($y)} {$n($x2)} {$n($y + $q)} {$n($x2)} {$n($y + $rad)} c "
+                . "{$n($x2)} {$n($y2 - $rad)} l "
+                . "{$n($x2)} {$n($y2 - $q)} {$n($x2 - $q)} {$n($y2)} {$n($x2 - $rad)} {$n($y2)} c "
+                . "{$n($x + $rad)} {$n($y2)} l "
+                . "{$n($x + $q)} {$n($y2)} {$n($x)} {$n($y2 - $q)} {$n($x)} {$n($y2 - $rad)} c "
+                . "{$n($x)} {$n($y + $rad)} l "
+                . "{$n($x)} {$n($y + $q)} {$n($x + $q)} {$n($y)} {$n($x + $rad)} {$n($y)} c h\n";
+        };
+
+        foreach (QrDesign::colorGroups($plan, $style) as $g) {
+            $c .= self::color($g['color'], $cmyk) . "\n";
+            $i = 0;
+            foreach ($g['modules'] as $p) {
+                $c .= $path($p);
+                // EPS: eski RIP'lerin yol sınırına takılmamak için parça parça doldur
+                if ($fillPerRow && ++$i % 150 === 0) $c .= "f\n";
+            }
+            if ($g['modules']) $c .= "f\n";
+            foreach ($g['eyes'] as $e) {
+                // Halka: dış + iç yol, çift-tek kuralıyla (iç kısım boş kalır)
+                $c .= $path($e['ring'][0]) . $path($e['ring'][1]) . "f*\n" . $path($e['dot']) . "f\n";
+            }
         }
-        if (!$fillPerRow) $c .= "f\n";
 
         // Logo zemini
         $logo = null;

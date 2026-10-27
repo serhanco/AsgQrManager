@@ -54,7 +54,9 @@ include __DIR__ . '/views/_layout.php';
       <tr><td><code>starts_at</code>, <code>ends_at</code>, <code>after_end_url</code></td><td>Zamanlı hedef: bitince QR otomatik <code>after_end_url</code>'ye gider</td></tr>
       <tr><td><code>fallback_url</code></td><td>Pasif/arşiv/zamanı gelmemiş QR için yedek hedef</td></tr>
       <tr><td><code>utm_enabled</code>, <code>utm_campaign</code></td><td>Hedefe otomatik UTM ekler</td></tr>
-      <tr><td><code>fg_color</code>, <code>bg_color</code>, <code>shape</code></td><td>Görünüm (<code>#0B2A5B</code>, <code>square|rounded|dots</code>). Boşsa marka varsayılanı. Kontrast en az 4:1.</td></tr>
+      <tr><td><code>fg_color</code>, <code>bg_color</code>, <code>shape</code></td><td>Özel görünüm (<code>#0B2A5B</code>, <code>square|rounded|dots</code>). Boşsa marka varsayılanı. Yalnızca yöneticiye bağlı anahtar; 2,5:1 altı kontrast reddedilir.</td></tr>
+      <tr><td><code>design</code></td><td>Özel görünüm ek seçenekleri: <code>{"eye":"square|rounded|circle","eye_color":"#0A3A86","gradient":"none|linear|radial","fg2":"#1C2561"}</code></td></tr>
+      <tr><td><code>template_id</code></td><td>Kurumsal şablon (panelde Şablonlar). Verilirse görünüm şablondan gelir; <code>null</code> şablonu kaldırır.</td></tr>
       <tr><td><code>logo</code></td><td>Logo galerisindeki dosya adı</td></tr>
       <tr><td><code>is_active</code></td><td>Varsayılan <code>true</code></td></tr>
     </tbody>

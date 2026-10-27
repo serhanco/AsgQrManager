@@ -6,6 +6,17 @@
 
 ---
 
+## Sürüm 3 — QR tasarımı ve şablonlar
+
+- **Şablonlar** (`Şablonlar` menüsü, yalnızca yönetici): ad, kullanım alanı, kullanım notu, önerilen baskı boyutu (mm) ve tasarım. Ekle, kopyala, düzenle, arşivle; silme yok. İlk kurulumda 5 şablon gelir: Kartvizit (20 mm), Roll-up (200 mm), Yaka Kartı (25 mm), Masa Kartı (40 mm), Sticker (30 mm).
+- QR formunda görünüm: **marka varsayılanı**, **kurumsal şablon** ya da **özel görünüm**. Özel görünüm yalnızca yöneticiye açıktır; editör şablon ya da marka varsayılanını seçer (kendi QR'ında önceden kalan özel görünüm korunur).
+- Yeni tasarım seçenekleri: **köşe (göz) biçimi** (kare, yuvarlatılmış, daire) ve **köşe rengi**, **renk geçişi** (çapraz / merkezden dışa). SVG, PNG, PDF, EPS ve AI çıktılarında aynı görünür.
+- **Okunabilirlik:** ters renk (koyu zeminde açık QR) ve 4:1 altı kontrast kaydedilir, uyarı gösterilir; 2,5:1 altı kontrast ya da zeminden hem koyu hem açık renk karışımı kaydedilmez.
+- Şablona bağlı QR'ın indirme ekranında şablonun baskı boyutu (★) ve kullanım notu görünür; baskı paketi o boyutla üretilir.
+- Şablon düzenlenince bağlı QR'ların görseli yeni tasarımla üretilir; QR'ın içindeki kısa adres değişmez.
+- API: `template_id` ve `design` (`{"eye":"circle","eye_color":"#0A3A86","gradient":"linear","fg2":"#0A3A86"}`).
+- Şema: `013_qr_templates` (`qr_templates` tablosu + `links.template_id`, `links.design`; yalnızca ekleme, eski QR'ların görünümü aynı).
+
 ## Sürüm 3 — Kartvizit (vCard) QR türü
 
 `Yeni QR` ekranında **Link** veya **Kartvizit** seçilir. Mevcut QR'ların hepsi Link türünde kalır.

@@ -67,6 +67,9 @@ if ($dump) {
     ok((int)$pdo->query("SELECT COUNT(*) FROM users WHERE role <> 'admin' OR is_active <> 1")->fetchColumn() === 0, 'mevcut kullanıcılar Yönetici ve etkin kaldı');
     ok((int)$pdo->query('SELECT COUNT(*) FROM links WHERE created_by IS NOT NULL')->fetchColumn() === 0, 'eski QR\'lara sahip atanmadı (yalnızca yönetici kapsamında)');
 
+    ok((int)$pdo->query('SELECT COUNT(*) FROM links WHERE template_id IS NOT NULL OR design IS NOT NULL')->fetchColumn() === 0, 'eski QR\'lara şablon / tasarım atanmadı (görünümleri aynı)');
+    ok((int)$pdo->query('SELECT COUNT(*) FROM qr_templates')->fetchColumn() === count(QrTemplates::STARTERS), 'başlangıç şablonları eklendi');
+
     // Her eski kısa ad hâlâ aynı yere yönlendiriyor mu?
     $bad = 0;
     foreach ($pdo->query('SELECT * FROM links')->fetchAll() as $l) {
@@ -371,6 +374,132 @@ $_GET = [];
 $vpdo->exec("DELETE FROM vcards WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'vctest%')");
 $vpdo->exec("DELETE FROM link_events WHERE slug LIKE 'vctest%'");
 $vpdo->exec("DELETE FROM links WHERE slug LIKE 'vctest%'");
+
+
+// ─── QR tasarımı ve şablonlar ────────────────────────────────────────────────
+section('Tasarım ve şablonlar');
+$tpdo = getPdo();
+QrTemplates::reset();
+Access::setUser(null);
+$def = QrRenderer::normalizeStyle([]);
+ok(!QrDesign::hasExtras($def) && $def['eye'] === 'square' && $def['gradient'] === 'none', 'varsayılan stilde ek seçenek yok');
+$oldKey = CACHE_DIR . '/' . date('Y') . '/' . date('m') . '/abc_' . md5('M|600|4||#0B2A5B|#FFFFFF|dots|o') . '.png';
+ok(QrRenderer::cachePath('abc', 'png', 'M', 600, 4, '', ['fg' => '#0B2A5B', 'shape' => 'dots']) === $oldKey, 'eski özel stillerin önbellek anahtarı değişmedi');
+ok(QrRenderer::cachePath('abc', 'png', 'M', 600, 4, '', ['fg' => '#0B2A5B', 'shape' => 'dots', 'eye' => 'circle']) !== $oldKey, 'köşe biçimi ayrı önbelleğe yazılır');
+ok(QrDesign::normalizeExtras(['gradient' => 'linear'])['gradient'] === 'none', 'ikinci renk yoksa geçiş uygulanmaz');
+ok(QrDesign::encode(['eye' => 'square', 'gradient' => 'none']) === null, 'varsayılan tasarım sütuna yazılmaz');
+ok(QrDesign::decode(QrDesign::encode(['eye' => 'circle', 'gradient' => 'radial', 'fg2' => '#0a3a86']))['fg2'] === '#0A3A86', 'tasarım JSON gidip gelir');
+
+$st = fn(array $s) => QrRenderer::normalizeStyle($s);
+[$e, $w] = QrDesign::check($st(['fg' => '#1C2561']));
+ok(!$e && !$w, 'lacivert / beyaz: hata ve uyarı yok');
+[$e, $w] = QrDesign::check($st(['fg' => '#FFFFFF', 'bg' => '#1C2561']));
+ok(!$e && count($w) === 1 && str_contains($w[0], 'Ters renk'), 'ters renk kaydedilir, uyarı verir');
+[$e, $w] = QrDesign::check($st(['fg' => '#8A8A8A']));
+ok(!$e && $w, 'düşük kontrast (3,4:1) uyarı verir');
+[$e] = QrDesign::check($st(['fg' => '#CCCCCC']));
+ok((bool)$e, 'çok düşük kontrast reddedilir');
+[$e] = QrDesign::check($st(['fg' => '#1C2561', 'bg' => '#808080', 'eye_color' => '#FFFFFF']));
+ok((bool)$e, 'zeminden hem koyu hem açık renk reddedilir');
+[$e] = QrDesign::check($st(['fg' => '#1C2561', 'gradient' => 'linear', 'fg2' => '#EEEEEE']));
+ok((bool)$e, 'geçişin açık ucu da denetlenir');
+
+$tpls = QrTemplates::all($tpdo);
+$names = array_column($tpls, 'name');
+ok(!array_diff(['Kartvizit', 'Roll-up', 'Yaka Kartı', 'Masa Kartı', 'Sticker'], $names), 'başlangıç şablonları kullanımda');
+$allOk = true;
+foreach ($tpls as $t) if (QrDesign::check($t['style'] + ['transparent' => false])[0]) $allOk = false;
+ok($allOk, 'başlangıç şablonlarının hepsi okunabilirlik kuralından geçer');
+
+[$c, $e, $w] = QrTemplates::normalize(['name' => 'ttKongre', 'usage' => 'poster', 'print_mm' => '120', 'fg' => '#0A3A86', 'eye' => 'circle']);
+ok(!$e && $c['print_mm'] === 120, 'şablon formu doğrulanır');
+[, $e] = QrTemplates::normalize(['name' => '', 'usage' => 'yok', 'print_mm' => '5', 'fg' => '#DDDDDD']);
+ok(count($e) >= 4, 'boş ad, geçersiz kullanım, boyut ve kontrast reddedilir');
+$tid = QrTemplates::create($tpdo, $c, ['id' => null, 'name' => 'test']);
+$copyId = QrTemplates::copy($tpdo, QrTemplates::find($tpdo, $tid), ['id' => null, 'name' => 'test']);
+ok(QrTemplates::find($tpdo, $copyId)['name'] === 'ttKongre (kopya)' && QrTemplates::find($tpdo, $copyId)['style']['eye'] === 'circle', 'şablon kopyalanır');
+
+$tpdo->exec("DELETE FROM links WHERE slug LIKE 'tpltest%'");
+$admin = ['id' => null, 'name' => 'test'];
+[$cl, $e] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'template_id' => (string)$tid]);
+$TL = LinkService::create($tpdo, $cl, 'tpltest1', $admin);
+ok(!$e && (int)$TL['template_id'] === $tid && LinkService::effectiveStyle($TL)['eye'] === 'circle', 'QR şablona bağlanır, görünümü şablondan gelir');
+ok(in_array(120, Share::mmOptions($TL), true) && str_contains(Share::render($TL, 'eps', 120)['data'], '%%BoundingBox: 0 0 341 341'), 'şablonun baskı boyutu indirme seçeneklerinde');
+QrTemplates::update($tpdo, $tid, array_merge($c, ['design' => json_encode(['fg' => '#1C2561', 'bg' => '#FFFFFF', 'shape' => 'rounded', 'eye' => 'rounded'])]));
+ok(LinkService::effectiveStyle(LinkService::find($tpdo, (int)$TL['id']))['eye'] === 'rounded', 'şablon düzenlenince bağlı QR yeni tasarımı alır');
+QrTemplates::setArchived($tpdo, $tid, true);
+[, $e] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'template_id' => (string)$tid]);
+ok((bool)$e, 'arşivdeki şablon yeni QR\'da seçilemez');
+ok(LinkService::effectiveStyle(LinkService::find($tpdo, (int)$TL['id']))['eye'] === 'rounded', 'arşivlenen şablona bağlı QR görünümünü korur');
+[, $e] = LinkService::normalize(['template_id' => (string)$tid, 'title' => 'x'], LinkService::find($tpdo, (int)$TL['id']));
+ok(!$e, 'bağlı olduğu arşivli şablonla düzenlenebilir');
+
+[$cl, $e] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'fg_color' => '#FFFFFF', 'bg_color' => '#1C2561', 'shape' => 'rounded',
+    'design' => ['eye' => 'circle', 'gradient' => 'none']]);
+$CL = LinkService::create($tpdo, $cl, 'tpltest2', $admin);
+ok(!$e && QrDesign::decode($CL['design'])['eye'] === 'circle', 'yönetici ters renkli özel görünüm kaydeder');
+ok(count(LinkService::designWarnings($CL)) === 1, 'kaydedilen QR için uyarı gösterilir');
+[, $e] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'design' => ['eye' => 'yildiz']]);
+ok((bool)$e, 'geçersiz köşe biçimi reddedilir');
+
+$tpdo->exec("DELETE FROM users WHERE username = 'tpltest-ed'");
+$tpdo->prepare("INSERT INTO users (username, password_hash, role) VALUES ('tpltest-ed', ?, 'editor')")->execute([password_hash('x', PASSWORD_DEFAULT)]);
+Access::setUser($tpdo->query("SELECT * FROM users WHERE username = 'tpltest-ed'")->fetch(), $tpdo);
+[, $e] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'fg_color' => '#0A3A86', 'bg_color' => '#FFFFFF']);
+ok((bool)$e, 'editör özel renk seçemez');
+[, $e] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'design' => ['eye' => 'circle']]);
+ok((bool)$e, 'editör özel köşe biçimi seçemez');
+[, $e] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'template_id' => (string)$tpls[0]['id']]);
+ok(!$e, 'editör şablon seçer');
+[, $e] = LinkService::normalize(['fg_color' => $CL['fg_color'], 'bg_color' => $CL['bg_color'], 'shape' => 'rounded', 'design' => QrDesign::decode($CL['design'])], $CL);
+ok(!$e, 'editörün QR\'ındaki mevcut özel görünüm değiştirilmeden korunur');
+[, $e] = LinkService::normalize(['fg_color' => '', 'bg_color' => '', 'shape' => '', 'design' => []], $CL);
+ok(!$e, 'editör özel görünümden marka varsayılanına dönebilir');
+Access::setUser(null);
+
+// Okunabilirlik: şablonlar ve yeni seçenekler gerçekten okunuyor mu?
+$zbar = trim((string)shell_exec('command -v zbarimg 2>/dev/null'));
+if ($zbar === '' || !extension_loaded('gd')) {
+    echo "  - zbarimg/GD yok, okutma testi atlandı\n";
+} else {
+    $tmpPng = sys_get_temp_dir() . '/qrdesign-' . getmypid() . '.png';
+    $logoFile = is_file(LOGO_DIR . '/acibadem-logo-1.png') ? 'acibadem-logo-1.png' : null;
+    $cases = [];
+    foreach ($tpls as $t) $cases['şablon ' . $t['name']] = ['template_id' => $t['id']];
+    foreach (array_keys(QrDesign::EYES) as $eye) foreach (array_keys(LinkService::SHAPES) as $shape) {
+        $cases["{$shape}+{$eye}"] = ['fg_color' => '#1C2561', 'bg_color' => '#FFFFFF', 'shape' => $shape, 'design' => QrDesign::encode(['eye' => $eye, 'eye_color' => '#0A3A86'])];
+    }
+    $cases['radyal geçiş + logo'] = ['fg_color' => '#0A3A86', 'shape' => 'dots', 'logo' => $logoFile, 'design' => QrDesign::encode(['eye' => 'circle', 'gradient' => 'radial', 'fg2' => '#1C2561'])];
+    $cases['ters renk'] = ['fg_color' => '#FFFFFF', 'bg_color' => '#1C2561', 'shape' => 'rounded', 'design' => QrDesign::encode(['eye' => 'rounded']), 'invert' => true];
+    $bad = []; $n = 0;
+    foreach ($cases as $label => $c) {
+        $slug = 'tplokuma' . (++$n);
+        $l = ['slug' => $slug, 'title' => 'T', 'target_url' => 'https://acibadem.world', 'logo' => $c['logo'] ?? null] + $c + ['fg_color' => null, 'bg_color' => null, 'shape' => null];
+        $png = Share::render($l, 'png', 600)['data'];
+        if (!empty($c['invert'])) {  // zbarimg ters rengi okumaz; telefon kameraları okur. Test için renkler çevrilir.
+            $im = imagecreatefromstring($png); imagefilter($im, IMG_FILTER_NEGATE); imagepng($im, $tmpPng); imagedestroy($im);
+        } else {
+            file_put_contents($tmpPng, $png);
+        }
+        $got = trim((string)shell_exec(escapeshellarg($zbar) . ' --raw -q ' . escapeshellarg($tmpPng) . ' 2>/dev/null'));
+        if ($got !== BASE_URL . '/r/' . $slug) $bad[] = $label;
+        QrRenderer::clearCache($slug);
+    }
+    @unlink($tmpPng);
+    ok(!$bad, count($cases) . ' tasarımın tamamı okunuyor' . ($bad ? ': ' . implode('; ', $bad) : ''));
+}
+foreach (['svg' => '<svg', 'pdf' => '%PDF-', 'eps' => '%!PS-Adobe', 'ai' => '%PDF-'] as $fmt => $magic) {
+    $r = Share::render($CL, $fmt, $fmt === 'svg' ? 0 : 50)['data'];
+    ok(str_contains(substr($r, 0, 200), $magic) && (($fmt === 'svg') ? str_contains($r, 'evenodd') : str_contains($r, "f*\n")), strtoupper($fmt) . ': köşeler halka olarak çizilir');
+}
+$gl = $CL; $gl['design'] = QrDesign::encode(['gradient' => 'linear', 'fg2' => '#0A3A86']); $gl['fg_color'] = '#1C2561'; $gl['bg_color'] = '#FFFFFF';
+ok(str_contains(Share::render($gl, 'svg')['data'], 'linearGradient') && substr_count(Share::render($gl, 'pdf', 50)['data'], ' rg') > 5, 'geçiş SVG\'de gradyan, PDF\'te renk basamakları');
+foreach (['tpltest1', 'tpltest2'] as $sl) QrRenderer::clearCache($sl);
+$tpdo->exec("DELETE FROM link_events WHERE slug LIKE 'tpltest%'");
+$tpdo->exec("DELETE FROM links WHERE slug LIKE 'tpltest%'");
+$tpdo->exec("DELETE FROM users WHERE username = 'tpltest-ed'");
+$tpdo->prepare('DELETE FROM qr_templates WHERE id IN (?, ?)')->execute([$tid, $copyId]);
+QrTemplates::reset();
 
 echo "\n" . ($fail ? "BAŞARISIZ" : "TAMAM") . " — {$pass} geçti, {$fail} kaldı\n";
 exit($fail ? 1 : 0);

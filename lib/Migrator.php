@@ -155,6 +155,31 @@ class Migrator {
                     PRIMARY KEY (`link_id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
             }],
+            '013_qr_templates' => ['QR tasarım şablonları (5 başlangıç şablonu) ve QR\'a şablon / özel tasarım bağlama', function (PDO $p) {
+                $p->exec("CREATE TABLE IF NOT EXISTS `qr_templates` (
+                    `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    `name`        VARCHAR(80)  NOT NULL,
+                    `usage`       VARCHAR(20)  NOT NULL DEFAULT 'other',
+                    `description` VARCHAR(300) NULL DEFAULT NULL,
+                    `design`      TEXT         NOT NULL,
+                    `print_mm`    SMALLINT UNSIGNED NULL DEFAULT NULL,
+                    `sort_order`  INT          NOT NULL DEFAULT 0,
+                    `created_by`  VARCHAR(64)  NULL DEFAULT NULL,
+                    `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `archived_at` DATETIME     NULL DEFAULT NULL,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+                // Boş sütun = bugünkü davranış (marka varsayılanı ya da fg/bg/shape)
+                self::addColumn($p, 'links', 'template_id', 'INT UNSIGNED NULL DEFAULT NULL');
+                self::addColumn($p, 'links', 'design', 'TEXT NULL DEFAULT NULL');
+                if ((int)$p->query('SELECT COUNT(*) FROM qr_templates')->fetchColumn() === 0) {
+                    $ins = $p->prepare('INSERT INTO qr_templates (name, `usage`, description, design, print_mm, sort_order, created_by) VALUES (?,?,?,?,?,?,?)');
+                    foreach (QrTemplates::STARTERS as $i => $t) {
+                        $ins->execute([$t['name'], $t['usage'], $t['description'], json_encode($t['design'], JSON_UNESCAPED_SLASHES), $t['print_mm'], ($i + 1) * 10, 'sistem']);
+                    }
+                }
+            }],
         ];
     }
 

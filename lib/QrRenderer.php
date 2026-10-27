@@ -10,6 +10,7 @@ require_once __DIR__ . '/LinkService.php';
 require_once __DIR__ . '/Redirector.php';
 require_once __DIR__ . '/QrPdf.php';
 require_once __DIR__ . '/QrEps.php';
+require_once __DIR__ . '/QrDesign.php';
 
 class QrRenderer {
 
@@ -45,12 +46,14 @@ class QrRenderer {
         $bg = LinkService::normalizeHex($style['bg'] ?? null) ?? '#FFFFFF';
         $shape = $style['shape'] ?? 'square';
         if (!isset(LinkService::SHAPES[$shape])) $shape = 'square';
-        return ['fg' => $fg, 'bg' => $bg, 'shape' => $shape, 'transparent' => !empty($style['transparent'])];
+        return ['fg' => $fg, 'bg' => $bg, 'shape' => $shape, 'transparent' => !empty($style['transparent'])]
+             + QrDesign::normalizeExtras($style);
     }
 
     /** Varsayılan (siyah/beyaz/kare/opak) stil mi? Cache anahtarı eski dosyalarla uyumlu kalsın diye. */
     private static function isDefaultStyle(array $s): bool {
-        return $s['fg'] === '#000000' && $s['bg'] === '#FFFFFF' && $s['shape'] === 'square' && !$s['transparent'];
+        return $s['fg'] === '#000000' && $s['bg'] === '#FFFFFF' && $s['shape'] === 'square' && !$s['transparent']
+            && !QrDesign::hasExtras($s);
     }
 
     /** @return int[] [r,g,b] */
@@ -82,7 +85,7 @@ class QrRenderer {
 
         $fgEsc = htmlspecialchars($st['fg'], ENT_XML1);
         $bgEsc = htmlspecialchars($st['bg'], ENT_XML1);
-        $render = $st['shape'] === 'square' ? 'crispEdges' : 'geometricPrecision';
+        $render = ($st['shape'] === 'square' && $st['eye'] === 'square') ? 'crispEdges' : 'geometricPrecision';
 
         $svg  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $svg .= '<svg xmlns="http://www.w3.org/2000/svg"'
@@ -90,38 +93,37 @@ class QrRenderer {
               . " viewBox=\"0 0 {$vbSize} {$vbSize}\""
               . " shape-rendering=\"{$render}\">\n";
 
+        $ink = $fgEsc;
+        if ($st['gradient'] !== 'none') {
+            $fg2 = htmlspecialchars($st['fg2'], ENT_XML1);
+            $stops = "<stop offset=\"0\" stop-color=\"{$fgEsc}\"/><stop offset=\"1\" stop-color=\"{$fg2}\"/>";
+            $a = $margin * $cell; $b = ($margin + $size) * $cell;
+            $svg .= $st['gradient'] === 'radial'
+                ? '<defs><radialGradient id="qrg" gradientUnits="userSpaceOnUse" cx="' . ($vbSize / 2) . '" cy="' . ($vbSize / 2)
+                  . '" r="' . self::num($size * $cell * 0.7071) . "\">{$stops}</radialGradient></defs>\n"
+                : "<defs><linearGradient id=\"qrg\" gradientUnits=\"userSpaceOnUse\" x1=\"{$a}\" y1=\"{$a}\" x2=\"{$b}\" y2=\"{$b}\">{$stops}</linearGradient></defs>\n";
+            $ink = 'url(#qrg)';
+        }
+
         if (!$st['transparent']) {
             $svg .= "<rect width=\"{$vbSize}\" height=\"{$vbSize}\" fill=\"{$bgEsc}\"/>\n";
         }
 
         // Modüller — tek path ile (performans)
+        $plan = QrDesign::layout($matrix, $margin, $st);
         $pathD = '';
-        for ($r = 0; $r < $size; $r++) {
-            for ($c = 0; $c < $size; $c++) {
-                if ($matrix[$r][$c] !== 1) continue;
-                $x = ($c + $margin) * $cell;
-                $y = ($r + $margin) * $cell;
-                $shape = $st['shape'];
-                // Bulucu desenler her zaman kare: okuyucuların kilitlendiği noktalar
-                if ($shape !== 'square' && self::isFinder($r, $c, $size)) $shape = 'square';
+        foreach ($plan['modules'] as $p) $pathD .= self::svgPath($p, $cell);
+        $svg .= "<path fill=\"{$ink}\" d=\"{$pathD}\"/>\n";
 
-                if ($shape === 'dots') {
-                    $rad = 4.6;
-                    $cx = $x + $cell / 2;
-                    $cy = $y + $cell / 2;
-                    $d2 = $rad * 2;
-                    $pathD .= sprintf('M%s,%sa%s,%s 0 1,0 %s,0a%s,%s 0 1,0 -%s,0z',
-                        $cx - $rad, $cy, $rad, $rad, $d2, $rad, $rad, $d2);
-                } elseif ($shape === 'rounded') {
-                    $rad = 3; $w = $cell - 2 * $rad;
-                    $pathD .= sprintf('M%s,%sh%sa%s,%s 0 0 1 %s,%sv%sa%s,%s 0 0 1 -%s,%sh-%sa%s,%s 0 0 1 -%s,-%sv-%sa%s,%s 0 0 1 %s,-%sz',
-                        $x + $rad, $y, $w, $rad, $rad, $rad, $rad, $w, $rad, $rad, $rad, $rad, $w, $rad, $rad, $rad, $rad, $w, $rad, $rad, $rad, $rad);
-                } else {
-                    $pathD .= "M{$x},{$y}h{$cell}v{$cell}h-{$cell}z";
-                }
+        // Gözler (köşe biçimi ya da rengi seçildiyse ayrı çizilir)
+        if ($plan['eyes']) {
+            $eyeFill = $st['eye_color'] ? htmlspecialchars($st['eye_color'], ENT_XML1) : $ink;
+            $d = '';
+            foreach ($plan['eyes'] as $e) {
+                $d .= self::svgPath($e['ring'][0], $cell) . self::svgPath($e['ring'][1], $cell) . self::svgPath($e['dot'], $cell);
             }
+            $svg .= "<path fill=\"{$eyeFill}\" fill-rule=\"evenodd\" d=\"{$d}\"/>\n";
         }
-        $svg .= "<path fill=\"{$fgEsc}\" d=\"{$pathD}\"/>\n";
 
         // Logo (varsa)
         if ($logoPath !== null && file_exists($logoPath)) {
@@ -149,6 +151,24 @@ class QrRenderer {
         return $svg;
     }
 
+    private static function num(float $v): string {
+        return rtrim(rtrim(sprintf('%.2f', $v), '0'), '.') ?: '0';
+    }
+
+    /** QrDesign şekli → SVG yol komutu ($k: modül başına birim) */
+    private static function svgPath(array $p, float $k): string {
+        $n = fn(float $v) => self::num($v * $k);
+        if ($p[0] === 'circle') {
+            [, $cx, $cy, $r] = $p;
+            return "M{$n($cx - $r)},{$n($cy)}a{$n($r)},{$n($r)} 0 1,0 {$n(2 * $r)},0a{$n($r)},{$n($r)} 0 1,0 -{$n(2 * $r)},0z";
+        }
+        [, $x, $y, $w, $h, $r] = $p;
+        if ($r <= 0) return "M{$n($x)},{$n($y)}h{$n($w)}v{$n($h)}h-{$n($w)}z";
+        $a = "a{$n($r)},{$n($r)} 0 0 1";
+        return "M{$n($x + $r)},{$n($y)}h{$n($w - 2 * $r)}{$a} {$n($r)},{$n($r)}v{$n($h - 2 * $r)}{$a} -{$n($r)},{$n($r)}"
+             . "h-{$n($w - 2 * $r)}{$a} -{$n($r)},-{$n($r)}v-{$n($h - 2 * $r)}{$a} {$n($r)},-{$n($r)}z";
+    }
+
     // ─── PNG ──────────────────────────────────────────────────────────────────
 
     /**
@@ -172,35 +192,40 @@ class QrRenderer {
 
     private static function toPngGd(array $matrix, int $size, int $cell, int $imgSize, int $margin, ?string $logoPath, array $st): string {
         // Şekilli modüllerde kenar yumuşatma için büyük çizip küçültürüz (bellek: 2000px → 4000px çizim)
-        $ss = ($st["shape"] === "square") ? 1 : ($imgSize <= 1200 ? 3 : ($imgSize <= 2100 ? 2 : 1));
+        $smooth = $st['shape'] !== 'square' || $st['eye'] !== 'square';
+        $ss = !$smooth ? 1 : ($imgSize <= 1200 ? 3 : ($imgSize <= 2100 ? 2 : 1));
         $cs = $cell * $ss;            // büyük çizimdeki hücre
         $big = $imgSize * $ss;
 
         $img = imagecreatetruecolor($big, $big);
         imagealphablending($img, false);
         imagesavealpha($img, true);
-        [$fr, $fg, $fb] = self::rgb($st['fg']);
         [$br, $bg, $bb] = self::rgb($st['bg']);
         $bgCol = $st['transparent'] ? imagecolorallocatealpha($img, $br, $bg, $bb, 127) : imagecolorallocate($img, $br, $bg, $bb);
-        $fgCol = imagecolorallocate($img, $fr, $fg, $fb);
         imagefilledrectangle($img, 0, 0, $big - 1, $big - 1, $bgCol);
 
-        for ($r = 0; $r < $size; $r++) {
-            for ($c = 0; $c < $size; $c++) {
-                if ($matrix[$r][$c] !== 1) continue;
-                $x = ($c + $margin) * $cs;
-                $y = ($r + $margin) * $cs;
-                $shape = $st['shape'];
-                if ($shape !== 'square' && self::isFinder($r, $c, $size)) $shape = 'square';
+        $px = fn(float $v) => (int)round($v * $cs);
+        $draw = function (array $p, int $col) use ($img, $px, $cs) {
+            if ($p[0] === 'circle') {
+                $d = (int)round($p[3] * 2 * $cs);
+                imagefilledellipse($img, $px($p[1]), $px($p[2]), $d, $d, $col);
+                return;
+            }
+            [, $x, $y, $w, $h, $r] = $p;
+            $x1 = $px($x); $y1 = $px($y); $x2 = $px($x + $w) - 1; $y2 = $px($y + $h) - 1;
+            if ($r <= 0) imagefilledrectangle($img, $x1, $y1, $x2, $y2, $col);
+            else self::gdRoundedRect($img, $x1, $y1, $x2, $y2, (int)round($r * $cs), $col);
+        };
 
-                if ($shape === 'dots') {
-                    $d = (int)round($cs * 0.92);
-                    imagefilledellipse($img, $x + intdiv($cs, 2), $y + intdiv($cs, 2), $d, $d, $fgCol);
-                } elseif ($shape === 'rounded') {
-                    self::gdRoundedRect($img, $x, $y, $x + $cs - 1, $y + $cs - 1, (int)round($cs * 0.3), $fgCol);
-                } else {
-                    imagefilledrectangle($img, $x, $y, $x + $cs - 1, $y + $cs - 1, $fgCol);
-                }
+        $plan = QrDesign::layout($matrix, $margin, $st);
+        foreach (QrDesign::colorGroups($plan, $st) as $g) {
+            [$r, $gg, $b] = self::rgb($g['color']);
+            $col = imagecolorallocate($img, $r, $gg, $b);
+            foreach ($g['modules'] as $p) $draw($p, $col);
+            foreach ($g['eyes'] as $e) {
+                $draw($e['ring'][0], $col);
+                $draw($e['ring'][1], $bgCol);   // halkanın içi zemin rengi (saydamsa saydam)
+                $draw($e['dot'], $col);
             }
         }
 
@@ -276,22 +301,25 @@ class QrRenderer {
         $imagick->newImage($imgSize, $imgSize, new ImagickPixel($st['transparent'] ? 'transparent' : $st['bg']));
         $imagick->setImageFormat('png');
         $draw = new ImagickDraw();
-        $draw->setFillColor($st['fg']);
-
-        for ($r = 0; $r < $size; $r++) {
-            for ($c = 0; $c < $size; $c++) {
-                if ($matrix[$r][$c] !== 1) continue;
-                $x = ($c + $margin) * $cell;
-                $y = ($r + $margin) * $cell;
-                $shape = $st['shape'];
-                if ($shape !== 'square' && self::isFinder($r, $c, $size)) $shape = 'square';
-                if ($shape === 'dots') {
-                    $draw->circle($x + $cell / 2, $y + $cell / 2, $x + $cell / 2 + $cell * 0.46, $y + $cell / 2);
-                } elseif ($shape === 'rounded') {
-                    $draw->roundRectangle($x, $y, $x + $cell - 1, $y + $cell - 1, $cell * 0.3, $cell * 0.3);
-                } else {
-                    $draw->rectangle($x, $y, $x + $cell - 1, $y + $cell - 1);
-                }
+        $prim = function (array $p) use ($draw, $cell) {
+            if ($p[0] === 'circle') {
+                $draw->circle($p[1] * $cell, $p[2] * $cell, ($p[1] + $p[3]) * $cell, $p[2] * $cell);
+                return;
+            }
+            [, $x, $y, $w, $h, $r] = $p;
+            if ($r <= 0) $draw->rectangle($x * $cell, $y * $cell, ($x + $w) * $cell - 1, ($y + $h) * $cell - 1);
+            else $draw->roundRectangle($x * $cell, $y * $cell, ($x + $w) * $cell - 1, ($y + $h) * $cell - 1, $r * $cell, $r * $cell);
+        };
+        $plan = QrDesign::layout($matrix, $margin, $st);
+        // Yedek yol (GD yoksa): göz halkasının içi zemin rengiyle (saydam zeminde beyaz) doldurulur
+        $hole = $st['transparent'] ? '#FFFFFF' : $st['bg'];
+        foreach (QrDesign::colorGroups($plan, $st) as $g) {
+            $draw->setFillColor($g['color']);
+            foreach ($g['modules'] as $p) $prim($p);
+            foreach ($g['eyes'] as $e) {
+                $prim($e['ring'][0]);
+                $draw->setFillColor($hole); $prim($e['ring'][1]);
+                $draw->setFillColor($g['color']); $prim($e['dot']);
             }
         }
         $imagick->drawImage($draw);
@@ -361,6 +389,10 @@ class QrRenderer {
         $key  = "{$ecc}|{$size}|{$margin}|{$logo}";
         if (!self::isDefaultStyle($st)) {
             $key .= '|' . $st['fg'] . '|' . $st['bg'] . '|' . $st['shape'] . '|' . ($st['transparent'] ? 't' : 'o');
+            // Göz / geçiş seçenekleri yalnızca kullanıldığında anahtara girer (eski önbellek dosyaları geçerli kalır)
+            if (QrDesign::hasExtras($st)) {
+                $key .= '|' . $st['eye'] . '|' . ($st['eye_color'] ?? '') . '|' . $st['gradient'] . '|' . ($st['fg2'] ?? '');
+            }
         }
         $hash = md5($key);
         $dir  = CACHE_DIR . '/' . date('Y') . '/' . date('m');
