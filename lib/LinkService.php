@@ -485,6 +485,12 @@ class LinkService {
         }
 
         $clean += ['is_active' => 1];
+        // Görünüm belirtilmemişse (toplu CSV, API) kategorinin varsayılan şablonu uygulanır.
+        // Panel formu görünümü her zaman açıkça gönderir; orada seçim formda yapılır.
+        if (!array_intersect_key($clean, array_flip(['template_id', 'fg_color', 'bg_color', 'shape', 'design']))
+            && ($tpl = QrTemplates::defaultFor($pdo, $clean['category'] ?? null))) {
+            $clean['template_id'] = $tpl['id'];
+        }
         if (!empty($actor['id']) && self::hasColumn($pdo, 'created_by')) $clean['created_by'] = (int)$actor['id'];
         $cols = array_keys($clean);
         $sql  = 'INSERT INTO links (slug, ' . implode(',', array_map(fn($c) => "`$c`", $cols)) . ') VALUES (?' . str_repeat(',?', count($cols)) . ')';

@@ -14,6 +14,7 @@
 - **Çerçeve ve çağrı metni:** QR'ın altına ya da üstüne kurumsal çerçeve ve kısa yazı ("Okutun, ofisimizi bulun"). Yazı, Plus Jakarta Sans Bold'dan vektör yola çevrilir (`lib/fonts/`, SIL OFL); PDF, EPS, AI ve SVG'de yazı tipi gerekmeden aynı görünür, Türkçe karakterler dahil. QR ve kenar boşluğu aynen kalır. Şablonlu QR'da yazı QR bazında değiştirilebilir (editör de yazabilir; boşsa şablonun yazısı). Şema: `014_links_frame_text`.
 - **Okunabilirlik:** ters renk (koyu zeminde açık QR) ve 4:1 altı kontrast kaydedilir, uyarı gösterilir; 2,5:1 altı kontrast ya da zeminden hem koyu hem açık renk karışımı kaydedilmez.
 - Şablona bağlı QR'ın indirme ekranında şablonun baskı boyutu (★) ve kullanım notu görünür; baskı paketi o boyutla üretilir.
+- **Kategoriye göre varsayılan şablon** (Şablonlar sayfasının altında): ör. Etkinlik → Roll-up. Yeni QR'da kategori seçilince o şablon kendiliğinden seçilir (kişi görünümü elle seçtiyse dokunulmaz). Toplu CSV ve API'de görünüm belirtilmezse uygulanır. Ayarlarda `category_templates` olarak saklanır; şema değişikliği yok, mevcut QR'lar etkilenmez.
 - Şablon düzenlenince bağlı QR'ların görseli yeni tasarımla üretilir; QR'ın içindeki kısa adres değişmez.
 - API: `template_id` ve `design` (`{"eye":"circle","eye_color":"#0A3A86","gradient":"linear","fg2":"#0A3A86"}`).
 - Şema: `013_qr_templates` (`qr_templates` tablosu + `links.template_id`, `links.design`; yalnızca ekleme, eski QR'ların görünümü aynı).

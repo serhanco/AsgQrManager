@@ -790,6 +790,7 @@ td.sel-cell, th.sel-cell { width: 2rem; padding-right: 0; }
 .design-msg-warn  { color: var(--warning); }
 .design-msg-error { color: var(--danger); font-weight: 600; }
 .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; }
+.cat-defaults { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0 1rem; }
 .tpl-card { display: flex; flex-direction: column; gap: .75rem; }
 .tpl-thumb { width: 140px; height: 140px; align-self: center; border-radius: .375rem; background: #fff; }
 .tpl-body { flex: 1; }

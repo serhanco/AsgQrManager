@@ -52,6 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($warnings) flash('warning', 'Okunabilirlik: ' . implode(' ', $warnings));
             redirect(BASE_URL . '/admin/templates' . ($warnings ? '?id=' . $id : ''));
         }
+    } elseif ($action === 'defaults') {
+        QrTemplates::setCategoryDefaults($pdo, (array)($_POST['cat'] ?? []));
+        Logger::info("Kategori varsayılan şablonları güncellendi ({$actor['name']})");
+        flash('success', 'Kategori varsayılanları kaydedildi. Yeni QR oluştururken kategori seçilince bu şablon önerilir.');
+        redirect(BASE_URL . '/admin/templates');
     } elseif ($target && $action === 'copy') {
         $id = QrTemplates::copy($pdo, $target, $actor);
         flash('success', "'{$target['name']}' kopyalandı. Kopyayı düzenleyebilirsiniz.");
@@ -210,6 +215,30 @@ include __DIR__ . '/views/_layout.php';
   </div>
 <?php endforeach; ?>
 </div>
+
+<?php if ($active): $catDefaults = QrTemplates::categoryDefaults(); ?>
+<form method="POST" class="card mt-4">
+  <?= Auth::csrfField() ?>
+  <input type="hidden" name="action" value="defaults">
+  <div class="card-title mb-1"><?= icon('layers') ?> Kategoriye göre varsayılan şablon</div>
+  <p class="text-xs text-muted mb-3">Yeni QR oluştururken kategori seçilince bu şablon kendiliğinden seçilir; kişi isterse değiştirebilir.
+    Toplu CSV ve API ile görünüm belirtilmeden oluşturulan QR'lara da uygulanır. Mevcut QR'lar etkilenmez.</p>
+  <div class="cat-defaults">
+    <?php foreach (LinkService::CATEGORIES as $cat => $label): $cur = $catDefaults[$cat] ?? 0; ?>
+      <div class="form-group">
+        <label class="form-label" for="cat-<?= e($cat) ?>"><?= e($label) ?></label>
+        <select class="form-control" id="cat-<?= e($cat) ?>" name="cat[<?= e($cat) ?>]">
+          <option value="">Marka varsayılanı</option>
+          <?php foreach ($active as $t): ?>
+            <option value="<?= $t['id'] ?>" <?= $cur === $t['id'] ? 'selected' : '' ?>><?= e($t['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+    <?php endforeach; ?>
+  </div>
+  <div><button class="btn btn-primary btn-sm" type="submit"><?= icon('save') ?> Kaydet</button></div>
+</form>
+<?php endif; ?>
 
 <?php if ($archived): ?>
 <details class="card mt-4">
