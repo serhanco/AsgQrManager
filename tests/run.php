@@ -572,5 +572,47 @@ $tpdo->exec("DELETE FROM users WHERE username = 'tpltest-ed'");
 $tpdo->prepare('DELETE FROM qr_templates WHERE id IN (?, ?)')->execute([$tid, $copyId]);
 QrTemplates::reset();
 
+// ─── Faz 4: dönem karşılaştırması, ısı haritası, sahibine göre, hedef işaretleri, karşılaştırma ───
+echo "\nDetaylı raporlar\n";
+$rp = getPdo();
+Access::setUser(null);
+$rp->exec("DELETE FROM link_events WHERE slug LIKE 'rptest%'");
+$rp->exec("DELETE FROM scans WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'rptest%')");
+$rp->exec("DELETE FROM links WHERE slug LIKE 'rptest%'");
+$rpAdmin = $rp->query("SELECT id, username FROM users WHERE role = 'admin' ORDER BY id LIMIT 1")->fetch();
+$rpActor = ['id' => $rpAdmin ? (int)$rpAdmin['id'] : null, 'name' => $rpAdmin['username'] ?? 'test'];
+[$cl] = LinkService::normalize(['target_url' => 'https://acibadem.world/a']);
+$R1 = LinkService::create($rp, $cl, 'rptest1', $rpActor);
+[$cl] = LinkService::normalize(['target_url' => 'https://acibadem.world/b']);
+$R2 = LinkService::create($rp, $cl, 'rptest2', $rpActor);
+// 2026-03-02 Pazartesi 10:xx: R1 3 okutma, R2 1; önceki hafta (2026-02-23) R1 1 okutma; bir bot
+$ins = $rp->prepare("INSERT INTO scans (link_id, ip, user_agent, scanned_at, is_bot) VALUES (?, ?, ?, ?, ?)");
+foreach ([[$R1, '1.1.1.1', '2026-03-02 10:05:00', 0], [$R1, '1.1.1.2', '2026-03-02 10:30:00', 0], [$R1, '1.1.1.3', '2026-03-04 18:00:00', 0],
+          [$R2, '2.2.2.2', '2026-03-03 09:00:00', 0], [$R1, '1.1.1.9', '2026-02-23 11:00:00', 0], [$R1, '9.9.9.9', '2026-03-02 10:10:00', 1]] as [$L, $ip, $at, $bot]) {
+    $ins->execute([$L['id'], $ip, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile', $at, $bot]);
+}
+ok(Stats::previousRange('2026-03-02', '2026-03-08') === ['2026-02-23', '2026-03-01'], 'önceki dönem aynı uzunlukta ve hemen önce');
+$S = Stats::summary($rp, (int)$R1['id'], '2026-03-02', '2026-03-08');
+ok($S['total'] === 3 && $S['heat'][0][10] === 2 && $S['heat'][2][18] === 1 && $S['hours'][10] === 2, 'gün × saat ısı haritası (Pazartesi 10:00 = 2)');
+$P = Stats::totals($rp, (int)$R1['id'], '2026-02-23', '2026-03-01');
+ok($P['total'] === 1 && Stats::change(3, 1) === 200 && Stats::change(3, 0) === null, 'önceki döneme göre değişim yüzdesi');
+ok(Stats::dailyCounts($rp, (int)$R1['id'], '2026-03-01', '2026-03-03') === [0, 2, 0], 'günlük seri (boş günler 0, bot sayılmaz)');
+$own = Stats::byOwner($rp, '2026-03-02', '2026-03-08');
+$mine = array_values(array_filter($own, fn($o) => $o['owner'] === ($rpAdmin['username'] ?? '')));
+ok(!$rpAdmin || ($mine && $mine[0]['links'] >= 2 && $mine[0]['total'] >= 4), 'sahibine göre okutma ve QR sayısı');
+LinkService::update($rp, $R1, ['target_url' => 'https://acibadem.world/yeni'], $rpActor);
+$rp->prepare("UPDATE link_events SET created_at = '2026-03-03 12:00:00' WHERE slug = 'rptest1' AND action = 'update'")->execute();
+$tc = Stats::targetChanges($rp, (int)$R1['id'], '2026-03-01', '2026-03-08');
+ok(count($tc) === 1 && $tc[0]['date'] === '2026-03-03' && $tc[0]['to'] === 'https://acibadem.world/yeni', 'hedef değişikliği grafikte işaretlenir');
+ok(Stats::targetChanges($rp, (int)$R1['id'], '2026-03-05', '2026-03-08') === [], 'aralık dışındaki değişiklik işaretlenmez');
+$C = Stats::compare($rp, [(int)$R1['id'], (int)$R2['id']], '2026-03-02', '2026-03-08');
+ok($C[(int)$R1['id']]['total'] === 3 && $C[(int)$R2['id']]['total'] === 1 && $C[(int)$R1['id']]['mobile'] === 100
+   && count($C[(int)$R2['id']]['daily']) === 7, 'QR karşılaştırma: toplam, mobil oranı, ortak gün ekseni');
+[$rg, $f, $t] = Stats::rangeFromRequest(['range' => 'custom', 'from' => '2026-03-08', 'to' => '2026-03-02']);
+ok($rg === 'custom' && $f === '2026-03-02' && $t === '2026-03-08', 'özel aralık ters girilirse düzeltilir');
+$rp->exec("DELETE FROM link_events WHERE slug LIKE 'rptest%'");
+$rp->exec("DELETE FROM scans WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'rptest%')");
+$rp->exec("DELETE FROM links WHERE slug LIKE 'rptest%'");
+
 echo "\n" . ($fail ? "BAŞARISIZ" : "TAMAM") . " — {$pass} geçti, {$fail} kaldı\n";
 exit($fail ? 1 : 0);

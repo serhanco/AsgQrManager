@@ -241,6 +241,7 @@ include __DIR__ . '/views/_layout.php';
     <input class="form-control" type="text" name="remove" list="bulk-tag-list" maxlength="100" placeholder="Çıkarılacak etiket(ler)" aria-label="Çıkarılacak etiketler">
     <datalist id="bulk-tag-list"><?php foreach ($tagCounts as $t): ?><option value="<?= e($t['tag']) ?>"><?php endforeach; ?></datalist>
     <button class="btn btn-primary btn-sm" type="submit">Uygula</button>
+    <button class="btn btn-ghost btn-sm" type="button" data-compare title="Seçilen 2-5 QR'ı raporda yan yana gör">Karşılaştır</button>
     <button class="btn btn-ghost btn-sm" type="button" data-clear>Seçimi temizle</button>
   </div>
 </form>

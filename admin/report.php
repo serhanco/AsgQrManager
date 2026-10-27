@@ -17,23 +17,7 @@ $tag = $link ? '' : trim((string)($_GET['tag'] ?? ''));
 if ($tag !== '' && mb_strlen($tag) > 30) $tag = '';
 
 // ─── Tarih aralığı ────────────────────────────────────────────────────────────
-$tz    = Settings::timezone();
-$today = (new DateTimeImmutable('now', $tz))->format('Y-m-d');
-$range = $_GET['range'] ?? '30';
-$validDate = fn($d) => is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && checkdate((int)substr($d, 5, 2), (int)substr($d, 8, 2), (int)substr($d, 0, 4));
-
-if (in_array($range, ['7', '30', '90', '365'], true)) {
-    $to   = $today;
-    $from = (new DateTimeImmutable($today))->modify('-' . ((int)$range - 1) . ' days')->format('Y-m-d');
-} elseif ($range === 'all') {
-    $to   = $today;
-    $from = $link ? substr($link['created_at'], 0, 10) : '2000-01-01';
-} else { // custom
-    $range = 'custom';
-    $from  = $validDate($_GET['from'] ?? '') ? $_GET['from'] : (new DateTimeImmutable($today))->modify('-29 days')->format('Y-m-d');
-    $to    = $validDate($_GET['to'] ?? '')   ? $_GET['to']   : $today;
-    if ($from > $to) [$from, $to] = [$to, $from];
-}
+[$range, $from, $to] = Stats::rangeFromRequest($_GET, $link ? substr($link['created_at'], 0, 10) : '2000-01-01');
 $fromTs = $from . ' 00:00:00';
 $toTs   = (new DateTimeImmutable($to))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
 
@@ -91,6 +75,30 @@ $daily = $S['daily']; $hours = $S['hours'];
 $dev = $S['devices']; $os = $S['os']; $br = $S['browsers']; $countries = $S['countries']; $refs = $S['referrers'];
 $tot = ['c' => $S['total'], 'u' => $S['unique']];
 $other = ['bots' => $S['bots'], 'redirected' => $S['redirected']];
+$heat = $S['heat'];
+
+// Dönem karşılaştırması: aynı uzunlukta hemen önceki dönem ("Tüm zamanlar" ve 1 yıldan uzun aralıkta yok)
+$prev = $prevDaily = null;
+if ($range !== 'all' && count($daily) === (int)(new DateTimeImmutable($from))->diff(new DateTimeImmutable($to))->days + 1) {
+    [$pFrom, $pTo] = Stats::previousRange($from, $to);
+    $prev = Stats::totals($pdo, $link ? (int)$link['id'] : null, $pFrom, $pTo, $tag);
+    $prevDaily = Stats::dailyCounts($pdo, $link ? (int)$link['id'] : null, $pFrom, $pTo, $tag);
+}
+$delta = function (int $now, ?int $before) use ($prev): string {
+    if ($prev === null) return '';
+    $c = Stats::change($now, (int)$before);
+    if ($c === null) return '<div class="stat-sub">önceki dönem: ' . formatCount((int)$before) . '</div>';
+    $cls = $c > 0 ? 'delta-up' : ($c < 0 ? 'delta-down' : '');
+    return '<div class="stat-sub"><span class="delta ' . $cls . '">' . ($c > 0 ? '▲ %' . $c : ($c < 0 ? '▼ %' . abs($c) : '= %0')) . '</span> önceki döneme göre (' . formatCount((int)$before) . ')</div>';
+};
+
+// Hedef değişikliği işaretleri (QR raporu)
+$changes = $link ? Stats::targetChanges($pdo, (int)$link['id'], array_key_first($daily), $to) : [];
+$dayIdx = array_flip(array_keys($daily));
+$markers = array_values(array_filter(array_map(fn($c) => isset($dayIdx[$c['date']]) ? ['i' => $dayIdx[$c['date']], 'label' => $c['date']] : null, $changes)));
+
+// Sahibine göre (genel rapor, yalnızca yönetici: editör zaten yalnızca kendi kapsamını görür)
+$perOwner = (!$link && Access::isAdmin()) ? Stats::byOwner($pdo, $from, $to, $tag) : [];
 
 // QR bazlı tablo (yalnızca genel raporda) ve türlere göre dağılım
 $perLink = $perCat = [];
@@ -148,6 +156,7 @@ include __DIR__ . '/views/_layout.php';
   <div class="btn-group">
     <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => 'daily']) ?>"><?= icon('download') ?> Günlük CSV</a>
     <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => $link ? 'raw' : 'links']) ?>"><?= icon('download') ?> <?= $link ? 'Okutma listesi CSV' : 'QR bazlı CSV' ?></a>
+    <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/compare<?= $link ? '?ids=' . (int)$link['id'] : '' ?>"><?= icon('layers') ?> Karşılaştır</a>
     <?php if ($link && Access::canEditLink($link)): ?><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>"><?= icon('pencil') ?> Düzenle</a><?php endif; ?>
   </div>
 </div>
@@ -178,7 +187,7 @@ include __DIR__ . '/views/_layout.php';
   </select>
   <?php endif; ?>
   <select class="form-control" name="range" id="range-sel" style="max-width:190px">
-    <?php foreach (['7' => 'Son 7 gün', '30' => 'Son 30 gün', '90' => 'Son 90 gün', '365' => 'Son 1 yıl', 'all' => 'Tüm zamanlar', 'custom' => 'Özel aralık'] as $k => $lbl): ?>
+    <?php foreach (Stats::RANGES as $k => $lbl): ?>
       <option value="<?= $k ?>" <?= $range === (string)$k ? 'selected' : '' ?>><?= $lbl ?></option>
     <?php endforeach; ?>
   </select>
@@ -189,8 +198,8 @@ include __DIR__ . '/views/_layout.php';
 </form>
 
 <div class="stat-grid">
-  <div class="stat-card accent"><div class="stat-icon"><?= icon('trending') ?></div><div class="stat-label">Okutma</div><div class="stat-value"><?= formatCount($total) ?></div></div>
-  <div class="stat-card success"><div class="stat-icon"><?= icon('users') ?></div><div class="stat-label">Tahmini tekil ziyaretçi</div><div class="stat-value"><?= formatCount((int)$tot['u']) ?></div></div>
+  <div class="stat-card accent"><div class="stat-icon"><?= icon('trending') ?></div><div class="stat-label">Okutma</div><div class="stat-value"><?= formatCount($total) ?></div><?= $delta($total, $prev['total'] ?? null) ?></div>
+  <div class="stat-card success"><div class="stat-icon"><?= icon('users') ?></div><div class="stat-label">Tahmini tekil ziyaretçi</div><div class="stat-value"><?= formatCount((int)$tot['u']) ?></div><?= $delta((int)$tot['u'], $prev['unique'] ?? null) ?></div>
   <div class="stat-card"><div class="stat-icon"><?= icon('repeat') ?></div><div class="stat-label">Yedek hedefe giden</div><div class="stat-value"><?= (int)($other['redirected'] ?? 0) ?></div></div>
   <div class="stat-card warning"><div class="stat-icon"><?= icon('bot') ?></div><div class="stat-label">Bot / önizleme (sayılmadı)</div><div class="stat-value"><?= (int)($other['bots'] ?? 0) ?></div></div>
   <?php if ($link && VCard::isVcard($link) && ($vcRep = VCard::find($pdo, (int)$link['id']))): ?>
@@ -200,8 +209,22 @@ include __DIR__ . '/views/_layout.php';
 </div>
 
 <div class="card mb-4">
-  <div class="card-header"><span class="card-title"><?= icon('trending') ?> Günlük okutma</span></div>
+  <div class="card-header"><span class="card-title"><?= icon('trending') ?> Günlük okutma</span>
+    <span class="chart-legend text-xs text-muted">
+      <span><i class="lg-line"></i> Bu dönem</span>
+      <?php if ($prevDaily): ?><span><i class="lg-dash"></i> Önceki dönem (<?= e($pFrom) ?> – <?= e($pTo) ?>)</span><?php endif; ?>
+      <?php if ($markers): ?><span><i class="lg-mark"></i> Hedef değişti</span><?php endif; ?>
+    </span>
+  </div>
   <div class="chart-wrap" style="height:200px"><canvas id="report-chart" class="chart-canvas"></canvas></div>
+  <?php if ($changes): ?>
+  <ul class="target-changes text-xs mt-2">
+    <?php foreach ($changes as $c): ?>
+      <li><span class="lg-mark"></span> <strong><?= e(date('d.m.Y H:i', strtotime($c['at']))) ?></strong> hedef değişti<?= $c['user'] ? ' (' . e($c['user']) . ')' : '' ?>:
+        <span class="text-muted"><?= e(mb_strimwidth((string)$c['from'], 0, 60, '…')) ?></span> → <?= e(mb_strimwidth((string)$c['to'], 0, 60, '…')) ?></li>
+    <?php endforeach; ?>
+  </ul>
+  <?php endif; ?>
 </div>
 
 <div class="report-grid">
@@ -222,6 +245,26 @@ include __DIR__ . '/views/_layout.php';
     </div>
     <p class="text-xs text-muted mt-2">Saatler sunucu saatine göredir.</p>
   </div>
+</div>
+
+<?php $heatMax = max(array_map('max', $heat)) ?: 1; ?>
+<div class="card mt-4">
+  <div class="card-title mb-3"><?= icon('clock') ?> Gün × saat <?= tip('Hangi gün ve saatte okutulduğunu gösterir; koyu hücre daha çok okutma demektir. Etkinlik saatlerini ve stand yoğunluğunu görmek için.') ?></div>
+  <?php if (!$total): ?><p class="text-sm text-muted">Veri yok.</p><?php else: ?>
+  <div class="heatmap" role="table" aria-label="Gün ve saate göre okutma">
+    <div class="hm-row hm-head" role="row"><span></span><?php for ($h = 0; $h < 24; $h++): ?><span class="hm-h"><?= $h % 3 === 0 ? sprintf('%02d', $h) : '' ?></span><?php endfor; ?></div>
+    <?php foreach (['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'] as $w => $dayName): ?>
+      <div class="hm-row" role="row"><span class="hm-day"><?= ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'][$w] ?></span>
+        <?php foreach ($heat[$w] as $h => $c): $a = $c ? 0.12 + 0.88 * $c / $heatMax : 0; ?>
+          <span class="hm-cell" style="<?= $c ? '--a:' . round($a, 2) : '' ?>" title="<?= e($dayName) ?> <?= sprintf('%02d:00', $h) ?> — <?= $c ?> okutma"></span>
+        <?php endforeach; ?>
+      </div>
+    <?php endforeach; ?>
+  </div>
+  <p class="text-xs text-muted mt-2">Saatler sunucu saatine göredir. En yoğun: <?php
+    $bw = $bh = 0; foreach ($heat as $w => $row) foreach ($row as $h => $c) if ($c > $heat[$bw][$bh]) { $bw = $w; $bh = $h; }
+    echo e(['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'][$bw]) . ' ' . sprintf('%02d:00-%02d:00', $bh, ($bh + 1) % 24) . ' (' . $heat[$bw][$bh] . ')'; ?></p>
+  <?php endif; ?>
 </div>
 
 <?php if (!$link): ?>
@@ -250,12 +293,25 @@ include __DIR__ . '/views/_layout.php';
         <a href="<?= BASE_URL ?>/admin/links?tag=__none">Etiketsizleri göster</a></p>
     <?php else: reportBars($perTag, $total, fn($k) => '<a href="' . BASE_URL . '/admin/report' . $qs(['tag' => $k]) . '">#' . e($k) . '</a>'); endif; ?>
   </div>
+  <?php if ($perOwner): ?>
+  <div class="card"><div class="card-title mb-3"><?= icon('users') ?> Sahibine göre <?= tip('QR’ı oluşturan kullanıcıya göre okutmalar. Eski QR’ların sahibi kayıtlı değildir.') ?></div>
+    <div class="table-wrap"><table class="compact">
+      <thead><tr><th>Kullanıcı</th><th>QR</th><th>Okutma</th><th>%</th></tr></thead>
+      <tbody>
+      <?php foreach ($perOwner as $o): ?>
+        <tr><td><?= e($o['owner']) ?></td><td><?= $o['links'] ?></td><td class="fw-bold"><?= formatCount($o['total']) ?></td><td class="text-muted"><?= $total ? round($o['total'] / $total * 100) : 0 ?></td></tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table></div>
+  </div>
+  <?php endif; ?>
 </div>
 <?php endif; ?>
 
 <script>
 (function () {
-  document.addEventListener('DOMContentLoaded', () => window.drawScanChart('report-chart', <?= json_encode(array_keys($daily)) ?>, <?= json_encode(array_values($daily)) ?>));
+  document.addEventListener('DOMContentLoaded', () => window.drawScanChart('report-chart', <?= json_encode(array_keys($daily)) ?>, <?= json_encode(array_values($daily)) ?>,
+    { prev: <?= json_encode($prevDaily) ?>, markers: <?= json_encode($markers) ?> }));
   document.getElementById('range-sel').addEventListener('change', function () { if (this.value !== 'custom') this.form.submit(); });
 })();
 </script>

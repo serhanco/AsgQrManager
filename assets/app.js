@@ -116,14 +116,16 @@ document.addEventListener('submit', function (e) {
 
 
 /* ─── Dashboard Tarama Grafiği ─────────────────────────────────────────── */
-window.drawScanChart = function (canvasId, labels, data) {
+// opts.prev: önceki dönem serisi (kesikli çizgi), opts.markers: [{i, label}] dikey işaretler (ör. hedef değişikliği)
+window.drawScanChart = function (canvasId, labels, data, opts) {
+  opts = opts || {};
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   if (!canvas.dataset.bound) {
     // Boyut veya tema değişince yeniden çiz
     canvas.dataset.bound = '1';
     let t;
-    const redraw = () => { clearTimeout(t); t = setTimeout(() => window.drawScanChart(canvasId, labels, data), 120); };
+    const redraw = () => { clearTimeout(t); t = setTimeout(() => window.drawScanChart(canvasId, labels, data, opts), 120); };
     window.addEventListener('resize', redraw);
     window.addEventListener('themechange', redraw);
   }
@@ -137,7 +139,8 @@ window.drawScanChart = function (canvasId, labels, data) {
   const padL = 42, padR = 12, padT = 12, padB = 30;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
-  const max    = Math.max(...data, 1);
+  const prev   = Array.isArray(opts.prev) && opts.prev.length === data.length ? opts.prev : null;
+  const max    = Math.max(...data, ...(prev || []), 1);
   const n      = data.length;
 
   // Renk (CSS değişkeni)
@@ -180,6 +183,33 @@ window.drawScanChart = function (canvasId, labels, data) {
   ctx.fillStyle = grad;
   ctx.fill();
 
+  // Önceki dönem (kesikli)
+  if (prev) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = textColor;
+    ctx.lineWidth = 1.5;
+    prev.forEach((v, i) => { const y = padT + chartH - (v / max) * chartH; i ? ctx.lineTo(xs[i], y) : ctx.moveTo(xs[i], y); });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Dikey işaretler
+  const warn = style.getPropertyValue('--warning').trim() || '#B45309';
+  (opts.markers || []).forEach(m => {
+    if (m.i < 0 || m.i >= n) return;
+    ctx.save();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = warn;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(xs[m.i], padT); ctx.lineTo(xs[m.i], padT + chartH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = warn;
+    ctx.beginPath(); ctx.moveTo(xs[m.i] - 5, padT); ctx.lineTo(xs[m.i] + 5, padT); ctx.lineTo(xs[m.i], padT + 7); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  });
+
   // Çizgi
   ctx.beginPath();
   ctx.strokeStyle = accent;
@@ -207,6 +237,49 @@ window.drawScanChart = function (canvasId, labels, data) {
     const d = labels[i] ? labels[i].slice(5) : ''; // MM-DD
     ctx.fillText(d, xs[i], h - padB + 16);
   }
+};
+
+/* ─── Çok serili grafik (QR karşılaştırma) ─────────────────────────────── */
+// series: [{name, data, color}]
+window.drawMultiChart = function (canvasId, labels, series) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  if (!canvas.dataset.bound) {
+    canvas.dataset.bound = '1';
+    let t;
+    const redraw = () => { clearTimeout(t); t = setTimeout(() => window.drawMultiChart(canvasId, labels, series), 120); };
+    window.addEventListener('resize', redraw);
+    window.addEventListener('themechange', redraw);
+  }
+  const ctx = canvas.getContext('2d');
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  canvas.width = w * devicePixelRatio; canvas.height = h * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const padL = 42, padR = 12, padT = 12, padB = 30;
+  const chartW = w - padL - padR, chartH = h - padT - padB;
+  const n = labels.length;
+  const max = Math.max(1, ...series.flatMap(s => s.data));
+  const style = getComputedStyle(document.documentElement);
+  const grid = style.getPropertyValue('--border').trim() || '#e2e8f0';
+  const textColor = style.getPropertyValue('--text-muted').trim() || '#64748b';
+  const font = '11px ' + (style.getPropertyValue('--font').trim() || 'system-ui');
+  ctx.font = font;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (chartH / 4) * i;
+    ctx.strokeStyle = grid; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+    ctx.fillStyle = textColor; ctx.textAlign = 'right';
+    ctx.fillText(Math.round(max * (1 - i / 4)), padL - 5, y + 4);
+  }
+  const x = i => padL + (i / (n - 1 || 1)) * chartW;
+  series.forEach(s => {
+    ctx.beginPath(); ctx.strokeStyle = s.color; ctx.lineWidth = 2.25; ctx.lineJoin = 'round';
+    s.data.forEach((v, i) => { const y = padT + chartH - (v / max) * chartH; i ? ctx.lineTo(x(i), y) : ctx.moveTo(x(i), y); });
+    ctx.stroke();
+  });
+  ctx.fillStyle = textColor; ctx.textAlign = 'center';
+  const step = Math.max(1, Math.ceil(n / 6));
+  for (let i = 0; i < n; i += step) ctx.fillText(labels[i] ? labels[i].slice(5) : '', x(i), h - padB + 16);
 };
 
 /* ─── Analytics Toggle (AJAX) ──────────────────────────────────────────── */
@@ -425,6 +498,14 @@ window.drawScanChart = function (canvasId, labels, data) {
   boxes().forEach(b => b.addEventListener('change', refresh));
   if (master) master.addEventListener('change', () => { boxes().forEach(b => b.checked = master.checked); refresh(); });
   bar.querySelector('[data-clear]').addEventListener('click', () => { boxes().forEach(b => b.checked = false); refresh(); });
+  // Seçilen 2-5 QR'ı karşılaştırma sayfasında aç
+  const cmp = bar.querySelector('[data-compare]');
+  if (cmp) cmp.addEventListener('click', () => {
+    const ids = boxes().filter(b => b.checked).map(b => b.value);
+    if (ids.length < 2 || ids.length > 5) { label.textContent = 'Karşılaştırma için 2-5 QR seçin'; return; }
+    const base = document.querySelector('meta[name=base-url]')?.content || '';
+    location.href = base + '/admin/compare?ids=' + ids.join(',');
+  });
   bar.closest('form').addEventListener('submit', e => {
     const f = e.target;
     if (!f.add.value.trim() && !f.remove.value.trim()) { e.preventDefault(); f.add.focus(); }
