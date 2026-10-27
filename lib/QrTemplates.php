@@ -113,6 +113,35 @@ class QrTemplates {
         return array_map('intval', $rows);
     }
 
+    // ─── Kategori varsayılanları ──────────────────────────────────────────────
+
+    /** @return array<string,int> kategori => şablon id (Ayarlar'da 'category_templates' JSON olarak saklanır) */
+    public static function categoryDefaults(): array {
+        $map = json_decode(Settings::get('category_templates', '{}'), true);
+        $out = [];
+        foreach (is_array($map) ? $map : [] as $cat => $id) {
+            if (isset(LinkService::CATEGORIES[$cat]) && (int)$id > 0) $out[$cat] = (int)$id;
+        }
+        return $out;
+    }
+
+    /** Kategorinin varsayılan şablonu; atanmamışsa ya da şablon arşivdeyse null (marka varsayılanı) */
+    public static function defaultFor(PDO $pdo, ?string $category): ?array {
+        $id = self::categoryDefaults()[(string)$category] ?? 0;
+        $tpl = $id ? self::find($pdo, $id) : null;
+        return $tpl && empty($tpl['archived_at']) ? $tpl : null;
+    }
+
+    /** @param array<string,mixed> $in kategori => şablon id ('' = marka varsayılanı) */
+    public static function setCategoryDefaults(PDO $pdo, array $in): void {
+        $map = [];
+        foreach (LinkService::CATEGORIES as $cat => $_) {
+            $id = (int)($in[$cat] ?? 0);
+            if ($id > 0 && ($t = self::find($pdo, $id)) && empty($t['archived_at'])) $map[$cat] = $id;
+        }
+        Settings::set('category_templates', json_encode($map ?: new \stdClass()));
+    }
+
     // ─── Form ────────────────────────────────────────────────────────────────
 
     /** Form / API girdisinden tasarım alanları (fg, bg, shape, eye, eye_color, gradient, fg2) */

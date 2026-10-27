@@ -549,7 +549,23 @@ ok(!QrFrame::enabled(LinkService::effectiveStyle(['frame_text' => 'X'] + $tpl1))
 $tpdo->exec("DELETE FROM users WHERE username = 'tplfr-ed'");
 $tpdo->prepare('DELETE FROM qr_templates WHERE id = ?')->execute([$ftid]);
 
-foreach (['tpltest1', 'tpltest2', 'tpltest3'] as $sl) QrRenderer::clearCache($sl);
+// Kategoriye göre varsayılan şablon
+$prevCat = Settings::has('category_templates') ? Settings::get('category_templates') : null;
+QrTemplates::setCategoryDefaults($tpdo, ['event' => (string)$copyId, 'office' => (string)$tid, 'hq' => '999999']);
+ok(QrTemplates::categoryDefaults() === ['event' => $copyId], 'kategori varsayılanı kaydedilir; arşivdeki ve olmayan şablon atanmaz');
+[$cl] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'category' => 'event']);
+$CD = LinkService::create($tpdo, $cl, 'tpltest4', $admin);
+ok((int)$CD['template_id'] === $copyId, 'görünüm belirtilmeyen yeni QR (CSV/API) kategorinin şablonunu alır');
+[$cl] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'category' => 'event', 'template_id' => '']);
+ok(LinkService::create($tpdo, $cl, 'tpltest5', $admin)['template_id'] === null, 'formda marka varsayılanı seçilirse şablon uygulanmaz');
+[$cl] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'category' => 'office']);
+ok(LinkService::create($tpdo, $cl, 'tpltest6', $admin)['template_id'] === null, 'varsayılanı olmayan kategori marka varsayılanıyla kalır');
+QrTemplates::setArchived($tpdo, $copyId, true);
+ok(QrTemplates::defaultFor($tpdo, 'event') === null, 'varsayılan şablon arşivlenince uygulanmaz');
+if ($prevCat === null) $tpdo->exec("DELETE FROM settings WHERE skey = 'category_templates'");
+else Settings::set('category_templates', $prevCat);
+
+foreach (['tpltest1', 'tpltest2', 'tpltest3', 'tpltest4', 'tpltest5', 'tpltest6'] as $sl) QrRenderer::clearCache($sl);
 $tpdo->exec("DELETE FROM link_events WHERE slug LIKE 'tpltest%'");
 $tpdo->exec("DELETE FROM links WHERE slug LIKE 'tpltest%'");
 $tpdo->exec("DELETE FROM users WHERE username = 'tpltest-ed'");

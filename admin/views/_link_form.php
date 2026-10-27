@@ -34,6 +34,12 @@ $allTags    = array_values(array_map(fn($t) => ['tag' => $t['tag'], 'count' => $
 $starterTags = ['poster', 'broşür', 'stand', 'kartvizit', 'sunum', 'e-posta', 'sosyal-medya'];
 $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
 $isVcardForm = ($qrType ?? 'link') === 'vcard';
+// Yeni QR: kategori seçilince o kategorinin varsayılan şablonu önerilir (kişi görünümü elle seçmediyse)
+$catTpl = [];
+if ($mode === 'create' && $templates) {
+    $activeIds = array_column(array_filter($templates, fn($t) => empty($t['archived_at'])), 'id');
+    $catTpl = array_filter(QrTemplates::categoryDefaults(), fn($id) => in_array($id, $activeIds, true));
+}
 ?>
 <div class="form-layout">
 <div class="form-main">
@@ -400,8 +406,23 @@ $isVcardForm = ($qrType ?? 'link') === 'vcard';
       if (sel) $('#tpl_frame_text').placeholder = sel.dataset.text || '';
     }
   }
-  form.querySelectorAll('input[name=style_mode]').forEach(r => r.addEventListener('change', () => { syncMode(); refresh(); }));
-  form.querySelectorAll('input[name=template_id]').forEach(r => r.addEventListener('change', () => { syncMode(); refresh(); }));
+  // Kategori varsayılan şablonu: görünüm elle seçilene kadar kategoriyi izler
+  const catTpl = <?= json_encode((object)$catTpl) ?>;
+  let styleTouched = <?= ($_SERVER['REQUEST_METHOD'] === 'POST' || !$catTpl) ? 'true' : 'false' ?>;
+  function applyCategoryDefault() {
+    const cat = $('#category');
+    if (styleTouched || !cat) return;
+    const id = catTpl[cat.value];
+    const r = form.querySelector('input[name=style_mode][value=' + (id ? 'template' : 'brand') + ']');
+    if (r) r.checked = true;
+    if (id) { const t = form.querySelector('input[name=template_id][value="' + id + '"]'); if (t) t.checked = true; }
+    syncMode(); refresh();
+  }
+  const catSel = $('#category');
+  if (catSel) catSel.addEventListener('change', applyCategoryDefault);
+
+  form.querySelectorAll('input[name=style_mode]').forEach(r => r.addEventListener('change', () => { styleTouched = true; syncMode(); refresh(); }));
+  form.querySelectorAll('input[name=template_id]').forEach(r => r.addEventListener('change', () => { styleTouched = true; syncMode(); refresh(); }));
   const ftIn = $('#tpl_frame_text');
   if (ftIn) ftIn.addEventListener('input', refresh);
   document.addEventListener('qr-design-change', refresh);
@@ -411,5 +432,6 @@ $isVcardForm = ($qrType ?? 'link') === 'vcard';
   if (slugInput) slugInput.addEventListener('input', refresh);
 
   syncMode(); refresh();
+  applyCategoryDefault();
 })();
 </script>
