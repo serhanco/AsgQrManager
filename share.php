@@ -74,7 +74,7 @@ $days = max(0, (int)ceil(($exp - time()) / 86400));
     <div class="text-sm" style="margin-bottom:.35rem;font-weight:600">Vektörel — baskı için önerilir</div>
     <div class="btn-group" style="margin-bottom:1rem">
       <a class="btn btn-success dl" href="<?= e($base) ?>&fmt=svg">SVG</a>
-      <?php foreach (Share::PDF_MM as $mm): ?>
+      <?php foreach (Share::mmOptions($link) as $mm): ?>
         <a class="btn btn-primary dl" href="<?= e($base) ?>&fmt=pdf&size=<?= $mm ?>">PDF <?= $mm ?> mm</a>
       <?php endforeach; ?>
       <a class="btn btn-primary dl" href="<?= e($base) ?>&fmt=eps&size=100">EPS (CMYK)</a>

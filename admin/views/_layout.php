@@ -20,6 +20,7 @@ $nav = [
         ['create', 'plus',   'Yeni QR',         $canEditNav],
         ['bulk',   'layers', 'Toplu Oluştur',   $canEditNav],
         ['tags',   'tag',    'Etiketler',       $isAdminNav],
+        ['templates', 'palette', 'Şablonlar',   $isAdminNav],
         ['requests', 'check-circle', $isAdminNav ? 'Onay Bekleyenler' : 'Taleplerim', $canEditNav],
     ],
     'Raporlama' => [

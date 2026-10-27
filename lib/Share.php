@@ -38,6 +38,22 @@ class Share {
     /** Tüm uç noktaların kabul ettiği formatlar */
     public const FORMATS = ['svg', 'png', 'pdf', 'eps', 'ai'];
 
+    /** QR'ın bağlı olduğu şablon (yoksa ya da okunamazsa null) */
+    public static function templateOf(array $link): ?array {
+        if (empty($link['template_id'])) return null;
+        try { return QrTemplates::find(getPdo(), (int)$link['template_id']); } catch (\Throwable $e) { return null; }
+    }
+
+    /** Bu QR için sunulan vektörel ölçüler (mm): standart ölçüler + şablonun önerdiği baskı boyutu */
+    public static function mmOptions(array $link): array {
+        $mm = self::PDF_MM;
+        $tpl = self::templateOf($link);
+        if ($tpl && !empty($tpl['print_mm'])) $mm[] = (int)$tpl['print_mm'];
+        $mm = array_values(array_unique($mm));
+        sort($mm);
+        return $mm;
+    }
+
     /**
      * İstenen formatı üretir.
      * @return array{data:string,mime:string,ext:string,name:string}
@@ -52,7 +68,7 @@ class Share {
         if ($fmt === 'png') {
             if (!in_array($size, self::PNG_SIZES, true)) $size = 1200;
         } elseif (in_array($fmt, self::VECTOR_MM_FORMATS, true)) {
-            if (!in_array($size, self::PDF_MM, true)) $size = 100;
+            if (!in_array($size, self::mmOptions($link), true)) $size = 100;
         } else {
             $fmt = 'svg';
             $size = 0;

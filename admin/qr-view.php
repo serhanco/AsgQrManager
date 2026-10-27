@@ -47,7 +47,9 @@ if (!empty($_GET['zip'])) {
     $zip = new ZipArchive();
     $zip->open($tmp, ZipArchive::OVERWRITE);
     try {
-        foreach ([['svg', 0, false], ['pdf', 100, false], ['eps', 100, false], ['ai', 100, false], ['png', 2000, false], ['png', 2000, true]] as [$fmt, $size, $tr]) {
+        $tpl = Share::templateOf($link);
+        $vmm = $tpl && !empty($tpl['print_mm']) ? (int)$tpl['print_mm'] : 100;
+        foreach ([['svg', 0, false], ['pdf', $vmm, false], ['eps', $vmm, false], ['ai', $vmm, false], ['png', 2000, false], ['png', 2000, true]] as [$fmt, $size, $tr]) {
             $r = Share::render($link, $fmt, $size, $tr, $logoOverride);
             $zip->addFromString($r['name'], $r['data']);
         }
@@ -56,7 +58,8 @@ if (!empty($_GET['zip'])) {
     }
     $zip->addFromString('OKU-BENI.txt',
         "QR kısa adresi: " . BASE_URL . "/r/{$slug}\r\n" .
-        "Başlık: " . ($link['title'] ?? '-') . "\r\n\r\n" .
+        "Başlık: " . ($link['title'] ?? '-') . "\r\n" .
+        ($tpl ? "Şablon: {$tpl['name']}" . (!empty($tpl['print_mm']) ? " · önerilen baskı boyutu {$tpl['print_mm']} mm" : '') . "\r\n" . ($tpl['description'] ? $tpl['description'] . "\r\n" : '') : '') . "\r\n" .
         "SVG, PDF, EPS ve AI vektöreldir (baskı için önerilir). EPS ve AI CMYK renklidir; matbaa/ajans yazılımlarında doğrudan açılır.\r\n" .
         "PNG dosyaları dijital kullanım içindir.\r\n" .
         "QR'ı küçültürken en az 2 x 2 cm kullanın, kenar boşluğunu (beyaz çerçeve) kesmeyin.\r\n" .
@@ -91,6 +94,8 @@ if ($shareDays > 0 && in_array($shareDays, [1, 7, 14, 30, 90], true)) {
 
 $state = Redirector::state($link)['state'];
 $style = LinkService::effectiveStyle($link);
+$tpl   = Share::templateOf($link);
+$tplMm = $tpl && !empty($tpl['print_mm']) ? (int)$tpl['print_mm'] : 0;
 
 function qrDownloadUrl(string $slug, string $fmt, int $size, string $logoQs, string $extra = ''): string {
     return BASE_URL . '/admin/qr-view?slug=' . urlencode($slug) . '&fmt=' . $fmt . '&size=' . $size . $logoQs . '&dl=1' . $extra;
@@ -161,8 +166,9 @@ include __DIR__ . '/views/_layout.php';
       <div class="dl-label">Vektörel — baskı için önerilir</div>
       <div class="btn-group">
         <a class="btn btn-success dl-link" data-tr="1" href="<?= qrDownloadUrl($slug, 'svg', 0, $logoQs) ?>">SVG</a>
-        <?php foreach (Share::PDF_MM as $mm): ?>
-          <a class="btn btn-primary dl-link" data-tr="1" href="<?= qrDownloadUrl($slug, 'pdf', $mm, $logoQs) ?>">PDF <?= $mm ?> mm</a>
+        <?php foreach (Share::mmOptions($link) as $mm): $isTpl = $tplMm === $mm; ?>
+          <a class="btn btn-primary dl-link<?= $isTpl ? ' btn-tpl' : '' ?>" data-tr="1" href="<?= qrDownloadUrl($slug, 'pdf', $mm, $logoQs) ?>"
+             <?= $isTpl ? 'title="' . e($tpl['name']) . ' şablonunun önerdiği baskı boyutu"' : '' ?>>PDF <?= $mm ?> mm<?= $isTpl ? ' ★' : '' ?></a>
         <?php endforeach; ?>
       </div>
     </div>
@@ -170,8 +176,8 @@ include __DIR__ . '/views/_layout.php';
     <div class="dl-group">
       <div class="dl-label">Matbaa / ajans — Illustrator, CorelDRAW, InDesign (CMYK, vektörel)<?= tip('EPS ve AI dosyaları vektöreldir; 100 mm çizim alanıyla gelir ve kalite kaybı olmadan istenen ölçüye büyütülüp küçültülebilir. Renkler CMYK yazılır, siyah yalnızca K (%100 siyah) kanalındadır.') ?></div>
       <div class="btn-group">
-        <a class="btn btn-primary dl-link" data-tr="1" href="<?= qrDownloadUrl($slug, 'eps', 100, $logoQs) ?>">EPS</a>
-        <a class="btn btn-primary dl-link" data-tr="1" href="<?= qrDownloadUrl($slug, 'ai', 100, $logoQs) ?>">AI (Illustrator)</a>
+        <a class="btn btn-primary dl-link" data-tr="1" href="<?= qrDownloadUrl($slug, 'eps', $tplMm ?: 100, $logoQs) ?>">EPS<?= $tplMm ? ' ' . $tplMm . ' mm' : '' ?></a>
+        <a class="btn btn-primary dl-link" data-tr="1" href="<?= qrDownloadUrl($slug, 'ai', $tplMm ?: 100, $logoQs) ?>">AI (Illustrator)<?= $tplMm ? ' ' . $tplMm . ' mm' : '' ?></a>
       </div>
     </div>
 
@@ -253,7 +259,8 @@ include __DIR__ . '/views/_layout.php';
     <?php endif; ?>
     <div><div class="info-k">Görünüm</div>
       <span class="swatch" style="background:<?= e($style['fg']) ?>"></span><span class="swatch" style="background:<?= e($style['bg']) ?>"></span>
-      <span class="text-xs text-muted"><?= e(LinkService::SHAPES[$style['shape']]) ?></span></div>
+      <span class="text-xs text-muted"><?= $tpl ? e($tpl['name']) . ' şablonu' . ($tplMm ? ' · ' . $tplMm . ' mm önerilir' : '') : e(LinkService::SHAPES[$style['shape']]) ?></span>
+      <?php if ($tpl && $tpl['description']): ?><div class="text-xs mt-1"><?= e($tpl['description']) ?></div><?php endif; ?></div>
     <div><div class="info-k">Toplam okutma</div><div style="font-size:1.4rem;font-weight:700"><?= formatCount((int)$link['scan_count']) ?></div></div>
     <?php if ($link['logo']): ?>
       <div><div class="info-k">Kayıtlı logo</div>

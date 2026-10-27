@@ -35,6 +35,7 @@ class Access {
         'links.edit'    => ['admin', 'editor'],
         'links.archive' => ['admin'],
         'links.toggle'  => ['admin'],   // onaysız aç/kapat; editör talep oluşturur
+        'design.custom' => ['admin'],   // QR'a özel renk/biçim; editör şablon ya da marka varsayılanını seçer
         'admin'         => ['admin'],
     ];
 

@@ -15,15 +15,19 @@ $errors      = [];
 /** DB satırı → form değerleri */
 function linkToForm(array $l): array {
     $local = fn($v) => $v ? str_replace(' ', 'T', substr($v, 0, 16)) : '';
-    $custom = ($l['fg_color'] ?? '') !== '' || ($l['bg_color'] ?? '') !== '' || ($l['shape'] ?? '') !== '';
+    $custom = ($l['fg_color'] ?? '') !== '' || ($l['bg_color'] ?? '') !== '' || ($l['shape'] ?? '') !== '' || ($l['design'] ?? '') !== '';
+    $dx = QrDesign::decode($l['design'] ?? null);
     return [
         'target_url' => $l['target_url'], 'title' => $l['title'] ?? '', 'category' => $l['category'] ?? '',
         'tags' => $l['tags'] ?? '', 'notes' => $l['notes'] ?? '', 'is_active' => $l['is_active'],
         'starts_at' => $local($l['starts_at'] ?? null), 'ends_at' => $local($l['ends_at'] ?? null),
         'after_end_url' => $l['after_end_url'] ?? '', 'fallback_url' => $l['fallback_url'] ?? '',
         'utm_enabled' => $l['utm_enabled'] ?? 0, 'utm_campaign' => $l['utm_campaign'] ?? '',
-        'style_mode' => $custom ? 'custom' : 'brand',
+        'style_mode' => !empty($l['template_id']) ? 'template' : ($custom ? 'custom' : 'brand'),
+        'template_id' => $l['template_id'] ?? '',
         'fg_color' => $l['fg_color'] ?? '', 'bg_color' => $l['bg_color'] ?? '', 'shape' => $l['shape'] ?? '',
+        'eye' => $dx['eye'], 'eye_color_on' => $dx['eye_color'] ? '1' : '', 'eye_color' => $dx['eye_color'] ?? '',
+        'gradient' => $dx['gradient'], 'fg2' => $dx['fg2'] ?? '',
         'logo_file' => $l['logo'] ?? '',
     ];
 }
@@ -72,6 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             LinkEvents::log($pdo, (int)$id, $link['slug'], Auth::actor(), $clean['is_active'] ? 'activate' : 'deactivate');
         }
         flash('success', $changes ? 'QR başarıyla güncellendi.' : 'Değişiklik yok.');
+        if ($w = LinkService::designWarnings(LinkService::find($pdo, (int)$id) ?? $link)) flash('warning', 'Okunabilirlik: ' . implode(' ', $w));
         redirect(BASE_URL . '/admin/edit?id=' . $id);
     }
     $f = $_POST;

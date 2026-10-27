@@ -7,18 +7,22 @@ require_once __DIR__ . '/../lib/bootstrap.php';
 Auth::startSession();
 if (!Auth::isLoggedIn()) { http_response_code(401); exit; }
 
-$mode = ($_GET['mode'] ?? 'brand') === 'custom' ? 'custom' : 'brand';
+$mode = (string)($_GET['mode'] ?? 'brand');
 $logo = (string)($_GET['logo'] ?? '');
 if ($logo !== '' && !validateLogoFile($logo)) $logo = '';
 
-$row = ['fg_color' => null, 'bg_color' => null, 'shape' => null];
-if ($mode === 'custom') {
+$row = ['fg_color' => null, 'bg_color' => null, 'shape' => null, 'design' => null, 'template_id' => null];
+if ($mode === 'template') {
+    $row['template_id'] = (int)($_GET['tpl'] ?? 0);
+} elseif ($mode === 'custom') {
     $fg = LinkService::normalizeHex($_GET['fg'] ?? '');
     $bg = LinkService::normalizeHex($_GET['bg'] ?? '');
     $shape = (string)($_GET['shape'] ?? '');
-    // Geçersiz/okunamaz renk çifti önizlemede marka varsayılanına döner (kayıtta hata verilir)
-    if ($fg && $bg && LinkService::colorError($fg, $bg) === null) { $row['fg_color'] = $fg; $row['bg_color'] = $bg; }
+    if ($fg && $bg) { $row['fg_color'] = $fg; $row['bg_color'] = $bg; }
     if (isset(LinkService::SHAPES[$shape])) $row['shape'] = $shape;
+    $row['design'] = QrDesign::encode(QrTemplates::designInput($_GET));
+    // Okunamaz tasarım önizlemede marka varsayılanına döner (kayıtta hata verilir)
+    if (QrDesign::check(LinkService::effectiveStyle($row))[0]) $row = ['fg_color' => null, 'bg_color' => null, 'shape' => null];
 }
 $style = LinkService::effectiveStyle($row);
 
