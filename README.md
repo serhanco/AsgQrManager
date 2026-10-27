@@ -11,6 +11,7 @@
 - **Şablonlar** (`Şablonlar` menüsü, yalnızca yönetici): ad, kullanım alanı, kullanım notu, önerilen baskı boyutu (mm) ve tasarım. Ekle, kopyala, düzenle, arşivle; silme yok. İlk kurulumda 5 şablon gelir: Kartvizit (20 mm), Roll-up (200 mm), Yaka Kartı (25 mm), Masa Kartı (40 mm), Sticker (30 mm).
 - QR formunda görünüm: **marka varsayılanı**, **kurumsal şablon** ya da **özel görünüm**. Özel görünüm yalnızca yöneticiye açıktır; editör şablon ya da marka varsayılanını seçer (kendi QR'ında önceden kalan özel görünüm korunur).
 - Yeni tasarım seçenekleri: **köşe (göz) biçimi** (kare, yuvarlatılmış, daire) ve **köşe rengi**, **renk geçişi** (çapraz / merkezden dışa). SVG, PNG, PDF, EPS ve AI çıktılarında aynı görünür.
+- **Çerçeve ve çağrı metni:** QR'ın altına ya da üstüne kurumsal çerçeve ve kısa yazı ("Okutun, ofisimizi bulun"). Yazı, Plus Jakarta Sans Bold'dan vektör yola çevrilir (`lib/fonts/`, SIL OFL); PDF, EPS, AI ve SVG'de yazı tipi gerekmeden aynı görünür, Türkçe karakterler dahil. QR ve kenar boşluğu aynen kalır. Şablonlu QR'da yazı QR bazında değiştirilebilir (editör de yazabilir; boşsa şablonun yazısı). Şema: `014_links_frame_text`.
 - **Okunabilirlik:** ters renk (koyu zeminde açık QR) ve 4:1 altı kontrast kaydedilir, uyarı gösterilir; 2,5:1 altı kontrast ya da zeminden hem koyu hem açık renk karışımı kaydedilmez.
 - Şablona bağlı QR'ın indirme ekranında şablonun baskı boyutu (★) ve kullanım notu görünür; baskı paketi o boyutla üretilir.
 - Şablon düzenlenince bağlı QR'ların görseli yeni tasarımla üretilir; QR'ın içindeki kısa adres değişmez.

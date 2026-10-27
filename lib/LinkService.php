@@ -27,7 +27,7 @@ class LinkService {
     private const COLUMNS = [
         'target_url', 'title', 'is_active', 'logo', 'category', 'tags', 'notes',
         'fallback_url', 'starts_at', 'ends_at', 'after_end_url',
-        'utm_enabled', 'utm_campaign', 'fg_color', 'bg_color', 'shape', 'template_id', 'design',
+        'utm_enabled', 'utm_campaign', 'fg_color', 'bg_color', 'shape', 'template_id', 'design', 'frame_text',
     ];
 
     // ─── Renk yardımcıları ───────────────────────────────────────────────────
@@ -79,7 +79,12 @@ class LinkService {
         if (!empty($link['template_id'])) {
             try {
                 $tpl = QrTemplates::find(getPdo(), (int)$link['template_id']);
-                if ($tpl) return $tpl['style'];
+                if ($tpl) {
+                    // Şablonun tasarımı sabit; çerçeve yazısı QR'a özel girildiyse o kullanılır
+                    $st = $tpl['style'];
+                    if (QrFrame::enabled($st) && ($t = QrFrame::cleanText($link['frame_text'] ?? '')) !== '') $st['frame_text'] = $t;
+                    return $st;
+                }
             } catch (\Throwable $e) { /* şablon okunamazsa aşağıdaki stil kullanılır */ }
         }
         $fg = self::normalizeHex($link['fg_color'] ?? null) ?? self::normalizeHex(Settings::get('brand_fg')) ?? '#000000';
@@ -301,10 +306,14 @@ class LinkService {
             $in['design']   = QrTemplates::designInput([
                 'eye' => $post['eye'] ?? '', 'eye_color' => !empty($post['eye_color_on']) ? ($post['eye_color'] ?? '') : '',
                 'gradient' => $post['gradient'] ?? '', 'fg2' => ($post['gradient'] ?? 'none') !== 'none' ? ($post['fg2'] ?? '') : '',
+                'frame' => $post['frame'] ?? '', 'frame_color' => $post['frame_color'] ?? '', 'frame_text' => $post['frame_text'] ?? '',
             ]);
         } elseif ($mode === 'template') {
             $in['template_id'] = $post['template_id'] ?? '';
         }
+        // QR'a özel çerçeve yazısı yalnızca şablonla birlikte anlamlı; diğer görünümlerde temizlenir
+        $in['frame_text'] = $mode === 'template' ? trim((string)($post['tpl_frame_text'] ?? '')) : '';
+        if (!QrTemplates::linkTextAvailable(getPdo())) unset($in['frame_text']);
         // Şablon tablosu henüz yoksa (migration bekliyor) yeni sütunlara yazılmaz
         if (!QrTemplates::available(getPdo())) unset($in['template_id'], $in['design']);
         return $in;
@@ -403,6 +412,7 @@ class LinkService {
             if (($d['eye'] ?? '') !== '' && !isset(QrDesign::EYES[$d['eye']])) $errors[] = 'Geçersiz köşe biçimi.';
             if (($d['gradient'] ?? '') !== '' && !isset(QrDesign::GRADIENTS[$d['gradient']])) $errors[] = 'Geçersiz renk geçişi.';
             elseif (($d['gradient'] ?? 'none') !== 'none' && self::normalizeHex($d['fg2'] ?? '') === null) $errors[] = 'Renk geçişi için ikinci rengi seçin.';
+            $errors = array_merge($errors, QrDesign::frameErrors($d));
             $clean['design'] = QrDesign::encode($d);
         }
 
@@ -421,6 +431,14 @@ class LinkService {
             $sh = trim((string)$in['shape']);
             if ($sh !== '' && !isset(self::SHAPES[$sh])) $errors[] = 'Geçersiz QR şekli.';
             else $clean['shape'] = $sh === '' ? null : $sh;
+        }
+
+        // QR'a özel çerçeve yazısı (şablonlu QR): editör de yazabilir
+        if ($has('frame_text')) {
+            $raw = trim(preg_replace('/\s+/u', ' ', (string)$in['frame_text']));
+            if (mb_strlen($raw) > QrFrame::MAX_TEXT) $errors[] = 'Çerçeve yazısı en fazla ' . QrFrame::MAX_TEXT . ' karakter olabilir.';
+            elseif ($bad = QrFrame::unsupported($raw)) $errors[] = 'Çerçeve yazısında kullanılamayan karakter: ' . implode(' ', $bad);
+            else $clean['frame_text'] = $raw === '' ? null : $raw;
         }
 
         $styleKeys = ['fg_color', 'bg_color', 'shape', 'design'];
@@ -621,6 +639,7 @@ class LinkService {
             'logo'          => $link['logo'],
             'style'         => $style,
             'template_id'   => !empty($link['template_id']) ? (int)$link['template_id'] : null,
+            'frame_text'    => $link['frame_text'] ?? null,
             'scan_count'    => (int)$link['scan_count'],
             'created_at'    => $link['created_at'],
             'updated_at'    => $link['updated_at'],

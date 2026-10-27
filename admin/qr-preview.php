@@ -14,6 +14,7 @@ if ($logo !== '' && !validateLogoFile($logo)) $logo = '';
 $row = ['fg_color' => null, 'bg_color' => null, 'shape' => null, 'design' => null, 'template_id' => null];
 if ($mode === 'template') {
     $row['template_id'] = (int)($_GET['tpl'] ?? 0);
+    $row['frame_text']  = (string)($_GET['ftext'] ?? '');
 } elseif ($mode === 'custom') {
     $fg = LinkService::normalizeHex($_GET['fg'] ?? '');
     $bg = LinkService::normalizeHex($_GET['bg'] ?? '');

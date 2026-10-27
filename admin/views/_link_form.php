@@ -28,6 +28,7 @@ $d = [
     'shape' => ($f['shape'] ?? '') ?: Settings::get('brand_shape'),
     'eye' => $f['eye'] ?? '', 'gradient' => $f['gradient'] ?? 'none', 'fg2' => $f['fg2'] ?? '',
     'eye_color' => !empty($f['eye_color_on']) ? ($f['eye_color'] ?? '') : '',
+    'frame' => $f['frame'] ?? 'none', 'frame_color' => $f['frame_color'] ?? '', 'frame_text' => $f['frame_text'] ?? '',
 ];
 $allTags    = array_values(array_map(fn($t) => ['tag' => $t['tag'], 'count' => $t['count']], LinkService::allTags(getPdo())));
 $starterTags = ['poster', 'broşür', 'stand', 'kartvizit', 'sunum', 'e-posta', 'sosyal-medya'];
@@ -268,7 +269,8 @@ $isVcardForm = ($qrType ?? 'link') === 'vcard';
       <?php foreach ($templates as $i => $t):
           $checked = $tplVal ? $tplVal === $t['id'] : $i === 0; ?>
         <label class="tpl-option">
-          <input type="radio" name="template_id" value="<?= $t['id'] ?>" <?= $checked ? 'checked' : '' ?>>
+          <input type="radio" name="template_id" value="<?= $t['id'] ?>" <?= $checked ? 'checked' : '' ?>
+                 data-frame="<?= QrFrame::enabled($t['style']) ? '1' : '' ?>" data-text="<?= e($t['style']['frame_text'] ?? '') ?>">
           <img src="<?= e(BASE_URL . '/admin/qr-preview?mode=template&slug=sablon&tpl=' . $t['id']) ?>" alt="" loading="lazy">
           <span class="tpl-option-text">
             <span class="fw-bold"><?= e($t['name']) ?></span>
@@ -279,6 +281,13 @@ $isVcardForm = ($qrType ?? 'link') === 'vcard';
       <?php endforeach; ?>
       <?php if (Access::isAdmin()): ?><p class="text-xs text-muted mt-2"><a href="<?= BASE_URL ?>/admin/templates">Şablonları yönet</a></p><?php endif; ?>
     </div>
+    <?php if (QrTemplates::linkTextAvailable(getPdo())): ?>
+    <div class="form-group" id="tpl-text-wrap" style="display:none">
+      <label class="form-label" for="tpl_frame_text">Çerçeve yazısı <span class="hint">bu QR için; boş bırakırsanız şablonun yazısı kullanılır</span></label>
+      <input class="form-control" type="text" id="tpl_frame_text" name="tpl_frame_text" maxlength="<?= QrFrame::MAX_TEXT ?>"
+             value="<?= e((string)($f['tpl_frame_text'] ?? '')) ?>">
+    </div>
+    <?php endif; ?>
     <?php endif; ?>
 
     <?php if ($showCustom): ?>
@@ -287,7 +296,7 @@ $isVcardForm = ($qrType ?? 'link') === 'vcard';
         <?php include __DIR__ . '/_design_fields.php'; ?>
       <?php else: ?>
         <p class="text-sm text-muted">Bu QR'ın özel görünümü korunur. Değiştirmek için bir şablon ya da marka varsayılanını seçin.</p>
-        <?php foreach (['fg_color', 'bg_color', 'shape', 'eye', 'eye_color_on', 'eye_color', 'gradient', 'fg2'] as $k): ?>
+        <?php foreach (['fg_color', 'bg_color', 'shape', 'eye', 'eye_color_on', 'eye_color', 'gradient', 'fg2', 'frame', 'frame_color', 'frame_text'] as $k): ?>
           <input type="hidden" name="<?= $k ?>" value="<?= e((string)($f[$k] ?? '')) ?>">
         <?php endforeach; ?>
       <?php endif; ?>
@@ -362,12 +371,15 @@ $isVcardForm = ($qrType ?? 'link') === 'vcard';
       if (m === 'template') {
         const tp = form.querySelector('input[name=template_id]:checked');
         p.tpl = tp ? tp.value : '';
+        const ft = $('#tpl_frame_text');
+        if (ft) p.ftext = ft.value;
       } else if (m === 'custom') {
         if (window.qrDesign) Object.assign(p, window.qrDesign.values());
         else { // editör: mevcut özel görünüm gizli alanlarda
           const v = (k) => { const el = form.querySelector('input[name=' + k + ']'); return el ? el.value : ''; };
           Object.assign(p, { fg: v('fg_color'), bg: v('bg_color'), shape: v('shape'), eye: v('eye'),
-            eye_color: v('eye_color_on') ? v('eye_color') : '', gradient: v('gradient'), fg2: v('fg2') });
+            eye_color: v('eye_color_on') ? v('eye_color') : '', gradient: v('gradient'), fg2: v('fg2'),
+            frame: v('frame'), frame_color: v('frame_color'), frame_text: v('frame_text') });
         }
       }
       $('#prev-slug').textContent = slug || '…';
@@ -380,9 +392,18 @@ $isVcardForm = ($qrType ?? 'link') === 'vcard';
     const c = $('#custom-style'), tp = $('#template-style');
     if (c) c.style.display = m === 'custom' ? '' : 'none';
     if (tp) tp.style.display = m === 'template' ? '' : 'none';
+    // Seçilen şablonda çerçeve varsa QR'a özel yazı alanı görünür; şablonun yazısı yer tutucu olur
+    const wrap = $('#tpl-text-wrap'), sel = form.querySelector('input[name=template_id]:checked');
+    if (wrap) {
+      const on = m === 'template' && sel && sel.dataset.frame === '1';
+      wrap.style.display = on ? '' : 'none';
+      if (sel) $('#tpl_frame_text').placeholder = sel.dataset.text || '';
+    }
   }
   form.querySelectorAll('input[name=style_mode]').forEach(r => r.addEventListener('change', () => { syncMode(); refresh(); }));
-  form.querySelectorAll('input[name=template_id]').forEach(r => r.addEventListener('change', refresh));
+  form.querySelectorAll('input[name=template_id]').forEach(r => r.addEventListener('change', () => { syncMode(); refresh(); }));
+  const ftIn = $('#tpl_frame_text');
+  if (ftIn) ftIn.addEventListener('input', refresh);
   document.addEventListener('qr-design-change', refresh);
   $('#use-logo-checkbox').addEventListener('change', refresh);
   document.addEventListener('click', (e) => { if (e.target.closest('.logo-item')) setTimeout(refresh, 0); });

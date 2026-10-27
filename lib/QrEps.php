@@ -20,7 +20,18 @@ class QrEps {
         $W  = $mm * 72 / 25.4;                   // pt
         $n  = fn(float $v) => self::n($v);
 
-        [$c, $logo] = QrPdf::drawing($matrix, $margin, $W, $logoPath, $style, true, true);
+        // Çerçeve: çizim genişliği tüm görselin genişliğidir; QR içine kaydırılır
+        $total = count($matrix) + $margin * 2;
+        $frame = QrFrame::enabled($style) ? QrFrame::layout($total, $style) : null;
+        $H = $W; $Wq = $W; $pre = $post = '';
+        if ($frame) {
+            $u = $W / $frame['w']; $Wq = $total * $u; $H = $frame['h'] * $u;
+            $pre  = QrFrame::pdf($frame, $u, $H, $style['bg'], $total, true)
+                  . "gsave {$n($frame['ox'] * $u)} {$n($H - ($frame['oy'] + $total) * $u)} translate\n";
+            $post = "grestore\n";
+        }
+
+        [$c, $logo] = QrPdf::drawing($matrix, $margin, $Wq, $logoPath, $style, true, true);
 
         if ($logo !== null) {
             [$data, $iw, $ih, $lx, $ly, $dw, $dh] = $logo;
@@ -33,11 +44,13 @@ class QrEps {
                 . chunk_split(bin2hex($data), 78, "\n") . ">\n%QRMEndLogo\ngrestore\n";
         }
 
+        $c     = $pre . $c . $post;
         $bb    = (int)ceil($W);
+        $bbH   = (int)ceil($H);
         $title = preg_replace('/[^\x20-\x7E]/', '', $title);
         return "%!PS-Adobe-3.0 EPSF-3.0\n"
-            . "%%BoundingBox: 0 0 {$bb} {$bb}\n"
-            . "%%HiResBoundingBox: 0 0 {$n($W)} {$n($W)}\n"
+            . "%%BoundingBox: 0 0 {$bb} {$bbH}\n"
+            . "%%HiResBoundingBox: 0 0 {$n($W)} {$n($H)}\n"
             . "%%Title: ({$title})\n"
             . "%%Creator: ACIBADEM QR Code Manager\n"
             . "%%CreationDate: " . gmdate('Y-m-d H:i:s') . " UTC\n"

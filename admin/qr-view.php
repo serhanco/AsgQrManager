@@ -259,7 +259,7 @@ include __DIR__ . '/views/_layout.php';
     <?php endif; ?>
     <div><div class="info-k">Görünüm</div>
       <span class="swatch" style="background:<?= e($style['fg']) ?>"></span><span class="swatch" style="background:<?= e($style['bg']) ?>"></span>
-      <span class="text-xs text-muted"><?= $tpl ? e($tpl['name']) . ' şablonu' . ($tplMm ? ' · ' . $tplMm . ' mm önerilir' : '') : e(LinkService::SHAPES[$style['shape']]) ?></span>
+      <span class="text-xs text-muted"><?= $tpl ? e($tpl['name']) . ' şablonu' . ($tplMm ? ' · ' . $tplMm . ' mm önerilir' : '') : e(LinkService::SHAPES[$style['shape']]) ?><?= QrFrame::enabled($style) ? ' · çerçeve: “' . e($style['frame_text'] ?? '') . '”' : '' ?></span>
       <?php if ($tpl && $tpl['description']): ?><div class="text-xs mt-1"><?= e($tpl['description']) ?></div><?php endif; ?></div>
     <div><div class="info-k">Toplam okutma</div><div style="font-size:1.4rem;font-weight:700"><?= formatCount((int)$link['scan_count']) ?></div></div>
     <?php if ($link['logo']): ?>

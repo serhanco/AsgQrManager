@@ -55,8 +55,19 @@ class QrTemplates {
         return self::$available;
     }
 
+    private static ?bool $linkText = null;
+
+    /** links.frame_text sütunu var mı (014 migration) */
+    public static function linkTextAvailable(PDO $pdo): bool {
+        if (self::$linkText === null) {
+            try { $pdo->query('SELECT frame_text FROM links LIMIT 1'); self::$linkText = true; }
+            catch (\Throwable $e) { self::$linkText = false; }
+        }
+        return self::$linkText;
+    }
+
     /** Testler ve migration sonrası için önbelleği sıfırlar */
-    public static function reset(): void { self::$available = null; self::$cache = []; }
+    public static function reset(): void { self::$available = self::$linkText = null; self::$cache = []; }
 
     private static function hydrate(array $r): array {
         $r['id'] = (int)$r['id'];
@@ -65,7 +76,7 @@ class QrTemplates {
         return $r;
     }
 
-    /** Şablon tasarımı → QR stili (fg, bg, shape, eye, eye_color, gradient, fg2) */
+    /** Şablon tasarımı → QR stili (fg, bg, shape, eye, eye_color, gradient, fg2, frame…) */
     public static function styleOf(array $d): array {
         $shape = (string)($d['shape'] ?? 'square');
         return [
@@ -107,7 +118,7 @@ class QrTemplates {
     /** Form / API girdisinden tasarım alanları (fg, bg, shape, eye, eye_color, gradient, fg2) */
     public static function designInput(array $in): array {
         $out = [];
-        foreach (['fg', 'bg', 'shape', 'eye', 'eye_color', 'gradient', 'fg2'] as $k) {
+        foreach (['fg', 'bg', 'shape', 'eye', 'eye_color', 'gradient', 'fg2', 'frame', 'frame_color', 'frame_text'] as $k) {
             if (isset($in[$k]) && is_scalar($in[$k])) $out[$k] = trim((string)$in[$k]);
         }
         return $out;
@@ -133,12 +144,13 @@ class QrTemplates {
             }
         }
         $d = self::designInput($in);
-        foreach (['fg' => 'QR rengi', 'bg' => 'Arka plan', 'eye_color' => 'Köşe rengi', 'fg2' => 'Geçiş rengi'] as $k => $label) {
+        foreach (['fg' => 'QR rengi', 'bg' => 'Arka plan', 'eye_color' => 'Köşe rengi', 'fg2' => 'Geçiş rengi', 'frame_color' => 'Çerçeve rengi'] as $k => $label) {
             if (($d[$k] ?? '') !== '' && LinkService::normalizeHex($d[$k]) === null) $errors[] = "{$label} geçersiz (örn. #1C2561).";
         }
         if (($d['gradient'] ?? 'none') !== 'none' && LinkService::normalizeHex($d['fg2'] ?? '') === null) {
             $errors[] = 'Renk geçişi için ikinci rengi seçin.';
         }
+        $errors = array_merge($errors, QrDesign::frameErrors($d));
         $style = self::styleOf($d);
         [$dErr, $warnings] = QrDesign::check($style);
         $errors = array_merge($errors, $dErr);

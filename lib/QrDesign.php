@@ -9,6 +9,8 @@
  *   eye_color #RRGGBB | null                — göz rengi (boşsa QR rengi)
  *   gradient  none | linear | radial        — QR renginden fg2'ye geçiş
  *   fg2       #RRGGBB | null                — geçişin ikinci rengi
+ *   frame     none | bottom | top           — çerçeve ve çağrı metni (QrFrame)
+ *   frame_color, frame_text                 — çerçeve rengi (boşsa QR rengi), metin
  * Ek seçeneklerin hepsi varsayılandaysa çıktı v2 ile aynıdır.
  */
 class QrDesign {
@@ -39,16 +41,22 @@ class QrDesign {
         $grad = (string)($s['gradient'] ?? 'none');
         $fg2 = LinkService::normalizeHex($s['fg2'] ?? null);
         if (!isset(self::GRADIENTS[$grad]) || $fg2 === null) $grad = 'none';
+        $frame = (string)($s['frame'] ?? 'none');
+        if (!isset(QrFrame::FRAMES[$frame])) $frame = 'none';
         return [
-            'eye'       => isset(self::EYES[$eye]) ? $eye : 'square',
-            'eye_color' => LinkService::normalizeHex($s['eye_color'] ?? null),
-            'gradient'  => $grad,
-            'fg2'       => $grad === 'none' ? null : $fg2,
+            'eye'         => isset(self::EYES[$eye]) ? $eye : 'square',
+            'eye_color'   => LinkService::normalizeHex($s['eye_color'] ?? null),
+            'gradient'    => $grad,
+            'fg2'         => $grad === 'none' ? null : $fg2,
+            'frame'       => $frame,
+            'frame_color' => $frame === 'none' ? null : LinkService::normalizeHex($s['frame_color'] ?? null),
+            'frame_text'  => $frame === 'none' ? null : (QrFrame::cleanText($s['frame_text'] ?? '') ?: null),
         ];
     }
 
     public static function hasExtras(array $st): bool {
-        return ($st['eye'] ?? 'square') !== 'square' || !empty($st['eye_color']) || ($st['gradient'] ?? 'none') !== 'none';
+        return ($st['eye'] ?? 'square') !== 'square' || !empty($st['eye_color']) || ($st['gradient'] ?? 'none') !== 'none'
+            || ($st['frame'] ?? 'none') !== 'none';
     }
 
     /** links.design / qr_templates.design sütunu (JSON) → ek alanlar */
@@ -62,6 +70,20 @@ class QrDesign {
         $x = self::normalizeExtras($extras);
         if (!self::hasExtras($x)) return null;
         return json_encode(array_filter($x, fn($v) => $v !== null), JSON_UNESCAPED_SLASHES);
+    }
+
+    /** Çerçeve girdisinin hataları (yazı zorunlu, yazı tipinde olmayan karakter kabul edilmez) */
+    public static function frameErrors(array $d): array {
+        $frame = (string)($d['frame'] ?? 'none');
+        if ($frame === '' || $frame === 'none') return [];
+        if (!isset(QrFrame::FRAMES[$frame])) return ['Geçersiz çerçeve.'];
+        $text = trim((string)($d['frame_text'] ?? ''));
+        $errors = [];
+        if ($text === '') $errors[] = 'Çerçeve yazısını girin (ör. "Okutun, ofisimizi bulun").';
+        elseif (mb_strlen($text) > QrFrame::MAX_TEXT) $errors[] = 'Çerçeve yazısı en fazla ' . QrFrame::MAX_TEXT . ' karakter olabilir.';
+        if ($bad = QrFrame::unsupported($text)) $errors[] = 'Çerçeve yazısında kullanılamayan karakter: ' . implode(' ', $bad);
+        if (trim((string)($d['frame_color'] ?? '')) !== '' && LinkService::normalizeHex((string)$d['frame_color']) === null) $errors[] = 'Çerçeve rengi geçersiz.';
+        return $errors;
     }
 
     // ─── Okunabilirlik ───────────────────────────────────────────────────────

@@ -24,10 +24,11 @@ function linkToForm(array $l): array {
         'after_end_url' => $l['after_end_url'] ?? '', 'fallback_url' => $l['fallback_url'] ?? '',
         'utm_enabled' => $l['utm_enabled'] ?? 0, 'utm_campaign' => $l['utm_campaign'] ?? '',
         'style_mode' => !empty($l['template_id']) ? 'template' : ($custom ? 'custom' : 'brand'),
-        'template_id' => $l['template_id'] ?? '',
+        'template_id' => $l['template_id'] ?? '', 'tpl_frame_text' => $l['frame_text'] ?? '',
         'fg_color' => $l['fg_color'] ?? '', 'bg_color' => $l['bg_color'] ?? '', 'shape' => $l['shape'] ?? '',
         'eye' => $dx['eye'], 'eye_color_on' => $dx['eye_color'] ? '1' : '', 'eye_color' => $dx['eye_color'] ?? '',
         'gradient' => $dx['gradient'], 'fg2' => $dx['fg2'] ?? '',
+        'frame' => $dx['frame'], 'frame_color' => $dx['frame_color'] ?? '', 'frame_text' => $dx['frame_text'] ?? '',
         'logo_file' => $l['logo'] ?? '',
     ];
 }

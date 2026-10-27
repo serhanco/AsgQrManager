@@ -114,7 +114,18 @@ class QrPdf {
         $W  = $mm * 72 / 25.4;                   // pt
         $n  = fn(float $v) => self::n($v);
 
-        [$c, $logo] = self::drawing($matrix, $margin, $W, $logoPath, $style, $cmyk);
+        // Çerçeve: sayfa genişliği tüm görselin genişliğidir; QR içine kaydırılır
+        $total = count($matrix) + $margin * 2;
+        $frame = QrFrame::enabled($style) ? QrFrame::layout($total, $style) : null;
+        $H = $W; $Wq = $W; $pre = $post = '';
+        if ($frame) {
+            $u = $W / $frame['w']; $Wq = $total * $u; $H = $frame['h'] * $u;
+            $pre  = QrFrame::pdf($frame, $u, $H, $style['bg'], $total, $cmyk)
+                  . "q 1 0 0 1 {$n($frame['ox'] * $u)} {$n($H - ($frame['oy'] + $total) * $u)} cm\n";
+            $post = "Q\n";
+        }
+
+        [$c, $logo] = self::drawing($matrix, $margin, $Wq, $logoPath, $style, $cmyk);
 
         $imageObj = '';
         $xobject  = '';
@@ -125,11 +136,12 @@ class QrPdf {
                       . "/BitsPerComponent 8 /Filter /DCTDecode /Length " . strlen($data) . " >>\nstream\n{$data}\nendstream";
             $xobject = ' /XObject << /Im1 5 0 R >>';
         }
+        $c = $pre . $c . $post;
 
         $objs = [
             1 => '<< /Type /Catalog /Pages 2 0 R >>',
             2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-            3 => "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {$n($W)} {$n($W)}] /Contents 4 0 R /Resources <<{$xobject} >> >>",
+            3 => "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {$n($W)} {$n($H)}] /Contents 4 0 R /Resources <<{$xobject} >> >>",
             4 => '<< /Length ' . strlen($c) . " >>\nstream\n{$c}endstream",
         ];
         if ($imageObj !== '') $objs[5] = $imageObj;
