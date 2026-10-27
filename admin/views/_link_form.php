@@ -114,7 +114,7 @@ $hasTags    = trim((string)($f['tags'] ?? '')) !== '';
       <textarea class="form-control" id="notes" name="notes" rows="2" maxlength="2000"><?= e($f['notes'] ?? '') ?></textarea>
     </div>
 
-    <?php if ($mode === 'edit'): ?>
+    <?php if ($mode === 'edit' && !empty($canToggle)): ?>
     <div class="form-group">
       <label class="form-check">
         <input type="checkbox" name="is_active" value="1" <?= !empty($f['is_active']) ? 'checked' : '' ?>>

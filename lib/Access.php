@@ -3,10 +3,13 @@
  * Access — roller, yetkiler ve kullanıcı kapsamı.
  *
  * Roller:  admin  (Yönetici)      her şey
- *          editor (Editör)        kapsamındaki QR'ları oluşturur / düzenler / açar-kapatır, raporlarını görür
- *          viewer (Rapor izleyici) kapsamındaki QR'ları ve raporlarını görür, indirir
+ *          editor (Editör)        QR oluşturur; yalnızca kendi oluşturduğu QR'ları düzenler. Pasife alma / yeniden
+ *                                 açma yönetici onayına düşen bir talep oluşturur (LinkRequests). Kapsamındaki diğer
+ *                                 QR'ları ve raporlarını yalnızca görür.
+ *          viewer (Rapor izleyici) eski kayıtlar için korunur; yeni kullanıcıya atanmaz (ASSIGNABLE_ROLES).
  *
- * Kapsam (user_scopes): all | tag:<etiket> | category:<tür>. Kullanıcı ayrıca kendi oluşturduğu QR'ları her zaman görür.
+ * Kapsam (user_scopes): all | tag:<etiket> | category:<tür>. Görme ve rapor kapsamıdır; kullanıcı ayrıca kendi
+ * oluşturduğu QR'ları her zaman görür.
  * Bağlam yoksa (komut satırı, r.php) kısıtlama uygulanmaz; panel ve API her istekte bağlamı kurar.
  */
 class Access {
@@ -17,9 +20,12 @@ class Access {
         'viewer' => 'Rapor izleyici',
     ];
 
+    /** Kullanıcı formunda sunulan roller (Rapor izleyici yalnızca mevcut hesaplarda kalır) */
+    public const ASSIGNABLE_ROLES = ['admin', 'editor'];
+
     public const ROLE_HELP = [
-        'admin'  => 'Tüm QR\'lar, kullanıcılar, ayarlar, API anahtarları, arşivleme.',
-        'editor' => 'Kapsamındaki QR\'ları oluşturur, hedefini değiştirir, açar/kapatır; raporlarını görür. Arşivleyemez.',
+        'admin'  => 'Tüm QR\'lar, kullanıcılar, ayarlar, API anahtarları, arşivleme; pasife alma taleplerini onaylar.',
+        'editor' => 'QR oluşturur ve yalnızca kendi oluşturduğu QR\'ları düzenler. Pasife alma yönetici onayıyla olur. Kapsamındaki diğer QR\'ları ve raporlarını görür.',
         'viewer' => 'Kapsamındaki QR\'ları ve raporlarını görür, QR indirir. Değişiklik yapamaz.',
     ];
 
@@ -28,6 +34,7 @@ class Access {
         'links.view'    => ['admin', 'editor', 'viewer'],
         'links.edit'    => ['admin', 'editor'],
         'links.archive' => ['admin'],
+        'links.toggle'  => ['admin'],   // onaysız aç/kapat; editör talep oluşturur
         'admin'         => ['admin'],
     ];
 
@@ -144,7 +151,24 @@ class Access {
         return false;
     }
 
+    /** Düzenleme: yönetici kapsamındaki her QR'ı, editör yalnızca kendi oluşturduğunu */
     public static function canEditLink(array $link): bool {
-        return self::can('links.edit') && self::canSeeLink($link);
+        if (!self::can('links.edit') || !self::canSeeLink($link)) return false;
+        if (self::$ctx === null || self::$ctx['role'] === 'admin') return true;
+        return self::isOwner($link);
+    }
+
+    /** Aktif/pasif durumunu onaysız değiştirebilir mi */
+    public static function canToggleLink(array $link): bool {
+        return self::can('links.toggle') && self::canSeeLink($link);
+    }
+
+    /** Aktif/pasif değişikliği için yönetici onayına talep gönderebilir mi */
+    public static function canRequestToggle(array $link): bool {
+        return !self::can('links.toggle') && self::canEditLink($link) && empty($link['archived_at']);
+    }
+
+    public static function isOwner(array $link): bool {
+        return self::$ctx !== null && self::$ctx['id'] !== null && (int)($link['created_by'] ?? 0) === self::$ctx['id'];
     }
 }

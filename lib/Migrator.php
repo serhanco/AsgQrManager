@@ -114,6 +114,24 @@ class Migrator {
                 self::addIndex($p, 'links', 'idx_links_created_by', '(`created_by`)');
                 self::addColumn($p, 'api_tokens', 'user_id', 'INT UNSIGNED NULL DEFAULT NULL');
             }],
+            '011_link_requests' => ['Editör talepleri: pasife alma / yeniden açma için yönetici onayı', function (PDO $p) {
+                $p->exec("CREATE TABLE IF NOT EXISTS `link_requests` (
+                    `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    `link_id`       INT UNSIGNED NOT NULL,
+                    `kind`          VARCHAR(16)  NOT NULL,
+                    `status`        VARCHAR(10)  NOT NULL DEFAULT 'pending',
+                    `note`          VARCHAR(500) NULL DEFAULT NULL,
+                    `requested_by`  INT UNSIGNED NULL DEFAULT NULL,
+                    `requester`     VARCHAR(64)  NOT NULL DEFAULT '',
+                    `decided_by`    VARCHAR(64)  NULL DEFAULT NULL,
+                    `decision_note` VARCHAR(500) NULL DEFAULT NULL,
+                    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `decided_at`    DATETIME     NULL DEFAULT NULL,
+                    PRIMARY KEY (`id`),
+                    KEY `idx_link_requests_status` (`status`),
+                    KEY `idx_link_requests_link` (`link_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            }],
         ];
     }
 

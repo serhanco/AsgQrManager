@@ -71,6 +71,11 @@ if (in_array($method, ['POST', 'PUT', 'PATCH'], true)) {
 function needWrite(array $tok): void {
     if (!ApiAuth::can($tok, 'write')) apiError(403, 'forbidden', 'Bu anahtarın yazma yetkisi yok.');
 }
+/** Editör yalnızca kendi oluşturduğu QR'ları değiştirebilir */
+function needEdit(array $link): void {
+    if (!Access::canEditLink($link)) apiError(403, 'forbidden', 'Bu QR\'ı değiştirme yetkiniz yok; editörler yalnızca kendi oluşturdukları QR\'ları düzenler.');
+}
+
 function loadLink(PDO $pdo, string $slug): array {
     $l = LinkService::findBySlug($pdo, preg_replace('/[^A-Za-z0-9_-]/', '', $slug));
     if (!$l || !Access::canSeeLink($l)) apiError(404, 'not_found', 'QR bulunamadı.');
@@ -137,9 +142,13 @@ try {
         if ($method === 'GET') apiOut(200, ['data' => LinkService::present($link)]);
         if ($method === 'PATCH' || $method === 'PUT') {
             needWrite($tok);
+            needEdit($link);
             unset($body['slug']); // kısa ad değiştirilemez: basılı QR bozulur
             [$clean, $errors] = LinkService::normalize($body, $link);
             if ($errors) apiError(422, 'validation_failed', 'Girdi geçersiz.', ['details' => $errors]);
+            if (array_key_exists('is_active', $clean) && (int)$clean['is_active'] !== (int)$link['is_active'] && !Access::canToggleLink($link)) {
+                apiError(403, 'approval_required', 'Aktif/pasif değişikliği yönetici onayı gerektirir; POST /links/{slug}/' . ($clean['is_active'] ? 'activate' : 'deactivate') . ' ile talep oluşturun.');
+            }
             $changes = LinkService::update($pdo, $link, $clean, $actor);
             if (array_key_exists('is_active', $changes)) {
                 LinkEvents::log($pdo, (int)$link['id'], $link['slug'], $actor, $clean['is_active'] ? 'activate' : 'deactivate');
@@ -180,8 +189,20 @@ try {
         }
         if ($method === 'POST' && in_array($sub, ['activate', 'deactivate', 'archive', 'restore'], true)) {
             needWrite($tok);
+            needEdit($link);
             if (in_array($sub, ['archive', 'restore'], true) && !Access::can('links.archive')) {
                 apiError(403, 'forbidden', 'Arşivleme yalnızca yönetici yetkisiyle yapılabilir.');
+            }
+            if (in_array($sub, ['activate', 'deactivate'], true) && !Access::canToggleLink($link)) {
+                // Editör: yönetici onayına talep (202 Accepted)
+                if (((int)$link['is_active'] === 1) === ($sub === 'activate')) {
+                    apiOut(200, ['data' => LinkService::present($link)]);
+                }
+                [$reqId, $err] = LinkRequests::create($pdo, $link, $actor, $sub, (string)($body['note'] ?? ''));
+                if ($err) apiError(409, 'conflict', $err);
+                apiOut(202, ['data' => LinkService::present($link),
+                             'request' => ['id' => $reqId, 'kind' => $sub, 'status' => 'pending',
+                                           'message' => 'Talep yönetici onayına gönderildi; QR onaylanana kadar olduğu gibi çalışır.']]);
             }
             switch ($sub) {
                 case 'activate': case 'deactivate':

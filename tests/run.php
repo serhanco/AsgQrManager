@@ -161,7 +161,14 @@ ok(UserService::passwordError(UserService::tempPassword()) === null, 'geçici ş
 ok($edId && !$e, 'editör oluşturulur');
 [$x, $e] = UserService::create($apdo, ['username' => 'acctest-ed', 'role' => 'editor', 'password' => 'Gecici12345'], $adminActor);
 ok($x === null && $e, 'aynı kullanıcı adı reddedilir');
-[$viId, $e] = UserService::create($apdo, ['username' => 'acctest-vi', 'role' => 'viewer', 'password' => 'Gecici12345', 'scope_all' => 1], $adminActor);
+[$x, $e] = UserService::create($apdo, ['username' => 'acctest-vi', 'role' => 'viewer', 'password' => 'Gecici12345'], $adminActor);
+ok($x === null && $e, 'Rapor izleyici yeni kullanıcıya atanamaz');
+// Eski (önceden oluşturulmuş) Rapor izleyici hesabı korunur ve çalışır
+$apdo->prepare("INSERT INTO users (username, password_hash, role, must_change_password) VALUES ('acctest-vi', ?, 'viewer', 1)")
+     ->execute([password_hash('Gecici12345', PASSWORD_DEFAULT)]);
+$viId = (int)$apdo->lastInsertId();
+Access::saveScope($apdo, $viId, ['all' => true]);
+ok(!UserService::update($apdo, UserService::find($apdo, $viId), ['role' => 'viewer', 'is_active' => 1, 'scope_all' => 1], $adminActor), 'mevcut izleyici rolüyle güncellenebilir');
 $ed = UserService::find($apdo, $edId);
 ok((int)$ed['must_change_password'] === 1, 'yeni kullanıcı ilk girişte şifre değiştirmeli');
 ok($ed['scope']['tags'] === ['ttAlmanya'] && $ed['scope']['categories'] === ['event'], 'kapsam kaydedilir, geçersiz tür atılır');
@@ -180,6 +187,27 @@ ok(!Access::canSeeLink($L3), 'editör: kapsam dışı QR görünmez');
 $st = $apdo->prepare("SELECT slug FROM links {$w} ORDER BY slug"); $st->execute($p);
 ok($st->fetchAll(PDO::FETCH_COLUMN) === ['acctest1', 'acctest2', 'acctest4'], 'liste filtresi kapsamla aynı');
 ok(Access::can('links.edit') && !Access::can('links.archive') && !Access::can('admin'), 'editör: düzenler, arşivleyemez, yönetemez');
+ok(Access::canEditLink($L4) && !Access::canEditLink($L1) && !Access::canEditLink($L2), 'editör: yalnızca kendi QR\'ını düzenler, kapsamdakileri yalnızca görür');
+ok(!Access::canToggleLink($L4) && Access::canRequestToggle($L4) && !Access::canRequestToggle($L1), 'editör: kendi QR\'ını doğrudan kapatamaz, talep gönderir');
+$edActor = ['id' => $edId, 'name' => 'acctest-ed'];
+[$rq, $err] = LinkRequests::create($apdo, $L4, $edActor, 'activate');
+ok($rq === null && $err, 'aktif QR için yeniden açma talebi reddedilir');
+[$rq, $err] = LinkRequests::create($apdo, $L4, $edActor, 'deactivate', 'etkinlik bitti');
+ok($rq && !$err && (int)LinkService::find($apdo, (int)$L4['id'])['is_active'] === 1, 'pasife alma talebi oluşur, QR aktif kalır');
+[$rq2, $err] = LinkRequests::create($apdo, $L4, $edActor, 'deactivate');
+ok($rq2 === null && $err, 'aynı QR için ikinci bekleyen talep açılmaz');
+ok(isset(LinkRequests::pendingMap($apdo, [$L4['id'], $L1['id']])[(int)$L4['id']]) && LinkRequests::pendingCount($apdo) >= 1, 'bekleyen talep listede');
+ok(LinkRequests::decide($apdo, LinkRequests::find($apdo, $rq), false, $adminActor, 'kalsın') === null
+   && (int)LinkService::find($apdo, (int)$L4['id'])['is_active'] === 1, 'reddedilen talep QR\'ı değiştirmez');
+ok(LinkRequests::decide($apdo, LinkRequests::find($apdo, $rq), true, $adminActor) !== null, 'sonuçlanmış talep tekrar karara bağlanamaz');
+[$rq, $err] = LinkRequests::create($apdo, $L4, $edActor, 'deactivate');
+ok(LinkRequests::decide($apdo, LinkRequests::find($apdo, $rq), true, $adminActor) === null
+   && (int)LinkService::find($apdo, (int)$L4['id'])['is_active'] === 0, 'onaylanan talep QR\'ı pasife alır');
+$L4 = LinkService::find($apdo, (int)$L4['id']);
+[$rq, $err] = LinkRequests::create($apdo, $L4, $edActor, 'activate');
+ok($rq && LinkRequests::cancel($apdo, LinkRequests::find($apdo, $rq), $edActor) === null
+   && LinkRequests::find($apdo, $rq)['status'] === 'cancelled' && !LinkRequests::pendingFor($apdo, (int)$L4['id']), 'editör talebini geri çeker');
+$apdo->exec("DELETE FROM link_requests WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'acctest%')");
 $apdo->prepare("INSERT INTO scans (link_id, ip, user_agent, scanned_at) VALUES (?, '1.1.1.0', 'Mozilla', NOW()), (?, '1.1.1.0', 'Mozilla', NOW())")
      ->execute([$L1['id'], $L3['id']]);
 $today = date('Y-m-d');
