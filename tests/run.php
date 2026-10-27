@@ -319,5 +319,58 @@ ok(str_contains($renderInfo('inactive', 'en'), 'This QR code is no longer active
 ok(str_contains($renderInfo('<script>', 'xx'), 'Link not found'), 'bilinmeyen durum/dil güvenli varsayılana düşer');
 $_GET = [];
 
+section('Kartvizit');
+$vpdo = getPdo();
+ok(VCard::available($vpdo), 'şema hazır (qr_type + vcards)');
+ok((int)$vpdo->query("SELECT COUNT(*) FROM links WHERE qr_type <> 'link'")->fetchColumn() === (int)$vpdo->query("SELECT COUNT(*) FROM links l JOIN vcards v ON v.link_id = l.id")->fetchColumn(),
+   'mevcut QR\'ların hepsi link türünde kalır');
+[$vc, $ve] = VCard::normalize(['first_name' => '', 'last_name' => '', 'email' => 'yok']);
+ok(count($ve) === 2, 'ad yoksa ve e-posta geçersizse hata');
+[$vc, $ve] = VCard::normalize(['first_name' => 'Çağla', 'last_name' => 'Şimşek; Öz', 'title' => 'Koordinatör, Uluslararası',
+    'phone_mobile' => '+90 532 111 22 33', 'email' => 'cagla@example.com', 'website' => 'acibadem.world/de',
+    'note' => str_repeat('Uzun açıklama ğüşiöç ', 8)]);
+ok(!$ve && $vc['org'] === VCard::DEFAULT_ORG && $vc['website'] === 'https://acibadem.world/de', 'kurum varsayılanı ve web adresine https eklenir');
+ok(VCard::fallbackTarget($vc) === 'https://acibadem.world/de' && VCard::fallbackTarget(['website' => '']) === VCard::DEFAULT_WEBSITE, 'yedek hedef web sitesi');
+$vcf = VCard::toVcf($vc, 'https://qr.example/r/x', ["\xFF\xD8" . str_repeat('x', 300), 'image/jpeg']);
+$lines = explode("\r\n", rtrim($vcf, "\r\n"));
+ok($lines[0] === 'BEGIN:VCARD' && end($lines) === 'END:VCARD' && str_contains($vcf, "N:Şimşek\; Öz;Çağla;;;"), 'vCard 3.0 başlık ve kaçışlı ad');
+ok(str_contains($vcf, 'TITLE:Koordinatör\\, Uluslararası') && str_contains($vcf, 'TEL;TYPE=CELL,VOICE:+90 532 111 22 33'), 'ünvan ve telefon');
+ok(max(array_map('strlen', $lines)) <= 75 && mb_check_encoding($vcf, 'UTF-8'), 'satırlar 75 baytta katlanır, UTF-8 bozulmaz');
+ok(str_contains(str_replace("\r\n ", '', $vcf), 'PHOTO;ENCODING=b;TYPE=JPEG:' . base64_encode("\xFF\xD8" . str_repeat('x', 300))), 'fotoğraf base64 olarak eklenir');
+ok(VCard::fileName($vc) === 'cagla-simsek-oz.vcf', 'dosya adı ASCII');
+
+$vpdo->exec("DELETE FROM vcards WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'vctest%')");
+$vpdo->exec("DELETE FROM links WHERE slug LIKE 'vctest%'");
+$vl = LinkService::create($vpdo, LinkService::normalize(['target_url' => VCard::fallbackTarget($vc), 'title' => VCard::fullName($vc)])[0] + ['qr_type' => 'vcard'], 'vctest1', ['id' => null, 'name' => 'test']);
+VCard::save($vpdo, (int)$vl['id'], $vc);
+$row = VCard::find($vpdo, (int)$vl['id']);
+ok(VCard::isVcard($vl) && $row['first_name'] === 'Çağla' && !$row['has_photo'], 'kartvizit kaydedilir ve okunur');
+VCard::save($vpdo, (int)$vl['id'], ['title' => 'Müdür'] + $vc, ["\xFF\xD8abc", 'image/jpeg']);
+$row2 = VCard::find($vpdo, (int)$vl['id']);
+ok($row2['title'] === 'Müdür' && $row2['has_photo'] && VCard::photo($vpdo, (int)$vl['id'])[0] === "\xFF\xD8abc", 'bilgi sonradan değişir, fotoğraf eklenir');
+ok(array_keys(VCard::diff($row, $row2)) === ['Ünvan'], 'değişen alan geçmiş için bulunur');
+VCard::save($vpdo, (int)$vl['id'], $vc, false);
+ok(!VCard::find($vpdo, (int)$vl['id'])['has_photo'], 'fotoğraf kaldırılır');
+VCard::countSave($vpdo, (int)$vl['id']);
+ok((int)VCard::find($vpdo, (int)$vl['id'])['save_count'] === 1, 'rehbere ekleme sayılır');
+ok(Redirector::resolve($vl)['outcome'] === 'ok' && Redirector::resolve($vl)['url'] === 'https://acibadem.world/de', 'kayıt okunamazsa QR web sitesine gider');
+[$wv, $pv] = LinkService::buildFilter(['q' => 'vctest', 'type' => 'vcard']);
+$stv = $vpdo->prepare("SELECT slug FROM links {$wv}"); $stv->execute($pv);
+ok($stv->fetchAll(PDO::FETCH_COLUMN) === ['vctest1'], 'listede türe göre süzülür');
+ok(LinkService::present($vl)['type'] === 'vcard', 'API çıktısında tür');
+
+$renderVc = function (string $lang) use ($vl, $vpdo): string {
+    $_GET = ['lang' => $lang]; $link = $vl; $vcard = VCard::find($vpdo, (int)$vl['id']);
+    ob_start(); include __DIR__ . '/../admin/views/vcard.php'; return ob_get_clean();
+};
+$h = $renderVc('tr');
+ok(str_contains($h, 'Çağla Şimşek; Öz') && str_contains($h, 'Rehbere ekle') && str_contains($h, '/r/vctest1?vcf=1'), 'kişi sayfası: ad ve "Rehbere ekle"');
+ok(str_contains($h, 'href="tel:+905321112233"') && str_contains($h, 'https://wa.me/905321112233'), 'kişi sayfası: ara ve WhatsApp');
+ok(str_contains($renderVc('en'), 'Add to contacts') && str_contains($h, 'noindex'), 'kişi sayfası: EN ve arama motoruna kapalı');
+$_GET = [];
+$vpdo->exec("DELETE FROM vcards WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'vctest%')");
+$vpdo->exec("DELETE FROM link_events WHERE slug LIKE 'vctest%'");
+$vpdo->exec("DELETE FROM links WHERE slug LIKE 'vctest%'");
+
 echo "\n" . ($fail ? "BAŞARISIZ" : "TAMAM") . " — {$pass} geçti, {$fail} kaldı\n";
 exit($fail ? 1 : 0);

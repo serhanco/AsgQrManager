@@ -98,7 +98,7 @@ if (!$link) {
     $perLink = $q("SELECT l.id, l.slug, l.title, l.category, COUNT(*) c
                    FROM scans s JOIN links l ON l.id = s.link_id WHERE {$base['ok']} GROUP BY l.id ORDER BY c DESC LIMIT 25", $args)->fetchAll();
     foreach ($q("SELECT IFNULL(l.category,'') k, COUNT(*) c FROM scans s JOIN links l ON l.id = s.link_id WHERE {$base['ok']} GROUP BY k ORDER BY c DESC", $args) as $r) {
-        $perCat[$r['k'] === '' ? 'Türü seçilmemiş' : (LinkService::CATEGORIES[$r['k']] ?? $r['k'])] = (int)$r['c'];
+        $perCat[$r['k'] === '' ? 'Kategorisiz' : (LinkService::CATEGORIES[$r['k']] ?? $r['k'])] = (int)$r['c'];
     }
 }
 
@@ -193,6 +193,10 @@ include __DIR__ . '/views/_layout.php';
   <div class="stat-card success"><div class="stat-icon"><?= icon('users') ?></div><div class="stat-label">Tahmini tekil ziyaretçi</div><div class="stat-value"><?= formatCount((int)$tot['u']) ?></div></div>
   <div class="stat-card"><div class="stat-icon"><?= icon('repeat') ?></div><div class="stat-label">Yedek hedefe giden</div><div class="stat-value"><?= (int)($other['redirected'] ?? 0) ?></div></div>
   <div class="stat-card warning"><div class="stat-icon"><?= icon('bot') ?></div><div class="stat-label">Bot / önizleme (sayılmadı)</div><div class="stat-value"><?= (int)($other['bots'] ?? 0) ?></div></div>
+  <?php if ($link && VCard::isVcard($link) && ($vcRep = VCard::find($pdo, (int)$link['id']))): ?>
+  <div class="stat-card sky"><div class="stat-icon"><?= icon('contact') ?></div><div class="stat-label">Rehbere ekleme <?= tip('Kişi sayfasındaki “Rehbere ekle” düğmesine basılma sayısı (tüm zamanlar).') ?></div><div class="stat-value"><?= formatCount((int)$vcRep['save_count']) ?></div>
+    <?php if ((int)$link['scan_count'] > 0): ?><div class="stat-sub">okutmaların %<?= round(100 * (int)$vcRep['save_count'] / (int)$link['scan_count']) ?>'i</div><?php endif; ?></div>
+  <?php endif; ?>
 </div>
 
 <div class="card mb-4">
@@ -225,7 +229,7 @@ include __DIR__ . '/views/_layout.php';
   <div class="card" style="grid-column:1/-1">
     <div class="card-title mb-3"><?= icon('award') ?> QR bazında (ilk 25)</div>
     <div class="table-wrap"><table>
-      <thead><tr><th>QR</th><th>Tür</th><th>Okutma</th><th></th></tr></thead>
+      <thead><tr><th>QR</th><th>Kategori</th><th>Okutma</th><th></th></tr></thead>
       <tbody>
       <?php if (!$perLink): ?><tr><td colspan="4" class="text-muted" style="padding:1.5rem;text-align:center">Bu aralıkta okutma yok.</td></tr><?php endif; ?>
       <?php foreach ($perLink as $r): ?>
@@ -239,7 +243,7 @@ include __DIR__ . '/views/_layout.php';
       </tbody>
     </table></div>
   </div>
-  <div class="card"><div class="card-title mb-3"><?= icon('folder') ?> Türe göre <?= tip('Tür: QR’ın ne olduğu (tek seçim). Etiketler ise kesişen gruplardır; bir QR birden çok etikete girebilir.') ?></div><?php reportBars($perCat, $total); ?></div>
+  <div class="card"><div class="card-title mb-3"><?= icon('folder') ?> Kategoriye göre <?= tip('Kategori: QR’ın neye ait olduğu (tek seçim). Etiketler ise kesişen gruplardır; bir QR birden çok etikete girebilir.') ?></div><?php reportBars($perCat, $total); ?></div>
   <div class="card"><div class="card-title mb-3"><?= icon('tag') ?> Etikete göre <?= tip('Bir okutma, QR’ın her etiketine ayrı sayılır; bu yüzden etiket toplamları genel toplamı aşabilir. Birleşik rapor için etiket adına tıklayın.') ?></div>
     <?php if (!$perTag): ?>
       <p class="text-sm text-muted">Bu aralıkta etiketli QR’dan okutma yok. QR’lara etiket vererek ülke, etkinlik veya materyale göre karşılaştırma yapabilirsiniz.

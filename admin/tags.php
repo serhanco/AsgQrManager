@@ -59,8 +59,8 @@ include __DIR__ . '/views/_layout.php';
 <div class="nudge">
   <div class="nudge-icon"><?= icon('bulb') ?></div>
   <div>
-    <div class="nudge-title">Tür mü, etiket mi?</div>
-    <p><strong>Tür</strong> QR’ın ne olduğunu söyler (tek seçim: Genel Merkez, Ofis, Etkinlik, Kampanya).
+    <div class="nudge-title">Kategori mi, etiket mi?</div>
+    <p><strong>Kategori</strong> QR’ın neye ait olduğunu söyler (tek seçim: Genel Merkez, Ofis, Etkinlik, Kampanya).
        <strong>Etiket</strong> kesişen gruplar içindir: ülke, etkinlik adı, materyal, dönem.
        Aynı etikete sahip QR’ları <a href="<?= BASE_URL ?>/admin/report">Raporlar</a> sayfasında tek satırda görürsünüz.</p>
     <p>Aynı anlama gelen iki etiketi (örn. <em>poster</em> ve <em>afiş</em>) aşağıdan birleştirebilirsiniz; QR’lar ve okutma geçmişi korunur.</p>

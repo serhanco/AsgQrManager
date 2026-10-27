@@ -242,7 +242,7 @@ include __DIR__ . '/views/_layout.php';
                     'expired' => ['◌ Süresi doldu', 'badge-muted'], 'archived' => ['▪ Arşivde', 'badge-muted']][$state]; ?>
       <span class="badge <?= $lbl[1] ?>"><?= $lbl[0] ?></span></div>
     <?php if (!empty($link['category'])): ?>
-      <div><div class="info-k">Tür</div><?= e(LinkService::CATEGORIES[$link['category']] ?? $link['category']) ?></div>
+      <div><div class="info-k">Kategori</div><?= e(LinkService::CATEGORIES[$link['category']] ?? $link['category']) ?></div>
     <?php endif; ?>
     <?php if (!empty($link['tags'])): ?>
       <div><div class="info-k">Etiketler</div><?php foreach (explode(',', $link['tags']) as $t): ?><a class="tag-chip" href="<?= BASE_URL ?>/admin/links?tag=<?= urlencode($t) ?>" title="Bu etiketli tüm QR'ları göster">#<?= e($t) ?></a><?php endforeach; ?></div>
@@ -267,6 +267,7 @@ include __DIR__ . '/views/_layout.php';
     <?php endif; ?>
   </div>
   <div style="margin-top:1.5rem">
+    <?php if (VCard::isVcard($link)): ?><a href="<?= e(BASE_URL . '/r/' . $link['slug']) ?>?preview=1" target="_blank" rel="noopener" class="btn btn-ghost btn-sm mb-2" style="width:100%"><?= icon('contact') ?> Kişi sayfasını önizle</a><?php endif; ?>
     <?php if (Access::canEditLink($link)): ?><a href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>" class="btn btn-primary btn-sm" style="width:100%"><?= icon('pencil') ?> QR'ı Düzenle</a><?php endif; ?>
   </div>
 </div>

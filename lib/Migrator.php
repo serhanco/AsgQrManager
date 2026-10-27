@@ -132,6 +132,29 @@ class Migrator {
                     KEY `idx_link_requests_link` (`link_id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
             }],
+            '012_vcards' => ['QR türü (link / kartvizit) ve kartvizit bilgileri (mevcut QR\'lar link kalır)', function (PDO $p) {
+                self::addColumn($p, 'links', 'qr_type', "VARCHAR(10) NOT NULL DEFAULT 'link'");
+                $p->exec("CREATE TABLE IF NOT EXISTS `vcards` (
+                    `link_id`      INT UNSIGNED NOT NULL,
+                    `first_name`   VARCHAR(80)  NULL DEFAULT NULL,
+                    `last_name`    VARCHAR(80)  NULL DEFAULT NULL,
+                    `title`        VARCHAR(120) NULL DEFAULT NULL,
+                    `department`   VARCHAR(120) NULL DEFAULT NULL,
+                    `org`          VARCHAR(120) NULL DEFAULT NULL,
+                    `phone_mobile` VARCHAR(40)  NULL DEFAULT NULL,
+                    `phone_work`   VARCHAR(40)  NULL DEFAULT NULL,
+                    `email`        VARCHAR(190) NULL DEFAULT NULL,
+                    `website`      VARCHAR(500) NULL DEFAULT NULL,
+                    `address`      VARCHAR(300) NULL DEFAULT NULL,
+                    `linkedin`     VARCHAR(500) NULL DEFAULT NULL,
+                    `note`         VARCHAR(500) NULL DEFAULT NULL,
+                    `photo`        MEDIUMBLOB   NULL DEFAULT NULL,
+                    `photo_mime`   VARCHAR(20)  NULL DEFAULT NULL,
+                    `save_count`   INT UNSIGNED NOT NULL DEFAULT 0,
+                    `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`link_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            }],
         ];
     }
 

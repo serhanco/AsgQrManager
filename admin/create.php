@@ -10,29 +10,50 @@ $logos       = listLogos();
 $logoSupport = QrRenderer::logoSupport();
 $errors      = [];
 $f           = ['logo_file' => Settings::get('brand_logo')]; // marka varsayılan logosu (varsa)
+$vcardReady  = VCard::available($pdo);
+$qrType      = $vcardReady && (($_POST['qr_type'] ?? $_GET['type'] ?? '') === 'vcard') ? 'vcard' : 'link';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Auth::requireCsrf();
 
     $input = LinkService::fromForm($_POST, false);
+    $vc = $photo = null; $vErrors = [];
+    if ($qrType === 'vcard') {
+        // Kartvizit: hedef adres kişinin web sitesi (kayıt okunamazsa QR oraya gider), UTM yok
+        [$vc, $vErrors] = VCard::normalize(VCard::fromPost($_POST));
+        [$photo, $pErr] = VCard::photoFromUpload($_FILES['vc_photo'] ?? null);
+        if ($pErr) $vErrors[] = $pErr;
+        $input['target_url']  = VCard::fallbackTarget($vc);
+        $input['utm_enabled'] = 0;
+        if (trim($input['title']) === '') $input['title'] = VCard::fullName($vc);
+    }
     [$clean, $errors] = LinkService::normalize($input);
+    $errors = array_merge($vErrors, $errors);
     $customSlug = sanitizeCustomSlug($_POST['custom_slug'] ?? '');
 
     if (!$errors) {
         try {
-            $link = LinkService::create($pdo, $clean, $customSlug, Auth::actor());
+            if ($qrType === 'vcard') {
+                $pdo->beginTransaction();
+                $link = LinkService::create($pdo, $clean + ['qr_type' => 'vcard'], $customSlug, Auth::actor());
+                VCard::save($pdo, (int)$link['id'], $vc, $photo);
+                $pdo->commit();
+            } else {
+                $link = LinkService::create($pdo, $clean, $customSlug, Auth::actor());
+            }
             // QR'ı hemen üret ve cache'e yaz
             try {
                 Share::render($link, 'svg');
             } catch (\Throwable $e) {
                 Logger::warning('İlk QR üretimi başarısız: ' . $e->getMessage());
             }
-            flash('success', "Link oluşturuldu! Kısa adres: {$link['slug']}");
+            flash('success', ($qrType === 'vcard' ? 'Kartvizit QR oluşturuldu!' : 'QR oluşturuldu!') . " Kısa adres: {$link['slug']}");
             if (empty($link['tags'])) {
                 flash('info', 'İpucu: Bu QR’a etiket (ülke, etkinlik, materyal…) eklerseniz raporlarda gruplayabilirsiniz. Düzenle sayfasından ekleyebilirsiniz.');
             }
             redirect(BASE_URL . '/admin/qr-view?slug=' . urlencode($link['slug']));
         } catch (RuntimeException $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
             $errors[] = $e->getMessage();
         }
     }
@@ -61,8 +82,20 @@ include __DIR__ . '/views/_layout.php';
   <div class="alert alert-danger"><?= e($err) ?></div>
 <?php endforeach; ?>
 
-<form method="POST" action="" id="create-form">
+<?php if ($vcardReady): ?>
+<div class="type-switch mb-4" role="tablist" aria-label="QR türü">
+  <a role="tab" aria-selected="<?= $qrType === 'link' ? 'true' : 'false' ?>" class="<?= $qrType === 'link' ? 'active' : '' ?>" href="<?= BASE_URL ?>/admin/create">
+    <span class="type-ic"><?= icon('link') ?></span><span><strong>Link</strong><small>QR bir web sayfasına yönlendirir</small></span>
+  </a>
+  <a role="tab" aria-selected="<?= $qrType === 'vcard' ? 'true' : 'false' ?>" class="<?= $qrType === 'vcard' ? 'active' : '' ?>" href="<?= BASE_URL ?>/admin/create?type=vcard">
+    <span class="type-ic"><?= icon('contact') ?></span><span><strong>Kartvizit</strong><small>Kişi sayfası ve "Rehbere ekle"</small></span>
+  </a>
+</div>
+<?php endif; ?>
+
+<form method="POST" action="" id="create-form" enctype="multipart/form-data">
   <?= Auth::csrfField() ?>
+  <input type="hidden" name="qr_type" value="<?= e($qrType) ?>">
   <?php include __DIR__ . '/views/_link_form.php'; ?>
 </form>
 

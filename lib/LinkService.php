@@ -493,6 +493,9 @@ class LinkService {
             default: $where[] = 'archived_at IS NULL';
         }
         if ($category !== '' && isset(self::CATEGORIES[$category])) { $where[] = 'category = ?'; $params[] = $category; }
+        // QR türü: çağıran yalnızca şema hazırsa (VCard::available) geçirir
+        $type = $f['type'] ?? '';
+        if (in_array($type, ['link', 'vcard'], true)) { $where[] = 'qr_type = ?'; $params[] = $type; }
         if ($tag === '__none') { $where[] = "(tags IS NULL OR tags = '')"; }
         elseif ($tag !== '')   { $where[] = 'FIND_IN_SET(?, tags) > 0'; $params[] = $tag; }
         if ($search !== '') {
@@ -540,6 +543,7 @@ class LinkService {
         $style = self::effectiveStyle($link);
         return [
             'slug'          => $link['slug'],
+            'type'          => $link['qr_type'] ?? 'link',
             'short_url'     => BASE_URL . '/r/' . $link['slug'],
             'title'         => $link['title'],
             'target_url'    => $link['target_url'],
@@ -607,7 +611,7 @@ class LinkEvents {
             'deactivate' => 'Pasife alındı', 'archive' => 'Arşivlendi', 'restore' => 'Arşivden çıkarıldı',
             'purge' => 'Kalıcı silindi', 'tags' => 'Etiket değişti',
             'request' => 'Onay talebi', 'request_ok' => 'Talep onaylandı', 'request_no' => 'Talep reddedildi',
-            'request_cancel' => 'Talep geri çekildi',
+            'request_cancel' => 'Talep geri çekildi', 'vcard' => 'Kartvizit güncellendi',
         ][$a] ?? $a;
     }
 }

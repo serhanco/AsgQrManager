@@ -71,6 +71,16 @@ if (in_array($method, ['POST', 'PUT', 'PATCH'], true)) {
 function needWrite(array $tok): void {
     if (!ApiAuth::can($tok, 'write')) apiError(403, 'forbidden', 'Bu anahtarın yazma yetkisi yok.');
 }
+/** Tekil QR yanıtı: kartvizitte kişi bilgileri de eklenir */
+function presentFull(PDO $pdo, array $link): array {
+    $out = LinkService::present($link);
+    if (VCard::isVcard($link)) {
+        $vc = VCard::find($pdo, (int)$link['id']);
+        $out['vcard'] = $vc ? array_intersect_key($vc, VCard::FIELDS) + ['has_photo' => (bool)$vc['has_photo'], 'saves' => (int)$vc['save_count']] : null;
+    }
+    return $out;
+}
+
 /** Editör yalnızca kendi oluşturduğu QR'ları değiştirebilir */
 function needEdit(array $link): void {
     if (!Access::canEditLink($link)) apiError(403, 'forbidden', 'Bu QR\'ı değiştirme yetkiniz yok; editörler yalnızca kendi oluşturdukları QR\'ları düzenler.');
@@ -121,16 +131,34 @@ try {
         }
         if ($method === 'POST') {
             needWrite($tok);
+            $isVc = ($body['type'] ?? 'link') === 'vcard';
+            if ($isVc && !VCard::available($pdo)) apiError(503, 'not_ready', 'Kartvizit türü için veritabanı güncellemesi bekleniyor (yönetici girişi).');
+            $vErrors = []; $vc = null;
+            if ($isVc) {
+                [$vc, $vErrors] = VCard::normalize(is_array($body['vcard'] ?? null) ? $body['vcard'] : []);
+                $body['target_url'] = VCard::fallbackTarget($vc);
+                $body['utm_enabled'] = false;
+                if (trim((string)($body['title'] ?? '')) === '') $body['title'] = VCard::fullName($vc);
+            }
             [$clean, $errors] = LinkService::normalize($body);
+            $errors = array_merge($vErrors, $errors);
             if ($errors) apiError(422, 'validation_failed', 'Girdi geçersiz.', ['details' => $errors]);
             try {
-                $link = LinkService::create($pdo, $clean, isset($body['slug']) ? (string)$body['slug'] : null, $actor);
+                if ($isVc) {
+                    $pdo->beginTransaction();
+                    $link = LinkService::create($pdo, $clean + ['qr_type' => 'vcard'], isset($body['slug']) ? (string)$body['slug'] : null, $actor);
+                    VCard::save($pdo, (int)$link['id'], $vc);
+                    $pdo->commit();
+                } else {
+                    $link = LinkService::create($pdo, $clean, isset($body['slug']) ? (string)$body['slug'] : null, $actor);
+                }
             } catch (RuntimeException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
                 apiError(409, 'conflict', $e->getMessage());
             }
             http_response_code(201);
             header('Location: ' . BASE_URL . '/api/v1/links/' . $link['slug']);
-            apiOut(201, ['data' => LinkService::present($link)]);
+            apiOut(201, ['data' => presentFull($pdo, $link)]);
         }
         apiError(405, 'method_not_allowed', 'Bu yöntem desteklenmiyor.');
     }
@@ -139,21 +167,37 @@ try {
     $link = loadLink($pdo, $parts[1]);
 
     if (count($parts) === 2) {
-        if ($method === 'GET') apiOut(200, ['data' => LinkService::present($link)]);
+        if ($method === 'GET') apiOut(200, ['data' => presentFull($pdo, $link)]);
         if ($method === 'PATCH' || $method === 'PUT') {
             needWrite($tok);
             needEdit($link);
             unset($body['slug']); // kısa ad değiştirilemez: basılı QR bozulur
+            $vc = null; $vErrors = []; $oldVc = null;
+            if (VCard::isVcard($link)) {
+                unset($body['target_url'], $body['utm_enabled']); // kartvizitte hedef, kişinin web sitesinden türetilir
+                if (is_array($body['vcard'] ?? null)) {
+                    $oldVc = VCard::find($pdo, (int)$link['id']);
+                    [$vc, $vErrors] = VCard::normalize(array_merge(array_intersect_key($oldVc ?? [], VCard::FIELDS), $body['vcard']));
+                    $body['target_url'] = VCard::fallbackTarget($vc);
+                }
+            }
             [$clean, $errors] = LinkService::normalize($body, $link);
+            $errors = array_merge($vErrors, $errors);
             if ($errors) apiError(422, 'validation_failed', 'Girdi geçersiz.', ['details' => $errors]);
             if (array_key_exists('is_active', $clean) && (int)$clean['is_active'] !== (int)$link['is_active'] && !Access::canToggleLink($link)) {
                 apiError(403, 'approval_required', 'Aktif/pasif değişikliği yönetici onayı gerektirir; POST /links/{slug}/' . ($clean['is_active'] ? 'activate' : 'deactivate') . ' ile talep oluşturun.');
+            }
+            if ($vc !== null) {
+                $vcDiff = VCard::diff($oldVc, $vc);
+                VCard::save($pdo, (int)$link['id'], $vc);
+                if ($vcDiff) LinkEvents::log($pdo, (int)$link['id'], $link['slug'], $actor, 'vcard', $vcDiff);
             }
             $changes = LinkService::update($pdo, $link, $clean, $actor);
             if (array_key_exists('is_active', $changes)) {
                 LinkEvents::log($pdo, (int)$link['id'], $link['slug'], $actor, $clean['is_active'] ? 'activate' : 'deactivate');
             }
-            apiOut(200, ['data' => LinkService::present(LinkService::find($pdo, (int)$link['id'])), 'changed' => array_keys($changes)]);
+            apiOut(200, ['data' => presentFull($pdo, LinkService::find($pdo, (int)$link['id'])),
+                         'changed' => array_merge(array_keys($changes), isset($vcDiff) && $vcDiff ? ['vcard'] : [])]);
         }
         apiError(405, 'method_not_allowed', 'QR kayıtları API ile silinemez; arşivlemek için POST /links/{slug}/archive kullanın.');
     }

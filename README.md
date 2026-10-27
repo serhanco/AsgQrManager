@@ -6,6 +6,18 @@
 
 ---
 
+## Sürüm 3 — Kartvizit (vCard) QR türü
+
+`Yeni QR` ekranında **Link** veya **Kartvizit** seçilir. Mevcut QR'ların hepsi Link türünde kalır.
+
+- Kartvizit QR'ı da kısa linki (`/r/{slug}`) kodlar. Okutulunca markalı kişi sayfası açılır: ara, e-posta, WhatsApp, web, LinkedIn, harita ve **Rehbere ekle** (`/r/{slug}?vcf=1`, vCard 3.0, fotoğraf dahil). Sayfa dili telefona göre TR/EN.
+- Bilgiler (ünvan, telefon, fotoğraf…) sonradan panelden değiştirilir; basılı QR aynı kalır. Daha önce rehbere kaydedilmiş kopyalar telefonda kendiliğinden güncellenmez.
+- `links.target_url` kartvizitte kişinin web sitesidir (yoksa genel site): kişi kaydı okunamazsa QR yine oraya yönlenir. Pasif / arşiv / süresi dolmuş kartvizit, link QR'larla aynı yedek hedef kurallarını izler.
+- Rapor: okutmaların yanında **Rehbere ekleme** sayısı. Panelden önizleme (`?preview=1`) okutma sayılmaz.
+- API: `POST /links` için `"type": "vcard"` ve `"vcard": {first_name, last_name, title, department, org, phone_mobile, phone_work, email, website, address, linkedin, note}`; `PATCH` ile `vcard` alanları kısmen güncellenir.
+- Arayüzde eski "Tür" alanının adı **Kategori** oldu (Genel Merkez, Ofis, Etkinlik, Kampanya); veri aynı.
+- Şema: `012_vcards` (`links.qr_type` varsayılan `link` + `vcards` tablosu; yalnızca ekleme).
+
 ## Sürüm 3 — Kullanıcılar ve roller
 
 Tek yönetici hesabının yanına sınırlı yetkili hesaplar eklenir (`Sistem → Kullanıcılar`). Mevcut hesaplar **Yönetici** olarak kalır.
