@@ -10,6 +10,7 @@ $dv = fn(string $k, string $def = '') => (string)(($d[$k] ?? '') !== '' && $d[$k
 $fgV = strtoupper($dv('fg', '#000000')); $bgV = strtoupper($dv('bg', '#FFFFFF'));
 $eyeColorOn = $dv('eye_color') !== '';
 $gradV = $dv('gradient', 'none');
+$frameV = $dv('frame', 'none');
 ?>
 <div class="design-fields">
   <div class="preset-row mb-3">
@@ -80,6 +81,33 @@ $gradV = $dv('gradient', 'none');
       </div>
     </div>
   </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="frame">Çerçeve ve yazı <?= tip('QR\'ın çevresine kurumsal çerçeve ve kısa bir çağrı metni ekler. QR ve kenar boşluğu olduğu gibi kalır; görsel biraz uzar.') ?></label>
+      <select class="form-control" id="frame" name="frame">
+        <?php foreach (QrFrame::FRAMES as $k => $label): ?>
+          <option value="<?= e($k) ?>" <?= $frameV === $k ? 'selected' : '' ?>><?= e($label) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="form-group" id="frame-color-wrap" style="<?= $frameV !== 'none' ? '' : 'display:none' ?>">
+      <label class="form-label" for="frame_color">Çerçeve rengi</label>
+      <div class="color-field">
+        <input type="color" id="frame_picker" value="<?= e(strtolower($dv('frame_color', '#1C2561'))) ?>" aria-label="Çerçeve rengi seç">
+        <input class="form-control" type="text" id="frame_color" name="frame_color" maxlength="7" value="<?= e(strtoupper($dv('frame_color', '#1C2561'))) ?>">
+      </div>
+    </div>
+  </div>
+  <div class="form-group" id="frame-text-wrap" style="<?= $frameV !== 'none' ? '' : 'display:none' ?>">
+    <label class="form-label" for="frame_text">Çerçeve yazısı <span class="hint">en fazla <?= QrFrame::MAX_TEXT ?> karakter</span></label>
+    <input class="form-control" type="text" id="frame_text" name="frame_text" maxlength="<?= QrFrame::MAX_TEXT ?>"
+           value="<?= e($dv('frame_text')) ?>" placeholder="Okutun, ofisimizi bulun">
+    <div class="preset-row mt-2">
+      <?php foreach (['Okutun, ofisimizi bulun', 'Okut, rehbere ekle', 'Detaylar için okutun', 'Scan to learn more', 'Scan me'] as $sug): ?>
+        <button type="button" class="btn btn-ghost btn-sm frame-sug"><?= e($sug) ?></button>
+      <?php endforeach; ?>
+    </div>
+  </div>
   <div id="design-msg" class="design-msg text-sm mb-2" aria-live="polite"></div>
 </div>
 
@@ -87,7 +115,7 @@ $gradV = $dv('gradient', 'none');
 (function () {
   const $ = (s) => document.querySelector(s);
   const ok = (h) => /^#[0-9a-fA-F]{6}$/.test(h);
-  const pairs = [['#fg_picker', '#fg_color'], ['#bg_picker', '#bg_color'], ['#eye_picker', '#eye_color'], ['#fg2_picker', '#fg2']];
+  const pairs = [['#fg_picker', '#fg_color'], ['#bg_picker', '#bg_color'], ['#eye_picker', '#eye_color'], ['#fg2_picker', '#fg2'], ['#frame_picker', '#frame_color']];
   const MIN = <?= QrDesign::MIN_CONTRAST ?>, WARN = <?= QrDesign::WARN_CONTRAST ?>;
 
   function lum(hex) {
@@ -99,7 +127,9 @@ $gradV = $dv('gradient', 'none');
     return {
       fg: $('#fg_color').value.toUpperCase(), bg: $('#bg_color').value.toUpperCase(), shape: $('#shape').value, eye: $('#eye').value,
       eye_color: $('#eye_color_on').checked ? $('#eye_color').value.toUpperCase() : '',
-      gradient: $('#gradient').value, fg2: $('#gradient').value !== 'none' ? $('#fg2').value.toUpperCase() : ''
+      gradient: $('#gradient').value, fg2: $('#gradient').value !== 'none' ? $('#fg2').value.toUpperCase() : '',
+      frame: $('#frame').value, frame_color: $('#frame').value !== 'none' ? $('#frame_color').value.toUpperCase() : '',
+      frame_text: $('#frame').value !== 'none' ? $('#frame_text').value : ''
     };
   }
   // QrDesign::check ile aynı kurallar: hata kaydı engeller, uyarı yalnızca bilgi verir
@@ -116,6 +146,7 @@ $gradV = $dv('gradient', 'none');
       if (ratio < MIN) errors.push(label + ' ile arka plan arasındaki kontrast çok düşük (' + ratio.toFixed(1) + ':1); QR okunmaz.');
       else if (ratio < WARN) warns.push(label + ' ile kontrast düşük (' + ratio.toFixed(1) + ':1). Baskıdan önce farklı telefonlarla deneyin.');
     });
+    if (v.frame !== 'none' && !v.frame_text.trim()) errors.push('Çerçeve yazısını girin.');
     if (light && dark) errors.push('Renklerin bir kısmı zeminden koyu, bir kısmı açık. QR\'ın tamamı ya koyu ya açık olmalı.');
     else if (light) warns.push('Ters renk: iPhone ve güncel Android kameraları okur; bazı eski okuyucu uygulamaları okumayabilir.');
     return { errors, warns };
@@ -143,6 +174,14 @@ $gradV = $dv('gradient', 'none');
   ['#shape', '#eye', '#gradient'].forEach(s => $(s).addEventListener('change', changed));
   $('#eye_color_on').addEventListener('change', () => { $('#eye-color-wrap').style.display = $('#eye_color_on').checked ? '' : 'none'; changed(); });
   $('#gradient').addEventListener('change', () => { $('#fg2-wrap').style.display = $('#gradient').value !== 'none' ? '' : 'none'; });
+  $('#frame').addEventListener('change', () => {
+    const on = $('#frame').value !== 'none';
+    $('#frame-color-wrap').style.display = on ? '' : 'none'; $('#frame-text-wrap').style.display = on ? '' : 'none';
+    if (on && !$('#frame_text').value) $('#frame_text').value = 'Okutun, ofisimizi bulun';
+    changed();
+  });
+  $('#frame_text').addEventListener('input', changed);
+  document.querySelectorAll('.design-fields .frame-sug').forEach(b => b.addEventListener('click', () => { $('#frame_text').value = b.textContent; changed(); }));
 
   window.qrDesign = { values, check };
   render();

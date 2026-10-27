@@ -494,6 +494,38 @@ foreach (['svg' => '<svg', 'pdf' => '%PDF-', 'eps' => '%!PS-Adobe', 'ai' => '%PD
 }
 $gl = $CL; $gl['design'] = QrDesign::encode(['gradient' => 'linear', 'fg2' => '#0A3A86']); $gl['fg_color'] = '#1C2561'; $gl['bg_color'] = '#FFFFFF';
 ok(str_contains(Share::render($gl, 'svg')['data'], 'linearGradient') && substr_count(Share::render($gl, 'pdf', 50)['data'], ' rg') > 5, 'geçiş SVG\'de gradyan, PDF\'te renk basamakları');
+// Çerçeve ve çağrı metni
+ok(QrFrame::cleanText("  Okutun,\n ofisimizi   bulun ✓ ") === 'Okutun, ofisimizi bulun', 'çerçeve yazısı tek satıra indirilir, desteklenmeyen karakter atılır');
+ok(!QrFrame::unsupported('ŞİMDİ OKUT · Ğüçİış') && QrFrame::unsupported('日本') === ['日', '本'], 'Türkçe karakterler yazı tipinde var');
+ok((bool)QrDesign::frameErrors(['frame' => 'bottom', 'frame_text' => '']) && !QrDesign::frameErrors(['frame' => 'bottom', 'frame_text' => 'Scan me'])
+    && (bool)QrDesign::frameErrors(['frame' => 'top', 'frame_text' => 'QR 日本']), 'çerçevede yazı zorunlu, desteklenmeyen karakter reddedilir');
+ok(QrFrame::textColor('#1C2561') === '#FFFFFF' && QrFrame::textColor('#60C2EE') === '#111111', 'yazı rengi çerçeve rengine göre seçilir');
+$fl = $CL; $fl['fg_color'] = '#1C2561'; $fl['bg_color'] = '#FFFFFF';
+$fl['design'] = QrDesign::encode(['eye' => 'rounded', 'frame' => 'bottom', 'frame_color' => '#1C2561', 'frame_text' => 'Okutun, ofisimizi bulun']);
+$fsvg = Share::render($fl, 'svg')['data'];
+ok(str_contains($fsvg, '<g transform="translate(') && !str_contains($fsvg, '<text'), 'SVG: QR çerçeve içine kaydırılır, yazı vektör yol (yazı tipi gerekmez)');
+$fpng = Share::render($fl, 'png', 600)['data'];
+[$pw, $ph] = getimagesizefromstring($fpng);
+ok(abs($pw - 600) <= 10 && $ph > $pw, "PNG: genişlik istenen ölçüde, yazı bandıyla uzar ({$pw}×{$ph})");
+$feps = Share::render($fl, 'eps', 50)['data'];
+ok(preg_match('/%%BoundingBox: 0 0 142 (\d+)/', $feps, $mm) && (int)$mm[1] > 142, 'EPS: sınır kutusu çerçeveyle uzar');
+ok(preg_match('#/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]#', Share::render($fl, 'pdf', 50)['data'], $mb) && (float)$mb[2] > (float)$mb[1], 'PDF: sayfa çerçeveyle uzar');
+if ($zbar !== '' && extension_loaded('gd')) {
+    $bad = [];
+    foreach (['bottom' => '#1C2561', 'top' => '#60C2EE'] as $fr => $fc) {
+        $fl['design'] = QrDesign::encode(['eye' => 'circle', 'frame' => $fr, 'frame_color' => $fc, 'frame_text' => 'ŞİMDİ OKUTUN']);
+        QrRenderer::clearCache($fl['slug']);
+        $tmpPng = sys_get_temp_dir() . '/qrframe-' . getmypid() . '.png';
+        file_put_contents($tmpPng, Share::render($fl, 'png', 600)['data']);
+        $got = trim((string)shell_exec(escapeshellarg($zbar) . ' --raw -q ' . escapeshellarg($tmpPng) . ' 2>/dev/null'));
+        if ($got !== BASE_URL . '/r/' . $fl['slug']) $bad[] = $fr;
+        @unlink($tmpPng);
+    }
+    ok(!$bad, 'çerçeveli QR (altta ve üstte yazı) okunuyor' . ($bad ? ': ' . implode(', ', $bad) : ''));
+}
+[, $e] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'design' => ['frame' => 'bottom', 'frame_text' => '']]);
+ok((bool)$e, 'yazısız çerçeve kaydedilmez');
+
 foreach (['tpltest1', 'tpltest2'] as $sl) QrRenderer::clearCache($sl);
 $tpdo->exec("DELETE FROM link_events WHERE slug LIKE 'tpltest%'");
 $tpdo->exec("DELETE FROM links WHERE slug LIKE 'tpltest%'");

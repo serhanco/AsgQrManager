@@ -28,6 +28,7 @@ $d = [
     'shape' => ($f['shape'] ?? '') ?: Settings::get('brand_shape'),
     'eye' => $f['eye'] ?? '', 'gradient' => $f['gradient'] ?? 'none', 'fg2' => $f['fg2'] ?? '',
     'eye_color' => !empty($f['eye_color_on']) ? ($f['eye_color'] ?? '') : '',
+    'frame' => $f['frame'] ?? 'none', 'frame_color' => $f['frame_color'] ?? '', 'frame_text' => $f['frame_text'] ?? '',
 ];
 $allTags    = array_values(array_map(fn($t) => ['tag' => $t['tag'], 'count' => $t['count']], LinkService::allTags(getPdo())));
 $starterTags = ['poster', 'broşür', 'stand', 'kartvizit', 'sunum', 'e-posta', 'sosyal-medya'];
@@ -287,7 +288,7 @@ $isVcardForm = ($qrType ?? 'link') === 'vcard';
         <?php include __DIR__ . '/_design_fields.php'; ?>
       <?php else: ?>
         <p class="text-sm text-muted">Bu QR'ın özel görünümü korunur. Değiştirmek için bir şablon ya da marka varsayılanını seçin.</p>
-        <?php foreach (['fg_color', 'bg_color', 'shape', 'eye', 'eye_color_on', 'eye_color', 'gradient', 'fg2'] as $k): ?>
+        <?php foreach (['fg_color', 'bg_color', 'shape', 'eye', 'eye_color_on', 'eye_color', 'gradient', 'fg2', 'frame', 'frame_color', 'frame_text'] as $k): ?>
           <input type="hidden" name="<?= $k ?>" value="<?= e((string)($f[$k] ?? '')) ?>">
         <?php endforeach; ?>
       <?php endif; ?>
@@ -367,7 +368,8 @@ $isVcardForm = ($qrType ?? 'link') === 'vcard';
         else { // editör: mevcut özel görünüm gizli alanlarda
           const v = (k) => { const el = form.querySelector('input[name=' + k + ']'); return el ? el.value : ''; };
           Object.assign(p, { fg: v('fg_color'), bg: v('bg_color'), shape: v('shape'), eye: v('eye'),
-            eye_color: v('eye_color_on') ? v('eye_color') : '', gradient: v('gradient'), fg2: v('fg2') });
+            eye_color: v('eye_color_on') ? v('eye_color') : '', gradient: v('gradient'), fg2: v('fg2'),
+            frame: v('frame'), frame_color: v('frame_color'), frame_text: v('frame_text') });
         }
       }
       $('#prev-slug').textContent = slug || '…';

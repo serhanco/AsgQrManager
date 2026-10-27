@@ -301,6 +301,7 @@ class LinkService {
             $in['design']   = QrTemplates::designInput([
                 'eye' => $post['eye'] ?? '', 'eye_color' => !empty($post['eye_color_on']) ? ($post['eye_color'] ?? '') : '',
                 'gradient' => $post['gradient'] ?? '', 'fg2' => ($post['gradient'] ?? 'none') !== 'none' ? ($post['fg2'] ?? '') : '',
+                'frame' => $post['frame'] ?? '', 'frame_color' => $post['frame_color'] ?? '', 'frame_text' => $post['frame_text'] ?? '',
             ]);
         } elseif ($mode === 'template') {
             $in['template_id'] = $post['template_id'] ?? '';
@@ -403,6 +404,7 @@ class LinkService {
             if (($d['eye'] ?? '') !== '' && !isset(QrDesign::EYES[$d['eye']])) $errors[] = 'Geçersiz köşe biçimi.';
             if (($d['gradient'] ?? '') !== '' && !isset(QrDesign::GRADIENTS[$d['gradient']])) $errors[] = 'Geçersiz renk geçişi.';
             elseif (($d['gradient'] ?? 'none') !== 'none' && self::normalizeHex($d['fg2'] ?? '') === null) $errors[] = 'Renk geçişi için ikinci rengi seçin.';
+            $errors = array_merge($errors, QrDesign::frameErrors($d));
             $clean['design'] = QrDesign::encode($d);
         }
 

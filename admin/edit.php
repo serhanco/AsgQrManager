@@ -28,6 +28,7 @@ function linkToForm(array $l): array {
         'fg_color' => $l['fg_color'] ?? '', 'bg_color' => $l['bg_color'] ?? '', 'shape' => $l['shape'] ?? '',
         'eye' => $dx['eye'], 'eye_color_on' => $dx['eye_color'] ? '1' : '', 'eye_color' => $dx['eye_color'] ?? '',
         'gradient' => $dx['gradient'], 'fg2' => $dx['fg2'] ?? '',
+        'frame' => $dx['frame'], 'frame_color' => $dx['frame_color'] ?? '', 'frame_text' => $dx['frame_text'] ?? '',
         'logo_file' => $l['logo'] ?? '',
     ];
 }

@@ -37,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $in['bg'] = $_POST['bg_color'] ?? '';
         if (empty($_POST['eye_color_on'])) $in['eye_color'] = '';
         if (($_POST['gradient'] ?? 'none') === 'none') $in['fg2'] = '';
+        if (($_POST['frame'] ?? 'none') === 'none') $in['frame_color'] = $in['frame_text'] = '';
         [$clean, $errors, $warnings] = QrTemplates::normalize($in);
         if (!$errors) {
             if ($editing) {
@@ -78,6 +79,7 @@ $src = $_SERVER['REQUEST_METHOD'] === 'POST' ? [
 $d = $_SERVER['REQUEST_METHOD'] === 'POST' ? [
     'fg' => $_POST['fg_color'] ?? '', 'bg' => $_POST['bg_color'] ?? '', 'shape' => $_POST['shape'] ?? '', 'eye' => $_POST['eye'] ?? '',
     'eye_color' => !empty($_POST['eye_color_on']) ? ($_POST['eye_color'] ?? '') : '', 'gradient' => $_POST['gradient'] ?? 'none', 'fg2' => $_POST['fg2'] ?? '',
+    'frame' => $_POST['frame'] ?? 'none', 'frame_color' => $_POST['frame_color'] ?? '', 'frame_text' => $_POST['frame_text'] ?? '',
 ] : ($editing['style'] ?? QrTemplates::styleOf(['fg' => '#1C2561']));
 
 $preview = fn(int $id) => BASE_URL . '/admin/qr-preview?mode=template&tpl=' . $id . '&slug=sablon';

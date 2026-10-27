@@ -11,6 +11,7 @@ require_once __DIR__ . '/Redirector.php';
 require_once __DIR__ . '/QrPdf.php';
 require_once __DIR__ . '/QrEps.php';
 require_once __DIR__ . '/QrDesign.php';
+require_once __DIR__ . '/QrFrame.php';
 
 class QrRenderer {
 
@@ -93,6 +94,15 @@ class QrRenderer {
               . " viewBox=\"0 0 {$vbSize} {$vbSize}\""
               . " shape-rendering=\"{$render}\">\n";
 
+        // Çerçeve: görsel büyür, QR (sessiz alanıyla birlikte) içine kaydırılarak çizilir
+        $frame = QrFrame::enabled($st) ? QrFrame::layout($total, $st) : null;
+        if ($frame) {
+            $svg = str_replace("viewBox=\"0 0 {$vbSize} {$vbSize}\"",
+                'viewBox="0 0 ' . self::num($frame['w'] * $cell) . ' ' . self::num($frame['h'] * $cell) . '"', $svg);
+            $svg .= QrFrame::svg($frame, $cell, $bgEsc, $total)
+                  . '<g transform="translate(' . self::num($frame['ox'] * $cell) . ',' . self::num($frame['oy'] * $cell) . ")\">\n";
+        }
+
         $ink = $fgEsc;
         if ($st['gradient'] !== 'none') {
             $fg2 = htmlspecialchars($st['fg2'], ENT_XML1);
@@ -147,6 +157,7 @@ class QrRenderer {
             }
         }
 
+        if ($frame) $svg .= "</g>\n";
         $svg .= "</svg>\n";
         return $svg;
     }
@@ -179,11 +190,14 @@ class QrRenderer {
         $st      = self::normalizeStyle($style);
         $size    = count($matrix);
         $total   = $size + $margin * 2;
-        $cell    = (int)max(1, round($pxSize / $total));
+        $frame   = QrFrame::enabled($st) ? QrFrame::layout($total, $st) : null;
+        // Çerçeveli görselde istenen genişlik tüm görselin genişliğidir
+        $cell    = (int)max(1, round($pxSize / ($frame ? $frame['w'] : $total)));
         $imgSize = $total * $cell;
 
         if (extension_loaded('gd')) {
-            return self::toPngGd($matrix, $size, $cell, $imgSize, $margin, $logoPath, $st);
+            $png = self::toPngGd($matrix, $size, $cell, $imgSize, $margin, $logoPath, $st);
+            return $frame ? self::framePngGd($png, $frame, $cell, $total, $st) : $png;
         } elseif (extension_loaded('imagick')) {
             return self::toPngImagick($matrix, $size, $cell, $imgSize, $margin, $logoPath, $st);
         }
@@ -243,6 +257,30 @@ class QrRenderer {
             self::embedLogoGd($img, $imgSize, $logoPath, $st);
         }
 
+        ob_start();
+        imagepng($img, null, 6);
+        $png = ob_get_clean();
+        imagedestroy($img);
+        return $png;
+    }
+
+    /** QR PNG'sini çerçeveli tuvale yerleştirir (çerçeve ve yazı kenar yumuşatmalı çizilir) */
+    private static function framePngGd(string $qrPng, array $L, int $cell, int $total, array $st): string {
+        $W = (int)round($L['w'] * $cell); $H = (int)round($L['h'] * $cell);
+        $ss = $W <= 1200 ? 3 : ($W <= 2100 ? 2 : 1);
+        $big = imagecreatetruecolor($W * $ss, $H * $ss);
+        imagesavealpha($big, true);
+        QrFrame::gd($big, $L, $cell * $ss, $st['bg'], $total, $st['transparent']);
+        $img = imagecreatetruecolor($W, $H);
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
+        imagefill($img, 0, 0, imagecolorallocatealpha($img, 0, 0, 0, 127));
+        imagecopyresampled($img, $big, 0, 0, 0, 0, $W, $H, $W * $ss, $H * $ss);
+        imagedestroy($big);
+        $qr = imagecreatefromstring($qrPng);
+        imagealphablending($img, true);
+        imagecopy($img, $qr, (int)round($L['ox'] * $cell), (int)round($L['oy'] * $cell), 0, 0, imagesx($qr), imagesy($qr));
+        imagedestroy($qr);
         ob_start();
         imagepng($img, null, 6);
         $png = ob_get_clean();
@@ -392,6 +430,7 @@ class QrRenderer {
             // Göz / geçiş seçenekleri yalnızca kullanıldığında anahtara girer (eski önbellek dosyaları geçerli kalır)
             if (QrDesign::hasExtras($st)) {
                 $key .= '|' . $st['eye'] . '|' . ($st['eye_color'] ?? '') . '|' . $st['gradient'] . '|' . ($st['fg2'] ?? '');
+                if (QrFrame::enabled($st)) $key .= '|' . $st['frame'] . '|' . ($st['frame_color'] ?? '') . '|' . ($st['frame_text'] ?? '');
             }
         }
         $hash = md5($key);
