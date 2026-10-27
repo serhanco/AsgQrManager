@@ -57,6 +57,7 @@ include __DIR__ . '/views/_layout.php';
       <tr><td><code>fg_color</code>, <code>bg_color</code>, <code>shape</code></td><td>Özel görünüm (<code>#0B2A5B</code>, <code>square|rounded|dots</code>). Boşsa marka varsayılanı. Yalnızca yöneticiye bağlı anahtar; 2,5:1 altı kontrast reddedilir.</td></tr>
       <tr><td><code>design</code></td><td>Özel görünüm ek seçenekleri: <code>{"eye":"square|rounded|circle","eye_color":"#0A3A86","gradient":"none|linear|radial","fg2":"#1C2561","frame":"none|bottom|top","frame_color":"#1C2561","frame_text":"Okutun, ofisimizi bulun"}</code></td></tr>
       <tr><td><code>template_id</code></td><td>Kurumsal şablon (panelde Şablonlar). Verilirse görünüm şablondan gelir; <code>null</code> şablonu kaldırır.</td></tr>
+      <tr><td><code>frame_text</code></td><td>Çerçeveli şablonda bu QR'ın yazısı (en fazla 32 karakter). Boş / <code>null</code>: şablonun yazısı.</td></tr>
       <tr><td><code>logo</code></td><td>Logo galerisindeki dosya adı</td></tr>
       <tr><td><code>is_active</code></td><td>Varsayılan <code>true</code></td></tr>
     </tbody>

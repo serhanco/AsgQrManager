@@ -67,7 +67,7 @@ if ($dump) {
     ok((int)$pdo->query("SELECT COUNT(*) FROM users WHERE role <> 'admin' OR is_active <> 1")->fetchColumn() === 0, 'mevcut kullanıcılar Yönetici ve etkin kaldı');
     ok((int)$pdo->query('SELECT COUNT(*) FROM links WHERE created_by IS NOT NULL')->fetchColumn() === 0, 'eski QR\'lara sahip atanmadı (yalnızca yönetici kapsamında)');
 
-    ok((int)$pdo->query('SELECT COUNT(*) FROM links WHERE template_id IS NOT NULL OR design IS NOT NULL')->fetchColumn() === 0, 'eski QR\'lara şablon / tasarım atanmadı (görünümleri aynı)');
+    ok((int)$pdo->query('SELECT COUNT(*) FROM links WHERE template_id IS NOT NULL OR design IS NOT NULL OR frame_text IS NOT NULL')->fetchColumn() === 0, 'eski QR\'lara şablon / tasarım atanmadı (görünümleri aynı)');
     ok((int)$pdo->query('SELECT COUNT(*) FROM qr_templates')->fetchColumn() === count(QrTemplates::STARTERS), 'başlangıç şablonları eklendi');
 
     // Her eski kısa ad hâlâ aynı yere yönlendiriyor mu?
@@ -526,7 +526,30 @@ if ($zbar !== '' && extension_loaded('gd')) {
 [, $e] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'design' => ['frame' => 'bottom', 'frame_text' => '']]);
 ok((bool)$e, 'yazısız çerçeve kaydedilmez');
 
-foreach (['tpltest1', 'tpltest2'] as $sl) QrRenderer::clearCache($sl);
+// Şablonlu QR'da QR'a özel çerçeve yazısı
+[$fc] = QrTemplates::normalize(['name' => 'ttCerceve', 'usage' => 'rollup', 'fg' => '#1C2561', 'frame' => 'bottom', 'frame_text' => 'Okutun, ofisimizi bulun']);
+$ftid = QrTemplates::create($tpdo, $fc, ['id' => null, 'name' => 'test']);
+$tpdo->exec("DELETE FROM users WHERE username = 'tplfr-ed'");
+$tpdo->prepare("INSERT INTO users (username, password_hash, role) VALUES ('tplfr-ed', ?, 'editor')")->execute([password_hash('x', PASSWORD_DEFAULT)]);
+$frEd = $tpdo->query("SELECT * FROM users WHERE username = 'tplfr-ed'")->fetch();
+Access::setUser($frEd, $tpdo);
+[$cl, $e] = LinkService::normalize(['target_url' => 'https://acibadem.world', 'template_id' => (string)$ftid, 'frame_text' => 'Almanya ofisimizi bulun']);
+ok(!$e, 'editör şablonlu QR\'a kendi çerçeve yazısını yazar');
+$FT = LinkService::create($tpdo, $cl, 'tpltest3', ['id' => (int)$frEd['id'], 'name' => 'tplfr-ed']);
+$fst = LinkService::effectiveStyle($FT);
+ok($fst['frame_text'] === 'Almanya ofisimizi bulun' && $fst['frame'] === 'bottom' && $fst['fg'] === '#1C2561', 'şablonun tasarımı sabit, yazı QR\'a özel');
+[$cl2, $e] = LinkService::normalize(['frame_text' => ''], $FT);
+LinkService::update($tpdo, $FT, $cl2, ['id' => (int)$frEd['id'], 'name' => 'tplfr-ed']);
+ok(!$e && LinkService::effectiveStyle(LinkService::find($tpdo, (int)$FT['id']))['frame_text'] === 'Okutun, ofisimizi bulun', 'yazı boşsa şablonun yazısı kullanılır');
+[, $e] = LinkService::normalize(['frame_text' => 'QR 日本'], $FT);
+ok((bool)$e, 'QR\'a özel yazıda desteklenmeyen karakter reddedilir');
+Access::setUser(null);
+$tpl1 = LinkService::find($tpdo, (int)$TL['id']);
+ok(!QrFrame::enabled(LinkService::effectiveStyle(['frame_text' => 'X'] + $tpl1)), 'çerçevesiz şablonda QR\'a özel yazı çerçeve eklemez');
+$tpdo->exec("DELETE FROM users WHERE username = 'tplfr-ed'");
+$tpdo->prepare('DELETE FROM qr_templates WHERE id = ?')->execute([$ftid]);
+
+foreach (['tpltest1', 'tpltest2', 'tpltest3'] as $sl) QrRenderer::clearCache($sl);
 $tpdo->exec("DELETE FROM link_events WHERE slug LIKE 'tpltest%'");
 $tpdo->exec("DELETE FROM links WHERE slug LIKE 'tpltest%'");
 $tpdo->exec("DELETE FROM users WHERE username = 'tpltest-ed'");

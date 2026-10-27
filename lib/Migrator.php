@@ -180,6 +180,9 @@ class Migrator {
                     }
                 }
             }],
+            '014_links_frame_text' => ['Şablonlu QR\'da QR\'a özel çerçeve yazısı (boşsa şablonun yazısı)', function (PDO $p) {
+                self::addColumn($p, 'links', 'frame_text', 'VARCHAR(64) NULL DEFAULT NULL');
+            }],
         ];
     }
 

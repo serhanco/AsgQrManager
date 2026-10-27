@@ -55,8 +55,19 @@ class QrTemplates {
         return self::$available;
     }
 
+    private static ?bool $linkText = null;
+
+    /** links.frame_text sütunu var mı (014 migration) */
+    public static function linkTextAvailable(PDO $pdo): bool {
+        if (self::$linkText === null) {
+            try { $pdo->query('SELECT frame_text FROM links LIMIT 1'); self::$linkText = true; }
+            catch (\Throwable $e) { self::$linkText = false; }
+        }
+        return self::$linkText;
+    }
+
     /** Testler ve migration sonrası için önbelleği sıfırlar */
-    public static function reset(): void { self::$available = null; self::$cache = []; }
+    public static function reset(): void { self::$available = self::$linkText = null; self::$cache = []; }
 
     private static function hydrate(array $r): array {
         $r['id'] = (int)$r['id'];
