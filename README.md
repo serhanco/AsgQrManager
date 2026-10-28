@@ -6,6 +6,15 @@
 
 ---
 
+## Sürüm 3 — Detaylı raporlar
+
+- **Dönem karşılaştırması:** rapordaki okutma ve tekil ziyaretçi kartlarında aynı uzunluktaki önceki döneme göre değişim (▲/▼ %). Grafikte önceki dönem kesikli çizgiyle görünür ("Tüm zamanlar"da yok).
+- **Gün × saat ısı haritası:** hangi gün ve saatte okutulduğu; en yoğun dilim altta yazılır.
+- **Hedef değişikliği işaretleri:** QR raporunda hedef adresin değiştiği gün grafikte turuncu işaretle, altında kim/ne zaman/nereden nereye listesiyle görünür (değişiklik geçmişinden).
+- **Sahibine göre:** genel raporda (yalnızca yönetici) QR'ı oluşturan kullanıcıya göre okutma ve QR sayısı.
+- **QR karşılaştırma** (`/admin/compare`): 2-5 QR aynı grafikte ve tabloda (okutma, tekil, mobil oranı, en çok ülke, en yoğun saat). QR listesinde 2-5 QR seçip "Karşılaştır" ya da rapor sayfasındaki "Karşılaştır" düğmesi.
+- Raporlar kullanıcının kapsamına göre süzülür. Şema değişikliği yok.
+
 ## Sürüm 3 — QR tasarımı ve şablonlar
 
 - **Şablonlar** (`Şablonlar` menüsü, yalnızca yönetici): ad, kullanım alanı, kullanım notu, önerilen baskı boyutu (mm) ve tasarım. Ekle, kopyala, düzenle, arşivle; silme yok. İlk kurulumda 5 şablon gelir: Kartvizit (20 mm), Roll-up (200 mm), Yaka Kartı (25 mm), Masa Kartı (40 mm), Sticker (30 mm).
@@ -234,6 +243,7 @@ QrManager/
 │   ├── tags.php            ← Etiket yönetimi (yeniden adlandır/birleştir/kaldır)
 │   ├── bulk-tags.php       ← Listeden seçili QR'lara toplu etiket (POST)
 │   ├── report.php          ← Raporlar
+│   ├── compare.php         ← 2-5 QR karşılaştırma
 │   ├── history.php        ← Değişiklik geçmişi
 │   ├── settings.php        ← Marka, yönlendirme, gizlilik, logolar, paylaşım
 │   ├── api-tokens.php      ← API anahtarları · api-docs.php: belgeler

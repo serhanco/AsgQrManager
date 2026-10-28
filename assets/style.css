@@ -363,12 +363,13 @@ fieldset { min-width: 0; }
 .type-badge .icon { width: .85rem; height: .85rem; }
 
 /* ─── Uyarılar ────────────────────────────────────────────────────────────── */
-.alert {
+.alert { overflow-wrap: break-word; min-width: 0;
   display: flex; align-items: flex-start; gap: .55rem;
   padding: .85rem 1rem; margin-bottom: 1rem;
   border-radius: var(--radius-sm); border: 1px solid transparent;
   font-size: .875rem; color: var(--text);
 }
+.alert span { overflow-wrap: anywhere; } /* uzun adresler dar ekranda taşmasın */
 .alert::before { content: ''; flex: 0 0 4px; align-self: stretch; border-radius: 4px; background: currentColor; margin: -.25rem 0; opacity: .9; }
 .alert-success { background: color-mix(in srgb, var(--success) 9%, var(--surface)); border-color: color-mix(in srgb, var(--success) 25%, transparent); }
 .alert-danger  { background: color-mix(in srgb, var(--danger) 8%, var(--surface));  border-color: color-mix(in srgb, var(--danger) 25%, transparent); }
@@ -686,6 +687,24 @@ canvas.chart-canvas { width: 100% !important; height: 100% !important; display: 
 .bar-track { height: .6rem; background: var(--border); border-radius: 999px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--accent); border-radius: 999px; }
 .bar-val { font-weight: 600; white-space: nowrap; }
+.delta { font-weight: 700; }
+.delta-up { color: var(--success); }
+.delta-down { color: var(--danger); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+.chart-legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.lg-line, .lg-dash { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid var(--accent); }
+.lg-dash { border-top: 2px dashed var(--text-muted); }
+.lg-mark { display: inline-block; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--warning); }
+.target-changes { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .25rem; overflow-wrap: anywhere; }
+.heatmap { overflow-x: auto; max-width: 100%; }
+.heatmap .hm-row + .hm-row { margin-top: 3px; }
+.hm-row { min-width: 440px; display: grid; grid-template-columns: 2.5rem repeat(24, minmax(14px, 1fr)); gap: 3px; align-items: center; }
+.hm-day, .hm-h { font-size: .7rem; color: var(--text-muted); }
+.hm-h { text-align: left; }
+.hm-cell { height: 22px; border-radius: 3px; background: var(--border); position: relative; }
+.hm-cell[style*="--a"] { background: color-mix(in srgb, var(--accent) calc(var(--a) * 100%), var(--surface)); }
+.compare-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 1rem; }
+.compare-legend { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .35rem; vertical-align: middle; }
 .hour-chart { display: flex; align-items: flex-end; gap: 3px; height: 130px; padding-top: .5rem; }
 .hour-col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
 .hour-bar { width: 100%; min-height: 2px; background: var(--accent); border-radius: 3px 3px 0 0; }
@@ -722,9 +741,10 @@ canvas.chart-canvas { width: 100% !important; height: 100% !important; display: 
   transform: translateX(-.6rem); width: max-content; max-width: min(280px, 70vw);
   padding: .5rem .7rem; border-radius: var(--radius-sm); background: #0f172a; color: #f8fafc;
   font-size: .78rem; font-weight: 400; line-height: 1.45; text-align: left; white-space: normal;
-  box-shadow: var(--shadow-md); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s;
+  box-shadow: var(--shadow-md); display: none; pointer-events: none;
 }
-.tip:hover::after, .tip:focus-visible::after { opacity: 1; visibility: visible; }
+/* Gizliyken yer kaplamasın: sağ kenardaki kartlarda sayfayı yatayda kaydırmasın */
+.tip:hover::after, .tip:focus-visible::after { display: block; }
 
 /* ─── Etiket girişi ────────────────────────────────────────────────────────── */
 .tag-input {
