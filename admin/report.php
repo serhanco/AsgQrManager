@@ -126,6 +126,42 @@ if (!$link && $tag === '') {
 }
 $allTagList = LinkService::allTags($pdo);
 
+// ─── Excel (çok sayfalı) ve yazdırılabilir / PDF rapor ───────────────────────
+$export = (string)($_GET['export'] ?? '');
+if ($export === 'xlsx' || $export === 'print') {
+    $actor = Auth::actor();
+    $R = [
+        'scope' => $link ? 'QR: ' . $link['slug'] . ($link['title'] ? ' — ' . $link['title'] : '')
+                 : ($tag !== '' ? '#' . $tag . ' etiketli QR\'lar' : (Access::isAdmin() ? 'Tüm QR\'lar' : 'Yetkili olduğunuz QR\'lar')),
+        'fileKey' => $link ? $link['slug'] : ($tag !== '' ? 'etiket-' . $tag : 'tum-qr'),
+        'from' => array_key_first($daily) ?? $from, 'to' => $to,
+        'prevFrom' => $pFrom ?? null, 'prevTo' => $pTo ?? null,
+        'total' => (int)$tot['c'], 'unique' => (int)$tot['u'],
+        'prevTotal' => $prev['total'] ?? null, 'prevUnique' => $prev['unique'] ?? null,
+        'bots' => (int)$other['bots'], 'redirected' => (int)$other['redirected'],
+        'daily' => $daily, 'prevDaily' => $prevDaily, 'markers' => array_column($markers, 'i'),
+        'devices' => $dev, 'os' => $os, 'browsers' => $br, 'countries' => $countries, 'referrers' => $refs, 'heat' => $heat,
+        'links' => $link ? [] : $q("SELECT l.slug, l.title, l.category, l.tags, COUNT(*) c, COUNT(DISTINCT CONCAT(IFNULL(s.ip,''),'|',IFNULL(s.user_agent,''))) u
+                                    FROM scans s JOIN links l ON l.id = s.link_id WHERE {$base['ok']} GROUP BY l.id ORDER BY c DESC", $args)->fetchAll(),
+        'categories' => $perCat, 'tags' => $perTag, 'owners' => $perOwner, 'changes' => $changes,
+        'by' => $actor['name'] ?? '', 'at' => (new DateTimeImmutable('now', Settings::timezone()))->format('d.m.Y H:i'),
+    ];
+    if ($export === 'xlsx') {
+        if (!Xlsx::available()) {
+            flash('danger', 'Sunucuda Excel için gereken ZIP desteği (ZipArchive) yok. CSV indirebilirsiniz.');
+            redirect(BASE_URL . '/admin/report?' . http_build_query(array_diff_key($_GET, ['export' => 1])));
+        }
+        $data = Xlsx::build(ReportExport::sheets($R));
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . ReportExport::fileName($R, 'xlsx') . '"');
+        header('Content-Length: ' . strlen($data));
+        echo $data;
+        exit;
+    }
+    include __DIR__ . '/views/report_print.php';
+    exit;
+}
+
 $flag = function (string $cc): string {
     if (!preg_match('/^[A-Z]{2}$/', $cc)) return '🌐';
     return mb_chr(0x1F1E6 + ord($cc[0]) - 65) . mb_chr(0x1F1E6 + ord($cc[1]) - 65);
@@ -156,6 +192,8 @@ include __DIR__ . '/views/_layout.php';
   <div class="btn-group">
     <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => 'daily']) ?>"><?= icon('download') ?> Günlük CSV</a>
     <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['csv' => $link ? 'raw' : 'links']) ?>"><?= icon('download') ?> <?= $link ? 'Okutma listesi CSV' : 'QR bazlı CSV' ?></a>
+    <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['export' => 'xlsx']) ?>" title="Özet, günlük seri, QR'lar, kategori, etiket, ülke, cihaz ve gün × saat ayrı sayfalarda"><?= icon('download') ?> Excel</a>
+    <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/report<?= $qs(['export' => 'print']) ?>" target="_blank" rel="noopener" title="Yönetime gönderilecek antetli özet; tarayıcıdan PDF olarak kaydedin"><?= icon('file') ?> PDF / Yazdır</a>
     <a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/compare<?= $link ? '?ids=' . (int)$link['id'] : '' ?>"><?= icon('layers') ?> Karşılaştır</a>
     <?php if ($link && Access::canEditLink($link)): ?><a class="btn btn-ghost btn-sm" href="<?= BASE_URL ?>/admin/edit?id=<?= $link['id'] ?>"><?= icon('pencil') ?> Düzenle</a><?php endif; ?>
   </div>

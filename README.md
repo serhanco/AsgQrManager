@@ -13,6 +13,8 @@
 - **Hedef değişikliği işaretleri:** QR raporunda hedef adresin değiştiği gün grafikte turuncu işaretle, altında kim/ne zaman/nereden nereye listesiyle görünür (değişiklik geçmişinden).
 - **Sahibine göre:** genel raporda (yalnızca yönetici) QR'ı oluşturan kullanıcıya göre okutma ve QR sayısı.
 - **QR karşılaştırma** (`/admin/compare`): 2-5 QR aynı grafikte ve tabloda (okutma, tekil, mobil oranı, en çok ülke, en yoğun saat). QR listesinde 2-5 QR seçip "Karşılaştır" ya da rapor sayfasındaki "Karşılaştır" düğmesi.
+- **Excel raporu** (rapor sayfasında "Excel"): Özet, Günlük, QR'lar, Kategoriler, Etiketler, Sahipler, Ülkeler, Cihaz ve kaynak, Gün × saat, Hedef değişiklikleri ayrı sayfalarda. Kütüphane gerekmez (`lib/Xlsx.php`, ZipArchive).
+- **PDF / Yazdır** (rapor sayfasında): Acıbadem antetli A4 özet; tarayıcıda "PDF olarak kaydet" ile yönetime gönderilir. Grafik sunucuda SVG olarak çizilir.
 - Raporlar kullanıcının kapsamına göre süzülür. Şema değişikliği yok.
 
 ## Sürüm 3 — QR tasarımı ve şablonlar
@@ -228,6 +230,8 @@ QrManager/
 │   ├── QrEps.php           ← Vektör EPS çıktısı
 │   ├── Share.php           ← İmzalı indirme bağlantıları, format üretimi
 │   ├── Stats.php           ← Rapor sorguları (panel + API ortak)
+│   ├── ReportExport.php    ← Excel ve yazdırılabilir rapor verisi
+│   ├── Xlsx.php            ← Çok sayfalı .xlsx yazıcı
 │   └── ApiAuth.php         ← API anahtarları
 │
 ├── admin/
