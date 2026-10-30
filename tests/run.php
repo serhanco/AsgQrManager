@@ -654,5 +654,142 @@ $rp->exec("DELETE FROM link_events WHERE slug LIKE 'rptest%'");
 $rp->exec("DELETE FROM scans WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'rptest%')");
 $rp->exec("DELETE FROM links WHERE slug LIKE 'rptest%'");
 
+// ─── Faz 5: zamanlanmış görevler, uyarılar, e-posta ───────────────────────────
+section('Otomasyon');
+$jp = getPdo();
+Access::setUser(null);
+Jobs::reset();
+ok(Jobs::available($jp), 'görev ve uyarı tabloları var (migration 015, 016)');
+$jKeys = ['job_expiry', 'job_broken', 'job_silent', 'job_backup', 'job_cleanup', 'job_digest', 'job_report', 'report_frequency',
+          'mail_enabled', 'smtp_host', 'mail_from', 'mail_extra_to', 'report_editors'];
+$jSaved = [];
+foreach ($jKeys as $k) $jSaved[$k] = Settings::has($k) ? Settings::get($k) : null;
+$jp->exec("DELETE FROM notifications WHERE dedupe_key LIKE 'jtest%' OR link_id IN (SELECT id FROM links WHERE slug LIKE 'jtest%')");
+$jp->exec("DELETE FROM scans WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'jtest%')");
+$jp->exec("DELETE FROM links WHERE slug LIKE 'jtest%'");
+$jp->exec("DELETE FROM users WHERE username LIKE 'jtest%'");
+$jp->exec("DELETE FROM job_runs WHERE trigger_by = 'test'");
+
+// Dönem ve zamanı gelme
+$tz = Settings::timezone();
+$t = new DateTimeImmutable('2026-10-30 14:00:00', $tz); // Cuma
+ok(Jobs::periodKey('daily', $t) === '2026-10-30' && Jobs::periodKey('weekly', $t) === '2026-W44' && Jobs::periodKey('monthly', $t) === '2026-10', 'dönem anahtarları (gün, ISO hafta, ay)');
+ok(Jobs::reportRange('weekly', $t) === ['2026-10-19', '2026-10-25', '19.10 – 25.10.2026 haftası'], 'haftalık rapor: geçen hafta Pazartesi-Pazar');
+ok(Jobs::reportRange('monthly', $t)[0] === '2026-09-01' && Jobs::reportRange('monthly', $t)[1] === '2026-09-30'
+   && Jobs::reportRange('monthly', new DateTimeImmutable('2026-03-31 09:00', $tz))[0] === '2026-02-01', 'aylık rapor: geçen ay (31 Mart → Şubat)');
+Settings::forget('report_frequency');
+ok(Jobs::period('report') === null && Jobs::period('silent') === 'weekly', 'rapor e-postası varsayılan kapalı, sessiz QR kontrolü haftalık');
+Settings::set('job_cleanup', '1');
+$jp->exec("DELETE FROM job_runs WHERE job = 'cleanup'");
+ok(Jobs::isDue($jp, 'cleanup'), 'hiç çalışmamış görevin zamanı gelmiş');
+$r = Jobs::run($jp, 'cleanup', 'test');
+ok($r['status'] === 'ok' && !Jobs::isDue($jp, 'cleanup'), 'çalıştıktan sonra aynı hafta tekrar çalışmaz');
+ok(Jobs::isDue($jp, 'cleanup', (new DateTimeImmutable('now', $tz))->modify('+7 days')), 'sonraki hafta yeniden zamanı gelir');
+Settings::set('job_cleanup', '0');
+ok(!Jobs::isDue($jp, 'cleanup', (new DateTimeImmutable('now', $tz))->modify('+7 days')) && !isset(Jobs::runDue($jp, 'test', 'cleanup')['cleanup']), 'kapatılan görev çalışmaz');
+Settings::set('job_cleanup', '1');
+
+// Uyarılar: tekil anahtar, kapanma
+ok(Notifications::raise($jp, 'system', null, 'jtest:1', 'Deneme') && !Notifications::raise($jp, 'system', null, 'jtest:1', 'Deneme'), 'aynı durum için ikinci uyarı oluşmaz');
+
+$jAdmin = $jp->query("SELECT id, username FROM users WHERE role = 'admin' ORDER BY id LIMIT 1")->fetch();
+$jActor = ['id' => $jAdmin ? (int)$jAdmin['id'] : null, 'name' => $jAdmin['username'] ?? 'test'];
+$now = new DateTimeImmutable('now', $tz);
+$mkJ = function (string $slug, array $extra = []) use ($jp, $jActor) {
+    [$cl] = LinkService::normalize(['target_url' => 'https://acibadem.world/' . $slug]);
+    return LinkService::create($jp, $cl + $extra, $slug, $jActor);
+};
+$E1 = $mkJ('jtest-exp', ['ends_at' => $now->modify('+2 days')->format('Y-m-d H:i:s')]);
+$E2 = $mkJ('jtest-later', ['ends_at' => $now->modify('+10 days')->format('Y-m-d H:i:s')]);
+$r = Jobs::run($jp, 'expiry', 'test');
+$expKeys = $jp->query("SELECT link_id FROM notifications WHERE kind = 'expiry' AND link_id IN ({$E1['id']}, {$E2['id']})")->fetchAll(PDO::FETCH_COLUMN);
+ok($r['status'] === 'ok' && array_map('intval', $expKeys) === [(int)$E1['id']], 'bitişi 3 gün içinde olan QR için uyarı (10 gün sonrakine yok)');
+Jobs::run($jp, 'expiry', 'test');
+ok((int)$jp->query("SELECT COUNT(*) FROM notifications WHERE kind = 'expiry' AND link_id = {$E1['id']}")->fetchColumn() === 1, 'ertesi gün aynı bitiş için tekrar uyarı yok');
+
+// Sessiz QR: önceki 4 haftada 12 okutma, son 7 günde hiç
+$S1 = $mkJ('jtest-silent');
+$S2 = $mkJ('jtest-busy');
+$jp->prepare('UPDATE links SET created_at = ? WHERE id IN (?, ?)')->execute([$now->modify('-60 days')->format('Y-m-d H:i:s'), $S1['id'], $S2['id']]);
+$ins = $jp->prepare('INSERT INTO scans (link_id, ip, user_agent, scanned_at, is_bot) VALUES (?, ?, ?, ?, 0)');
+for ($i = 0; $i < 12; $i++) {
+    $ins->execute([$S1['id'], '10.0.0.' . $i, 'Mozilla/5.0', $now->modify('-' . (10 + $i) . ' days')->format('Y-m-d H:i:s')]);
+    $ins->execute([$S2['id'], '10.0.1.' . $i, 'Mozilla/5.0', $now->modify('-' . (1 + $i) . ' days')->format('Y-m-d H:i:s')]);
+}
+Jobs::run($jp, 'silent', 'test');
+$sil = $jp->query("SELECT link_id FROM notifications WHERE kind = 'silent' AND link_id IN ({$S1['id']}, {$S2['id']})")->fetchAll(PDO::FETCH_COLUMN);
+ok(array_map('intval', $sil) === [(int)$S1['id']], 'okutması duran QR uyarılır, okutulmaya devam eden uyarılmaz');
+
+// Editör yalnızca kendi QR'ının uyarısını görür
+$jp->prepare("INSERT INTO users (username, password_hash, role, is_active, email) VALUES ('jtest-ed', 'x', 'editor', 1, 'ed@example.com')")->execute();
+$jEd = $jp->query("SELECT * FROM users WHERE username = 'jtest-ed'")->fetch();
+$jp->prepare('UPDATE links SET created_by = ? WHERE id = ?')->execute([$jEd['id'], $E1['id']]);
+Access::setUser($jEd, $jp);
+$edList = array_map(fn($n) => (int)$n['link_id'], Notifications::list($jp));
+ok(in_array((int)$E1['id'], $edList, true) && !in_array((int)$S1['id'], $edList, true), 'editör uyarıları kendi QR\'larıyla sınırlı');
+$ctx = Access::context();
+Access::setUser(null);
+Access::restore($ctx);
+ok(!Access::isAdmin() && Access::userId() === (int)$jEd['id'], 'kullanıcı bağlamı geri yüklenir (rapor e-postası için)');
+Access::setUser(null);
+
+// Hedef adres kontrolü (yerel sunucu)
+$port = 18000 + random_int(0, 999);
+$docroot = sys_get_temp_dir() . '/qrm-lc-' . $port;
+@mkdir($docroot);
+file_put_contents($docroot . '/r.php', '<?php $p = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH); if ($p === "/ok") { echo str_repeat("x", 100000); return; } if ($p === "/guard") { http_response_code(403); return; } http_response_code(404); echo "yok";');
+$srv = proc_open([PHP_BINARY, '-S', "127.0.0.1:{$port}", $docroot . '/r.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+for ($i = 0; $i < 50 && !@fsockopen('127.0.0.1', $port); $i++) usleep(100000);
+$base = "http://127.0.0.1:{$port}";
+$cu = Jobs::checkUrls(["{$base}/ok", "{$base}/missing", "{$base}/guard", 'http://127.0.0.1:1/'], 5);
+ok($cu["{$base}/ok"]['ok'] && $cu["{$base}/ok"]['code'] === 200, 'açılan hedef: 200 (gövde indirilmeden)');
+ok(!$cu["{$base}/missing"]['ok'] && $cu["{$base}/missing"]['why'] === 'HTTP 404', 'kırık hedef: HTTP 404');
+ok($cu["{$base}/guard"]['ok'], '403 (bot koruması) kırık sayılmaz');
+ok(!$cu['http://127.0.0.1:1/']['ok'] && $cu['http://127.0.0.1:1/']['why'] === 'bağlantı kurulamadı', 'kapalı sunucu: bağlantı kurulamadı');
+proc_terminate($srv);
+proc_close($srv);
+@unlink($docroot . '/r.php');
+@rmdir($docroot);
+
+// Yedek
+$before = glob(ROOT_DIR . '/logs/backups/daily-*') ?: [];
+$r = Jobs::run($jp, 'backup', 'test');
+$new = array_values(array_diff(glob(ROOT_DIR . '/logs/backups/daily-*') ?: [], $before));
+$sqlB = $new ? (str_ends_with($new[0], '.gz') ? gzdecode(file_get_contents($new[0])) : file_get_contents($new[0])) : '';
+ok($r['status'] === 'ok' && count($new) === 1 && str_contains($sqlB, "INSERT IGNORE INTO `links`") && str_contains($sqlB, "'jtest-exp'") && !str_contains($sqlB, 'INTO `scans`'), 'gecelik yedek: QR kayıtları INSERT IGNORE olarak, okutmalar hariç');
+foreach ($new as $f) @unlink($f);
+
+// E-posta: kapalıyken gönderilmez; açıkken uyarı özeti ve rapor
+Settings::set('mail_enabled', '0');
+ok(!Mailer::enabled() && Jobs::run($jp, 'digest', 'test')['status'] === 'skipped', 'e-posta ayarlanmadıysa özet gönderilmez (pasif)');
+Settings::set('mail_enabled', '1'); Settings::set('smtp_host', 'smtp.example.com'); Settings::set('mail_from', 'qr@example.com');
+Settings::set('mail_extra_to', 'ekip@example.com, gecersiz');
+Mailer::$outbox = [];
+$jp->exec("UPDATE notifications SET emailed_at = NOW() WHERE emailed_at IS NULL AND link_id NOT IN ({$E1['id']}, {$S1['id']})");
+$r = Jobs::run($jp, 'digest', 'test');
+$toEd = array_values(array_filter(Mailer::$outbox, fn($m) => $m['to'] === ['ed@example.com']));
+$toAll = array_values(array_filter(Mailer::$outbox, fn($m) => in_array('ekip@example.com', $m['to'], true)));
+ok($r['status'] === 'ok' && count($toEd) === 1 && str_contains($toEd[0]['html'], 'jtest-exp') && !str_contains($toEd[0]['html'], 'jtest-silent'), 'editöre yalnızca kendi QR\'ının uyarısı gider');
+ok(count($toAll) === 1 && str_contains($toAll[0]['html'], 'jtest-silent') && !in_array('gecersiz', $toAll[0]['to'], true), 'yönetici + ek alıcılara tüm uyarılar (geçersiz adres atlanır)');
+Mailer::$outbox = [];
+Jobs::run($jp, 'digest', 'test');
+ok(Mailer::$outbox === [], 'aynı uyarı ikinci kez e-postalanmaz');
+Settings::set('report_frequency', 'weekly'); Settings::set('report_editors', '1');
+$r = Jobs::run($jp, 'report', 'test');
+$rep = array_values(array_filter(Mailer::$outbox, fn($m) => in_array('ekip@example.com', $m['to'], true)));
+ok($r['status'] === 'ok' && count($rep) === 1 && str_starts_with($rep[0]['subject'], 'QR raporu: ') && (!Xlsx::available() || str_ends_with($rep[0]['attachments'][0] ?? '', '.xlsx')), 'haftalık rapor e-postası (Excel ekli)');
+ok(str_contains($rep[0]['raw'] ?? '', 'Content-Disposition: attachment') && str_contains($rep[0]['raw'] ?? '', 'Subject: =?UTF-8?B?'), 'MIME ileti: ek ve UTF-8 konu');
+ok(Access::context() === null, 'rapor sonrası kullanıcı bağlamı eski haline döner');
+Mailer::$outbox = null;
+
+// Temizlik
+foreach ($jSaved as $k => $v) $v === null ? Settings::forget($k) : Settings::set($k, $v);
+$jp->exec("DELETE FROM notifications WHERE dedupe_key LIKE 'jtest%' OR link_id IN (SELECT id FROM links WHERE slug LIKE 'jtest%')");
+$jp->exec("DELETE FROM scans WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'jtest%')");
+$jp->exec("DELETE FROM links WHERE slug LIKE 'jtest%'");
+$jp->exec("DELETE FROM user_scopes WHERE user_id = " . (int)$jEd['id']);
+$jp->exec("DELETE FROM users WHERE username LIKE 'jtest%'");
+$jp->exec("DELETE FROM job_runs WHERE trigger_by = 'test'");
+
 echo "\n" . ($fail ? "BAŞARISIZ" : "TAMAM") . " — {$pass} geçti, {$fail} kaldı\n";
 exit($fail ? 1 : 0);

@@ -3,7 +3,7 @@ RewriteEngine On
 RewriteBase /
 
 # ─── Güvenlik: hassas dosyalara erişimi engelle ───────────────────────────────
-<FilesMatch "^(config|schema)\.php$">
+<FilesMatch "^(config|schema|cron)\.php$">
     Order Deny,Allow
     Deny from all
 </FilesMatch>

@@ -11,6 +11,11 @@ $csrf = Auth::csrfToken();
 $canEditNav = Access::can('links.edit');
 $isAdminNav = Access::isAdmin();
 $pendingNav = $isAdminNav ? LinkRequests::pendingCount(getPdo()) : 0;
+$alertNav   = Notifications::openCount(getPdo());
+// Cron e-postalarındaki bağlantılar için sitenin dış adresi (komut satırında bilinemez)
+if ($isAdminNav && !preg_match('#//(localhost|127\.)#', $base) && Settings::get('site_url', '') !== $base) {
+    try { Settings::set('site_url', $base); } catch (\Throwable $e) {}
+}
 $nav = [
     'Genel' => [
         ['dashboard', 'dashboard', 'Gösterge Paneli', true],
@@ -26,6 +31,7 @@ $nav = [
     'Raporlama' => [
         ['report',  'chart',   'Raporlar',            true],
         ['history', 'history', 'Değişiklik Geçmişi',  true],
+        ['notifications', 'bell', 'Uyarılar',         Notifications::available(getPdo())],
     ],
     'Sistem' => [
         ['users',      'users',    'Kullanıcılar',      $isAdminNav],
@@ -76,6 +82,7 @@ try { var t = localStorage.getItem('qrm-theme'); if (t === 'light' || t === 'dar
           <li><a href="<?= $base ?>/admin/<?= $page ?>" <?= $navActive === $page ? 'class="active" aria-current="page"' : '' ?>>
             <span class="nav-icon"><?= icon($ic) ?></span> <?= e($label) ?>
             <?php if ($page === 'requests' && $pendingNav > 0): ?><span class="nav-count" title="Onay bekleyen talep"><?= $pendingNav ?></span><?php endif; ?>
+            <?php if ($page === 'notifications' && $alertNav > 0): ?><span class="nav-count" title="Açık uyarı"><?= $alertNav ?></span><?php endif; ?>
           </a></li>
         <?php endforeach; ?>
       <?php endforeach; ?>

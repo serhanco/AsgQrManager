@@ -56,6 +56,11 @@ class Settings {
         self::$cache = null;
     }
 
+    public static function forget(string $key): void {
+        getPdo()->prepare('DELETE FROM settings WHERE skey = ?')->execute([$key]);
+        self::$cache = null;
+    }
+
     public static function has(string $key): bool {
         return array_key_exists($key, self::load());
     }
