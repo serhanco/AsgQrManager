@@ -20,6 +20,8 @@ require_once __DIR__ . '/Redirector.php';
 require_once __DIR__ . '/QrRenderer.php';
 require_once __DIR__ . '/Share.php';
 require_once __DIR__ . '/Stats.php';
+require_once __DIR__ . '/Xlsx.php';
+require_once __DIR__ . '/ReportExport.php';
 require_once __DIR__ . '/ApiAuth.php';
 
 Logger::registerHandlers();

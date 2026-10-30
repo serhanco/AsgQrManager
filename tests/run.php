@@ -610,6 +610,46 @@ ok($C[(int)$R1['id']]['total'] === 3 && $C[(int)$R2['id']]['total'] === 1 && $C[
    && count($C[(int)$R2['id']]['daily']) === 7, 'QR karşılaştırma: toplam, mobil oranı, ortak gün ekseni');
 [$rg, $f, $t] = Stats::rangeFromRequest(['range' => 'custom', 'from' => '2026-03-08', 'to' => '2026-03-02']);
 ok($rg === 'custom' && $f === '2026-03-02' && $t === '2026-03-08', 'özel aralık ters girilirse düzeltilir');
+
+// Excel ve yazdırılabilir rapor
+$S1 = Stats::summary($rp, (int)$R1['id'], '2026-03-02', '2026-03-08');
+$RX = ['scope' => 'QR: rptest1', 'fileKey' => 'rptest1', 'from' => '2026-03-02', 'to' => '2026-03-08', 'prevFrom' => '2026-02-23', 'prevTo' => '2026-03-01',
+       'total' => $S1['total'], 'unique' => $S1['unique'], 'prevTotal' => 1, 'prevUnique' => 1, 'bots' => $S1['bots'], 'redirected' => 0,
+       'daily' => $S1['daily'], 'prevDaily' => array_fill(0, 7, 0), 'markers' => [1], 'devices' => $S1['devices'], 'os' => $S1['os'],
+       'browsers' => $S1['browsers'], 'countries' => $S1['countries'], 'referrers' => $S1['referrers'], 'heat' => $S1['heat'],
+       'links' => [['slug' => 'rptest1', 'title' => '=1+1 <b>&', 'category' => 'event', 'tags' => 'a,b', 'c' => 3, 'u' => 3]],
+       'categories' => ['Etkinlik' => 3], 'tags' => [], 'owners' => [], 'changes' => $tc, 'by' => 'test', 'at' => '01.01.2026 10:00'];
+$sheets = ReportExport::sheets($RX);
+$names = array_column($sheets, 'name');
+ok($names[0] === 'Özet' && in_array("QR'lar", $names, true) && in_array('Gün x saat', $names, true) && in_array('Hedef değişiklikleri', $names, true),
+   'Excel raporu sayfaları (özet, QR\'lar, gün × saat, hedef değişiklikleri)');
+ok(in_array(['Değişim (okutma)', '+%200'], $sheets[0]['rows'], true), 'Excel özetinde önceki döneme göre değişim');
+if (Xlsx::available()) {
+    $bin = Xlsx::build(array_merge($sheets, [['name' => 'Özet', 'rows' => [['a'], [1]]], ['name' => 'a/b:c*?[d]', 'rows' => [['x']]]]));
+    $tmpx = tempnam(sys_get_temp_dir(), 'tx');
+    file_put_contents($tmpx, $bin);
+    $zx = new ZipArchive();
+    $okZip = $zx->open($tmpx) === true;
+    $wbx = $okZip ? $zx->getFromName('xl/workbook.xml') : '';
+    $qrIdx = array_search("QR'lar", $names, true) + 1;
+    $sh = $okZip ? $zx->getFromName("xl/worksheets/sheet{$qrIdx}.xml") : '';
+    $allXml = true;
+    for ($i = 0; $okZip && $i < $zx->numFiles; $i++) {
+        $nm = $zx->getNameIndex($i);
+        if (str_ends_with($nm, '.xml') || str_ends_with($nm, '.rels')) $allXml = $allXml && @simplexml_load_string($zx->getFromIndex($i)) !== false;
+    }
+    if ($okZip) $zx->close();
+    @unlink($tmpx);
+    ok($okZip && $allXml, 'Excel dosyası geçerli ZIP ve XML');
+    ok(str_contains($wbx, 'name="Özet 2"') && str_contains($wbx, 'name="a b c   d"'), 'aynı ve geçersiz sayfa adları düzeltilir');
+    ok(str_contains($sh, '<v>3</v>') && str_contains($sh, '=1+1 &lt;b&gt;&amp;') && !str_contains($sh, '<f>'), 'sayılar sayı, metinler kaçışlı metin (formül yok)');
+} else {
+    echo "  - ZipArchive yok, Excel testleri atlandı\n";
+}
+$svg = ReportExport::chartSvg($S1['daily'], array_fill(0, 7, 1), [1]);
+ok(@simplexml_load_string($svg) !== false && substr_count($svg, '<path') === 3 && str_contains($svg, 'stroke-dasharray="3 3"'), 'yazdırılabilir rapor grafiği (SVG, önceki dönem ve işaret)');
+ok(ReportExport::peak($S1['heat']) === ['Pazartesi', 10, 2] && ReportExport::changeText(3, 0) === '' && ReportExport::changeText(2, 4) === '-%50', 'en yoğun dilim ve değişim metni');
+
 $rp->exec("DELETE FROM link_events WHERE slug LIKE 'rptest%'");
 $rp->exec("DELETE FROM scans WHERE link_id IN (SELECT id FROM links WHERE slug LIKE 'rptest%')");
 $rp->exec("DELETE FROM links WHERE slug LIKE 'rptest%'");
