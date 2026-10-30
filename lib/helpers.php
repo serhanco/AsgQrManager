@@ -358,3 +358,15 @@ function maybeAnonymizeScans(PDO $pdo): void {
 function tip(string $text): string {
     return '<span class="tip" tabindex="0" role="note" aria-label="' . e($text) . '" data-tip="' . e($text) . '">ⓘ</span>';
 }
+
+/**
+ * Sitenin dış adresi. Komut satırında (cron) BASE_URL bilinemez; panelden son görülen adres kullanılır
+ * (yönetici panele her girdiğinde Ayarlar'a yazılır).
+ */
+function siteUrl(): string {
+    if (PHP_SAPI === 'cli' && class_exists('Settings')) {
+        $u = Settings::get('site_url', '');
+        if ($u !== '') return rtrim($u, '/');
+    }
+    return BASE_URL;
+}

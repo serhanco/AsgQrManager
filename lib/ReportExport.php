@@ -9,6 +9,28 @@ class ReportExport {
 
     public const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 
+    /**
+     * Genel rapor verisi (tüm QR'lar, geçerli kullanıcının kapsamında) — periyodik rapor e-postası için.
+     * report.php'deki "Excel" ve "PDF / Yazdır" ile aynı biçimi üretir.
+     */
+    public static function collect(PDO $pdo, string $from, string $to, string $scope, string $by): array {
+        $S = Stats::summary($pdo, null, $from, $to);
+        [$pFrom, $pTo] = Stats::previousRange($from, $to);
+        $P = Stats::totals($pdo, null, $pFrom, $pTo);
+        $G = Stats::groups($pdo, $from, $to);
+        return [
+            'scope' => $scope, 'fileKey' => 'tum-qr', 'from' => $from, 'to' => $to, 'prevFrom' => $pFrom, 'prevTo' => $pTo,
+            'total' => $S['total'], 'unique' => $S['unique'], 'prevTotal' => $P['total'], 'prevUnique' => $P['unique'],
+            'bots' => $S['bots'], 'redirected' => $S['redirected'],
+            'daily' => $S['daily'], 'prevDaily' => Stats::dailyCounts($pdo, null, $pFrom, $pTo), 'markers' => [],
+            'devices' => $S['devices'], 'os' => $S['os'], 'browsers' => $S['browsers'], 'countries' => $S['countries'],
+            'referrers' => $S['referrers'], 'heat' => $S['heat'],
+            'links' => $G['links'], 'categories' => $G['categories'], 'tags' => $G['tags'],
+            'owners' => Access::isAdmin() ? Stats::byOwner($pdo, $from, $to) : [], 'changes' => [],
+            'by' => $by, 'at' => (new DateTimeImmutable('now', Settings::timezone()))->format('d.m.Y H:i'),
+        ];
+    }
+
     /** Dosya adı için güvenli parça */
     public static function fileName(array $R, string $ext): string {
         $slug = preg_replace('/[^A-Za-z0-9_-]+/', '-', $R['fileKey'] ?? 'rapor');
@@ -72,7 +94,7 @@ class ReportExport {
             $rows = [['Kısa ad', 'Başlık', 'Kategori', 'Etiketler', 'Okutma', 'Tahmini tekil', '% pay', 'Kısa adres']];
             foreach ($R['links'] as $l) {
                 $rows[] = [$l['slug'], (string)$l['title'], $l['category'] ? (LinkService::CATEGORIES[$l['category']] ?? $l['category']) : '',
-                           (string)$l['tags'], (int)$l['c'], (int)$l['u'], $pct((int)$l['c']), BASE_URL . '/r/' . $l['slug']];
+                           (string)$l['tags'], (int)$l['c'], (int)$l['u'], $pct((int)$l['c']), siteUrl() . '/r/' . $l['slug']];
             }
             $sheets[] = ['name' => "QR'lar", 'rows' => $rows, 'widths' => [14, 34, 14, 26, 10, 12, 8, 36]];
         }

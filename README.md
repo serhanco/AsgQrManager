@@ -6,6 +6,32 @@
 
 ---
 
+## Sürüm 3 — Otomasyon ve uyarılar
+
+Zamanlanmış görevler `cron.php` ile çalışır (yalnızca komut satırından; web'den kapalı). Görevler QR kayıtlarını, kısa adresleri ve okutmaları **değiştirmez**.
+
+**Kurulum (Hostinger):** hPanel > Gelişmiş > **Cron Jobs** > "Özel": her saat (dakika 0) şu komut. Tam yol Ayarlar > Otomasyon'da yazar ve kopyalanabilir.
+
+```bash
+/usr/bin/php /home/KULLANICI/domains/qr.acibadem.world/public_html/cron.php
+```
+
+| Görev | Sıklık | Ne yapar |
+|---|---|---|
+| Bitiş uyarısı | Günlük | 3 gün içinde bitecek QR'lar (bitince nereye gideceği yazılır) |
+| Kırık hedef kontrolü | Günlük | Hedef adres 404/5xx/alan adı/SSL hatası veriyor mu; 401/403/429 (bot koruması) kırık sayılmaz, hata bir kez yeniden denenir, düzelince uyarı kendiliğinden kapanır. Sunucu hiçbir adrese ulaşamıyorsa tek sistem uyarısı. |
+| Sessiz QR uyarısı | Haftalık | 7 gündür hiç okutulmayan (önceki 4 haftada ≥10) ya da sert düşen QR; hiç okutulmamış etkinlik QR'ı |
+| Veritabanı yedeği | Günlük | `logs/backups/daily-*.sql.gz` (okutmalar hariç, INSERT IGNORE), son 14 kopya |
+| Temizlik | Haftalık | 90 günden eski görev kayıtları, 30 günden eski giriş denemeleri, 1 yıldan eski kapanmış uyarılar |
+| Uyarı e-postası | Günlük | Yeni uyarılar: yöneticilere hepsi, editöre kendi QR'larınınki |
+| Periyodik rapor e-postası | Haftalık / aylık (varsayılan kapalı) | Geçen hafta / ayın özeti + Excel eki; editöre kendi QR'ları |
+
+- **Uyarılar** (`/admin/notifications`, menüde sayaçlı): aynı durum için ikinci kez uyarı oluşmaz; QR'ı düzenleyebilen kapatabilir.
+- **E-posta** (Ayarlar > E-posta) SMTP bilgisi girilip açılana kadar **pasiftir**; uyarılar yalnızca panelde görünür. Hostinger: `smtp.hostinger.com`, 465 (SSL). Kütüphane gerekmez (`lib/Mailer.php`).
+- Her görev Ayarlar > Otomasyon'dan kapatılabilir ya da "▶" ile hemen çalıştırılabilir.
+- Komut satırı: `php cron.php --list` (durum), `php cron.php --job=broken --force` (tek görev).
+- Şema: yalnızca ekleyen `015_job_runs`, `016_notifications`. KVKK: okutmalar otomatik silinmez/anonimleştirilmez.
+
 ## Sürüm 3 — Detaylı raporlar
 
 - **Dönem karşılaştırması:** rapordaki okutma ve tekil ziyaretçi kartlarında aynı uzunluktaki önceki döneme göre değişim (▲/▼ %). Grafikte önceki dönem kesikli çizgiyle görünür ("Tüm zamanlar"da yok).
@@ -209,6 +235,7 @@ QrManager/
 ├── r.php                   ← QR yönlendirme uç noktası (302)
 ├── share.php               ← İmzalı, süreli QR indirme sayfası
 ├── api/index.php           ← REST API v1
+├── cron.php                ← Zamanlanmış görevler (yalnızca CLI)
 ├── install.php             ← Kurulum sihirbazı (sonra silin!)
 ├── config.php              ← Tüm ayarlar burada
 ├── schema.sql              ← Veritabanı şeması
@@ -232,6 +259,9 @@ QrManager/
 │   ├── Stats.php           ← Rapor sorguları (panel + API ortak)
 │   ├── ReportExport.php    ← Excel ve yazdırılabilir rapor verisi
 │   ├── Xlsx.php            ← Çok sayfalı .xlsx yazıcı
+│   ├── Jobs.php            ← Zamanlanmış görevler (uyarı, kontrol, yedek, e-posta)
+│   ├── Notifications.php   ← Uyarılar (tekil anahtar, kapsam)
+│   ├── Mailer.php          ← Bağımlılıksız SMTP istemcisi
 │   └── ApiAuth.php         ← API anahtarları
 │
 ├── admin/

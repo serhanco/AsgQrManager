@@ -100,30 +100,11 @@ $markers = array_values(array_filter(array_map(fn($c) => isset($dayIdx[$c['date'
 // Sahibine göre (genel rapor, yalnızca yönetici: editör zaten yalnızca kendi kapsamını görür)
 $perOwner = (!$link && Access::isAdmin()) ? Stats::byOwner($pdo, $from, $to, $tag) : [];
 
-// QR bazlı tablo (yalnızca genel raporda) ve türlere göre dağılım
-$perLink = $perCat = [];
-if (!$link) {
-    $perLink = $q("SELECT l.id, l.slug, l.title, l.category, COUNT(*) c
-                   FROM scans s JOIN links l ON l.id = s.link_id WHERE {$base['ok']} GROUP BY l.id ORDER BY c DESC LIMIT 25", $args)->fetchAll();
-    foreach ($q("SELECT IFNULL(l.category,'') k, COUNT(*) c FROM scans s JOIN links l ON l.id = s.link_id WHERE {$base['ok']} GROUP BY k ORDER BY c DESC", $args) as $r) {
-        $perCat[$r['k'] === '' ? 'Kategorisiz' : (LinkService::CATEGORIES[$r['k']] ?? $r['k'])] = (int)$r['c'];
-    }
-}
-
-// Etikete göre dağılım (genel raporda): bir okutma, QR'ının her etiketine sayılır
-$perTag = [];
-if (!$link && $tag === '') {
-    $canon = [];
-    foreach ($q("SELECT l.tags t, COUNT(*) c FROM scans s JOIN links l ON l.id = s.link_id WHERE {$base['ok']} AND l.tags IS NOT NULL AND l.tags <> '' GROUP BY l.id", $args) as $r) {
-        foreach (explode(',', $r['t']) as $t) {
-            $k = LinkService::tagKey($t);
-            $canon[$k] ??= $t;
-            $perTag[$canon[$k]] = ($perTag[$canon[$k]] ?? 0) + (int)$r['c'];
-        }
-    }
-    arsort($perTag);
-    $perTag = array_slice($perTag, 0, 15, true);
-}
+// QR bazlı tablo, kategoriye ve etikete göre dağılım (yalnızca genel raporda)
+$G = $link ? ['links' => [], 'categories' => [], 'tags' => []] : Stats::groups($pdo, $from, $to, $tag);
+$perLink = array_slice($G['links'], 0, 25);
+$perCat = $G['categories'];
+$perTag = $G['tags'];
 $allTagList = LinkService::allTags($pdo);
 
 // ─── Excel (çok sayfalı) ve yazdırılabilir / PDF rapor ───────────────────────
@@ -141,8 +122,7 @@ if ($export === 'xlsx' || $export === 'print') {
         'bots' => (int)$other['bots'], 'redirected' => (int)$other['redirected'],
         'daily' => $daily, 'prevDaily' => $prevDaily, 'markers' => array_column($markers, 'i'),
         'devices' => $dev, 'os' => $os, 'browsers' => $br, 'countries' => $countries, 'referrers' => $refs, 'heat' => $heat,
-        'links' => $link ? [] : $q("SELECT l.slug, l.title, l.category, l.tags, COUNT(*) c, COUNT(DISTINCT CONCAT(IFNULL(s.ip,''),'|',IFNULL(s.user_agent,''))) u
-                                    FROM scans s JOIN links l ON l.id = s.link_id WHERE {$base['ok']} GROUP BY l.id ORDER BY c DESC", $args)->fetchAll(),
+        'links' => $G['links'],
         'categories' => $perCat, 'tags' => $perTag, 'owners' => $perOwner, 'changes' => $changes,
         'by' => $actor['name'] ?? '', 'at' => (new DateTimeImmutable('now', Settings::timezone()))->format('d.m.Y H:i'),
     ];

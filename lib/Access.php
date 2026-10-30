@@ -59,6 +59,10 @@ class Access {
         self::$ctx = ['id' => null, 'role' => 'admin', 'scope' => ['all' => true, 'tags' => [], 'categories' => []]];
     }
 
+    /** Geçerli bağlamı saklayıp geri yüklemek için (ör. rapor e-postası başka kullanıcı adına hazırlanırken) */
+    public static function context(): ?array { return self::$ctx; }
+    public static function restore(?array $ctx): void { self::$ctx = $ctx; }
+
     public static function role(): string { return self::$ctx['role'] ?? 'admin'; }
     public static function userId(): ?int { return self::$ctx['id'] ?? null; }
     public static function isAdmin(): bool { return self::role() === 'admin'; }

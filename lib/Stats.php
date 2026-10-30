@@ -146,6 +146,31 @@ class Stats {
     }
 
     /**
+     * Genel rapor grupları: QR bazında (tamamı), kategoriye ve etikete göre okutmalar.
+     * Bir okutma, QR'ının her etiketine ayrı sayılır.
+     * @return array{links:array<int,array>,categories:array<string,int>,tags:array<string,int>}
+     */
+    public static function groups(PDO $pdo, string $from, string $to, ?string $tag = null): array {
+        [$ok, $args] = self::filter(null, $from, $to, $tag);
+        $q = function (string $sql) use ($pdo, $args) { $st = $pdo->prepare($sql); $st->execute($args); return $st; };
+        $links = $q("SELECT l.id, l.slug, l.title, l.category, l.tags, COUNT(*) c, COUNT(DISTINCT CONCAT(IFNULL(s.ip,''),'|',IFNULL(s.user_agent,''))) u
+                     FROM scans s JOIN links l ON l.id = s.link_id WHERE {$ok} GROUP BY l.id ORDER BY c DESC")->fetchAll();
+        $cats = $tags = $canon = [];
+        foreach ($links as $l) {
+            $k = $l['category'] ? (LinkService::CATEGORIES[$l['category']] ?? $l['category']) : 'Kategorisiz';
+            $cats[$k] = ($cats[$k] ?? 0) + (int)$l['c'];
+            if ($tag !== null && $tag !== '') continue; // etiket süzgecinde etiket dağılımı anlamsız
+            foreach (array_filter(explode(',', (string)$l['tags'])) as $t) {
+                $tk = LinkService::tagKey($t);
+                $canon[$tk] ??= $t;
+                $tags[$canon[$tk]] = ($tags[$canon[$tk]] ?? 0) + (int)$l['c'];
+            }
+        }
+        arsort($cats); arsort($tags);
+        return ['links' => $links, 'categories' => $cats, 'tags' => array_slice($tags, 0, 15, true)];
+    }
+
+    /**
      * Sahibine (QR'ı oluşturan kullanıcı) göre okutmalar.
      * @return array<int,array{owner:string,links:int,total:int}>
      */

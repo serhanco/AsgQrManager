@@ -125,6 +125,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', 'Tüm paylaşım bağlantıları iptal edildi.');
                 break;
 
+            case 'automation':
+                foreach (array_keys(Jobs::JOBS) as $k) Settings::set('job_' . $k, !empty($_POST['job'][$k]) ? '1' : '0');
+                LinkEvents::log($pdo, null, null, Auth::actor(), 'settings', ['otomasyon' => [null, implode(', ', array_keys(array_filter((array)($_POST['job'] ?? []))))]]);
+                flash('success', 'Otomasyon ayarları kaydedildi.');
+                break;
+
+            case 'run_job':
+                $job = (string)($_POST['job'] ?? '');
+                if (!isset(Jobs::JOBS[$job]) || !Jobs::available($pdo)) { $errors[] = 'Bilinmeyen görev.'; break; }
+                @set_time_limit(300);
+                $r = Jobs::run($pdo, $job, 'panel: ' . (Auth::actor()['name'] ?? ''));
+                flash($r['status'] === 'error' ? 'danger' : ($r['status'] === 'skipped' ? 'warning' : 'success'),
+                      Jobs::JOBS[$job][0] . ': ' . ['ok' => 'tamamlandı', 'skipped' => 'atlandı', 'error' => 'hata'][$r['status']] . ' — ' . $r['message']);
+                redirect($self . '#automation');
+
+            case 'mail':
+                $host = trim((string)($_POST['smtp_host'] ?? ''));
+                $port = (int)($_POST['smtp_port'] ?? 587);
+                $secure = (string)($_POST['smtp_secure'] ?? 'tls');
+                $from = trim((string)($_POST['mail_from'] ?? ''));
+                $on = !empty($_POST['mail_enabled']);
+                if ($host !== '' && !preg_match('/^[A-Za-z0-9.-]+$/', $host)) { $errors[] = 'SMTP sunucusu geçersiz (ör. smtp.hostinger.com).'; break; }
+                if ($port < 1 || $port > 65535) { $errors[] = 'Port 1-65535 arasında olmalı.'; break; }
+                if (!isset(Mailer::SECURE[$secure])) { $errors[] = 'Geçersiz güvenlik seçeneği.'; break; }
+                if ($from !== '' && !filter_var($from, FILTER_VALIDATE_EMAIL)) { $errors[] = 'Gönderen adresi geçersiz.'; break; }
+                if ($on && ($host === '' || $from === '')) { $errors[] = 'E-postayı açmak için SMTP sunucusu ve gönderen adresi gerekli.'; break; }
+                $extra = preg_split('/[\s,;]+/', trim((string)($_POST['mail_extra_to'] ?? ''))) ?: [];
+                $extra = array_values(array_filter($extra));
+                foreach ($extra as $a) if (!filter_var($a, FILTER_VALIDATE_EMAIL)) { $errors[] = "Ek alıcı geçersiz: {$a}"; break 2; }
+                $freq = (string)($_POST['report_frequency'] ?? 'off');
+                Settings::set('mail_enabled', $on ? '1' : '0');
+                Settings::set('smtp_host', $host); Settings::set('smtp_port', (string)$port); Settings::set('smtp_secure', $secure);
+                Settings::set('smtp_user', trim((string)($_POST['smtp_user'] ?? '')));
+                // Parola alanı boş bırakılırsa mevcut parola korunur
+                if ((string)($_POST['smtp_pass'] ?? '') !== '') Settings::set('smtp_pass', (string)$_POST['smtp_pass']);
+                if (!empty($_POST['smtp_pass_clear'])) Settings::set('smtp_pass', '');
+                Settings::set('mail_from', $from);
+                Settings::set('mail_from_name', mb_substr(trim((string)($_POST['mail_from_name'] ?? '')), 0, 80) ?: 'Acıbadem QR Code Manager');
+                Settings::set('report_frequency', in_array($freq, ['off', 'weekly', 'monthly'], true) ? $freq : 'off');
+                Settings::set('report_editors', !empty($_POST['report_editors']) ? '1' : '0');
+                Settings::set('mail_extra_to', implode(', ', $extra));
+                LinkEvents::log($pdo, null, null, Auth::actor(), 'settings', ['e-posta' => [null, ($on ? 'açık' : 'kapalı') . " {$host}:{$port} rapor={$freq}"]]);
+                flash('success', 'E-posta ayarları kaydedildi.' . ($on ? ' "Deneme e-postası gönder" ile kontrol edin.' : ''));
+                redirect($self . '#mail');
+
+            case 'mail_test':
+                if (!Mailer::enabled()) { $errors[] = 'Önce e-postayı açıp SMTP bilgilerini kaydedin.'; break; }
+                $st = $pdo->prepare('SELECT email FROM users WHERE id = ?');
+                $st->execute([Auth::actor()['id'] ?? 0]);
+                $to = trim((string)($_POST['test_to'] ?? '')) ?: (string)$st->fetchColumn();
+                if (!filter_var($to, FILTER_VALIDATE_EMAIL)) { $errors[] = 'Deneme için bir e-posta adresi yazın (ya da Hesabım\'a e-posta ekleyin).'; break; }
+                @set_time_limit(60);
+                $err = Mailer::send([$to], 'Deneme e-postası — Acıbadem QR Code Manager',
+                    '<p>Merhaba,</p><p>QR Code Manager e-posta ayarları çalışıyor. Uyarı ve rapor e-postaları bu adresten gönderilecek.</p>');
+                if ($err) { $errors[] = 'Gönderilemedi: ' . $err; break; }
+                flash('success', "Deneme e-postası gönderildi: {$to}");
+                redirect($self . '#mail');
+
             case 'upload_logo':
                 $name = saveUploadedLogo($_FILES['logo'] ?? []);
                 flash('success', "Logo yüklendi: {$name}");
@@ -157,6 +215,11 @@ $backups = array_reverse(glob(ROOT_DIR . '/logs/backups/pre-migrate-*-links.sql'
 $tokens  = (int)$pdo->query('SELECT COUNT(*) FROM api_tokens WHERE revoked_at IS NULL')->fetchColumn();
 $scanRows = (int)$pdo->query('SELECT COUNT(*) FROM scans')->fetchColumn();
 $linkRows = (int)$pdo->query('SELECT COUNT(*) FROM links')->fetchColumn();
+$jobsReady = Jobs::available($pdo);
+$jobRuns  = $jobsReady ? Jobs::lastRuns($pdo) : [];
+$cronSeen = Settings::get('cron_last_seen', '');
+$dailyBackups = array_reverse(array_merge(glob(ROOT_DIR . '/logs/backups/daily-*.sql') ?: [], glob(ROOT_DIR . '/logs/backups/daily-*.sql.gz') ?: []));
+rsort($dailyBackups);
 
 $pageTitle  = 'Ayarlar';
 $activePage = 'settings';
@@ -319,6 +382,97 @@ include __DIR__ . '/views/_layout.php';
   </form>
   <p class="text-xs text-muted mt-2">PNG, JPG veya WEBP · en fazla 2 MB · en fazla 4000 × 4000 px. Saydam arka planlı kare veya yatay PNG en iyi sonucu verir. Logo QR alanının ~%15'ine yerleştirilir.</p>
 </div>
+
+<!-- Otomasyon -->
+<div class="card" id="automation" style="grid-column:1/-1">
+  <div class="card-title mb-2"><?= icon('clock') ?> Otomasyon (zamanlanmış görevler)</div>
+  <?php if (!$jobsReady): ?>
+    <p class="text-sm text-muted">Veritabanı güncellemesi bekleniyor. Çıkış yapıp yeniden giriş yapın.</p>
+  <?php else: ?>
+  <p class="text-sm text-muted mb-2">Hostinger hPanel &gt; <strong>Gelişmiş &gt; Cron Jobs</strong> bölümünde "Özel" seçip <strong>her saat</strong> (dakika 0) çalışacak şekilde şu komutu ekleyin.
+    Her görev kendi sıklığında (günlük / haftalık) bir kez çalışır; görevler QR kayıtlarını değiştirmez.</p>
+  <div class="cron-cmd mb-2"><code id="cron-cmd"><?= e(Jobs::cronCommand()) ?></code>
+    <button class="btn btn-ghost btn-sm copy-btn" type="button" data-copy="<?= e(Jobs::cronCommand()) ?>"><?= icon('copy') ?> Kopyala</button></div>
+  <p class="text-xs mb-3 <?= $cronSeen === '' ? 'text-danger' : 'text-muted' ?>"><?= $cronSeen === ''
+      ? 'Cron henüz hiç çalışmadı. Komutu ekledikten sonra bir saat içinde burada son çalışma zamanı görünür.'
+      : 'Cron en son ' . e(date('d.m.Y H:i', strtotime($cronSeen))) . ' tarihinde çalıştı.' ?></p>
+  <form method="POST">
+    <?= Auth::csrfField() ?><input type="hidden" name="action" value="automation">
+    <div class="table-wrap"><table class="job-table">
+      <thead><tr><th>Açık</th><th>Görev</th><th>Sıklık</th><th>Son çalışma</th><th></th></tr></thead>
+      <tbody>
+      <?php foreach (Jobs::JOBS as $k => [$name, $desc]): $p = Jobs::period($k); $r = $jobRuns[$k] ?? null; ?>
+        <tr>
+          <td><input type="checkbox" name="job[<?= $k ?>]" value="1" <?= Jobs::enabled($k) ? 'checked' : '' ?> aria-label="<?= e($name) ?>"></td>
+          <td><span class="fw-bold"><?= e($name) ?></span><div class="text-xs text-muted"><?= e($desc) ?></div></td>
+          <td class="text-sm" style="white-space:nowrap"><?= $p ? e(Jobs::PERIODS[$p]) : '<span class="text-muted">kapalı</span>' ?></td>
+          <td class="text-xs"><?php if ($r): ?>
+              <span class="badge <?= ['ok' => 'badge-success', 'error' => 'badge-danger', 'skipped' => 'badge-muted'][$r['status']] ?? 'badge-warning' ?>"><?= e(['ok' => 'tamam', 'error' => 'hata', 'skipped' => 'atlandı', 'running' => 'sürüyor'][$r['status']] ?? $r['status']) ?></span>
+              <?= e(date('d.m H:i', strtotime($r['started_at']))) ?><div class="text-muted"><?= e((string)$r['message']) ?></div>
+            <?php else: ?><span class="text-muted">hiç çalışmadı</span><?php endif; ?></td>
+          <td><button class="btn btn-ghost btn-sm" type="submit" form="run-<?= $k ?>" title="Şimdi çalıştır"><?= icon('play') ?></button></td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table></div>
+    <button class="btn btn-primary btn-sm mt-3" type="submit"><?= icon('save') ?> Kaydet</button>
+  </form>
+  <?php foreach (array_keys(Jobs::JOBS) as $k): ?>
+    <form method="POST" id="run-<?= $k ?>" hidden><?= Auth::csrfField() ?><input type="hidden" name="action" value="run_job"><input type="hidden" name="job" value="<?= $k ?>"></form>
+  <?php endforeach; ?>
+  <?php if ($dailyBackups): ?><p class="text-xs text-muted mt-2">Gecelik yedekler (sunucuda, logs/backups): <?= e(implode(', ', array_map('basename', array_slice($dailyBackups, 0, 3)))) ?><?= count($dailyBackups) > 3 ? ' …' : '' ?></p><?php endif; ?>
+  <?php endif; ?>
+</div>
+
+<!-- E-posta -->
+<form method="POST" class="card" id="mail" style="grid-column:1/-1" autocomplete="off">
+  <?= Auth::csrfField() ?><input type="hidden" name="action" value="mail">
+  <div class="card-title mb-2"><?= icon('mail') ?> E-posta <span class="badge <?= Mailer::enabled() ? 'badge-success' : 'badge-muted' ?>"><?= Mailer::enabled() ? 'açık' : 'kapalı' ?></span></div>
+  <p class="text-sm text-muted mb-3">Uyarı özetleri ve periyodik raporlar e-postayla gider. Kapalıyken uyarılar yalnızca panelde (Uyarılar) görünür.
+    Alıcılar: e-posta adresi kayıtlı aktif kullanıcılar (yönetici tümünü, editör kendi QR'larını) ve aşağıdaki ek alıcılar. Hostinger e-postası için sunucu <code>smtp.hostinger.com</code>, port 465 (SSL) ya da 587 (STARTTLS).</p>
+  <label class="form-check mb-3"><input type="checkbox" name="mail_enabled" value="1" <?= Settings::get('mail_enabled', '0') === '1' ? 'checked' : '' ?>> <span>E-posta gönderimi açık</span></label>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label" for="smtp_host">SMTP sunucusu</label>
+      <input class="form-control" id="smtp_host" name="smtp_host" value="<?= e(Settings::get('smtp_host', '')) ?>" placeholder="smtp.hostinger.com"></div>
+    <div class="form-group"><label class="form-label" for="smtp_port">Port</label>
+      <input class="form-control" id="smtp_port" name="smtp_port" type="number" min="1" max="65535" value="<?= e(Settings::get('smtp_port', '465')) ?>"></div>
+    <div class="form-group"><label class="form-label" for="smtp_secure">Güvenlik</label>
+      <select class="form-control" id="smtp_secure" name="smtp_secure">
+        <?php foreach (Mailer::SECURE as $k => $label): ?><option value="<?= $k ?>" <?= Settings::get('smtp_secure', 'ssl') === $k ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
+      </select></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label" for="smtp_user">Kullanıcı adı</label>
+      <input class="form-control" id="smtp_user" name="smtp_user" value="<?= e(Settings::get('smtp_user', '')) ?>" autocomplete="off" placeholder="qr@acibadem.world"></div>
+    <div class="form-group"><label class="form-label" for="smtp_pass">Parola <span class="hint"><?= Settings::get('smtp_pass', '') !== '' ? 'kayıtlı; değiştirmek için yazın' : 'kayıtlı değil' ?></span></label>
+      <input class="form-control" id="smtp_pass" name="smtp_pass" type="password" value="" autocomplete="new-password"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label" for="mail_from">Gönderen adresi</label>
+      <input class="form-control" id="mail_from" name="mail_from" type="email" value="<?= e(Settings::get('mail_from', '')) ?>" placeholder="qr@acibadem.world"></div>
+    <div class="form-group"><label class="form-label" for="mail_from_name">Gönderen adı</label>
+      <input class="form-control" id="mail_from_name" name="mail_from_name" value="<?= e(Settings::get('mail_from_name', 'Acıbadem QR Code Manager')) ?>"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label" for="report_frequency">Periyodik rapor e-postası</label>
+      <select class="form-control" id="report_frequency" name="report_frequency">
+        <?php foreach (['off' => 'Kapalı', 'weekly' => 'Haftalık (pazartesi, geçen hafta)', 'monthly' => 'Aylık (ayın 1\'i, geçen ay)'] as $k => $label): ?>
+          <option value="<?= $k ?>" <?= Settings::get('report_frequency', 'off') === $k ? 'selected' : '' ?>><?= e($label) ?></option>
+        <?php endforeach; ?>
+      </select></div>
+    <div class="form-group"><label class="form-label" for="mail_extra_to">Ek alıcılar <span class="hint">virgülle; yönetici kopyasını alır</span></label>
+      <input class="form-control" id="mail_extra_to" name="mail_extra_to" value="<?= e(Settings::get('mail_extra_to', '')) ?>" placeholder="pazarlama@acibadem.world"></div>
+  </div>
+  <label class="form-check mb-3"><input type="checkbox" name="report_editors" value="1" <?= Settings::get('report_editors', '1') === '1' ? 'checked' : '' ?>> <span>Editörler de kendi QR'larının raporunu alsın</span></label>
+  <div class="btn-group">
+    <button class="btn btn-primary btn-sm" type="submit"><?= icon('save') ?> Kaydet</button>
+    <?php if (Mailer::enabled()): ?>
+      <input class="form-control" form="mail-test" name="test_to" type="email" placeholder="deneme alıcısı (boşsa sizin adresiniz)" style="max-width:280px">
+      <button class="btn btn-ghost btn-sm" type="submit" form="mail-test"><?= icon('mail') ?> Deneme e-postası gönder</button>
+    <?php endif; ?>
+  </div>
+</form>
+<form method="POST" id="mail-test" hidden><?= Auth::csrfField() ?><input type="hidden" name="action" value="mail_test"></form>
 
 <!-- Veritabanı -->
 <div class="card" style="grid-column:1/-1">

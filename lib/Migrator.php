@@ -183,6 +183,39 @@ class Migrator {
             '014_links_frame_text' => ['Şablonlu QR\'da QR\'a özel çerçeve yazısı (boşsa şablonun yazısı)', function (PDO $p) {
                 self::addColumn($p, 'links', 'frame_text', 'VARCHAR(64) NULL DEFAULT NULL');
             }],
+            '015_job_runs' => ['Zamanlanmış görev (cron) çalışma kayıtları', function (PDO $p) {
+                $p->exec("CREATE TABLE IF NOT EXISTS `job_runs` (
+                    `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    `job`         VARCHAR(32)     NOT NULL,
+                    `started_at`  DATETIME        NOT NULL,
+                    `finished_at` DATETIME        NULL,
+                    `status`      VARCHAR(10)     NOT NULL DEFAULT 'running',
+                    `items`       INT UNSIGNED    NOT NULL DEFAULT 0,
+                    `message`     VARCHAR(500)    NULL,
+                    `trigger_by`  VARCHAR(64)     NULL,
+                    PRIMARY KEY (`id`),
+                    KEY `idx_job_runs_job` (`job`, `started_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            }],
+            '016_notifications' => ['Uyarılar (bitiş yaklaşan, hedefi kırık, okutması duran QR) — aynı uyarı tekrar oluşmaz', function (PDO $p) {
+                // link_id için FOREIGN KEY yoktur: uyarı geçmişi QR'dan bağımsız kalır
+                $p->exec("CREATE TABLE IF NOT EXISTS `notifications` (
+                    `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    `kind`        VARCHAR(32)     NOT NULL,
+                    `link_id`     INT UNSIGNED    NULL,
+                    `dedupe_key`  VARCHAR(190)    NOT NULL,
+                    `title`       VARCHAR(255)    NOT NULL,
+                    `body`        TEXT            NULL,
+                    `created_at`  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `resolved_at` DATETIME        NULL,
+                    `resolved_by` VARCHAR(64)     NULL,
+                    `emailed_at`  DATETIME        NULL,
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `uniq_notifications_key` (`dedupe_key`),
+                    KEY `idx_notifications_open` (`resolved_at`, `created_at`),
+                    KEY `idx_notifications_link` (`link_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            }],
         ];
     }
 

@@ -22,6 +22,9 @@ require_once __DIR__ . '/Share.php';
 require_once __DIR__ . '/Stats.php';
 require_once __DIR__ . '/Xlsx.php';
 require_once __DIR__ . '/ReportExport.php';
+require_once __DIR__ . '/Mailer.php';
+require_once __DIR__ . '/Notifications.php';
+require_once __DIR__ . '/Jobs.php';
 require_once __DIR__ . '/ApiAuth.php';
 
 Logger::registerHandlers();
