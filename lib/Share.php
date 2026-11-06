@@ -44,6 +44,20 @@ class Share {
         try { return QrTemplates::find(getPdo(), (int)$link['template_id']); } catch (\Throwable $e) { return null; }
     }
 
+    /** Standart baskı ölçülerinin tipik kullanım alanı (buton altındaki kısa ipucu) */
+    public const MM_HINTS = [
+        30  => 'Kartvizit, yaka kartı, sticker',
+        50  => 'Broşür, masa kartı',
+        100 => 'Afiş, poster',
+        200 => 'Roll-up, büyük pano',
+    ];
+
+    /** Bir ölçünün ipucu: QR'ın şablonunun ölçüsüyse şablon adı, değilse standart kullanım alanı */
+    public static function mmHint(int $mm, ?array $tpl = null): string {
+        if ($tpl && (int)($tpl['print_mm'] ?? 0) === $mm && !empty($tpl['name'])) return (string)$tpl['name'] . ' şablonu';
+        return self::MM_HINTS[$mm] ?? '';
+    }
+
     /** Bu QR için sunulan vektörel ölçüler (mm): standart ölçüler + şablonun önerdiği baskı boyutu */
     public static function mmOptions(array $link): array {
         $mm = self::PDF_MM;

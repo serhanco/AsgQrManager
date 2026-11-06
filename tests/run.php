@@ -425,6 +425,7 @@ $admin = ['id' => null, 'name' => 'test'];
 $TL = LinkService::create($tpdo, $cl, 'tpltest1', $admin);
 ok(!$e && (int)$TL['template_id'] === $tid && LinkService::effectiveStyle($TL)['eye'] === 'circle', 'QR şablona bağlanır, görünümü şablondan gelir');
 ok(in_array(120, Share::mmOptions($TL), true) && str_contains(Share::render($TL, 'eps', 120)['data'], '%%BoundingBox: 0 0 341 341'), 'şablonun baskı boyutu indirme seçeneklerinde');
+ok(Share::mmHint(30) === 'Kartvizit, yaka kartı, sticker' && Share::mmHint(120, ['print_mm' => 120, 'name' => 'Roll-up']) === 'Roll-up şablonu' && Share::mmHint(77) === '', 'PDF ölçü ipuçları');
 QrTemplates::update($tpdo, $tid, array_merge($c, ['design' => json_encode(['fg' => '#1C2561', 'bg' => '#FFFFFF', 'shape' => 'rounded', 'eye' => 'rounded'])]));
 ok(LinkService::effectiveStyle(LinkService::find($tpdo, (int)$TL['id']))['eye'] === 'rounded', 'şablon düzenlenince bağlı QR yeni tasarımı alır');
 QrTemplates::setArchived($tpdo, $tid, true);
