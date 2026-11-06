@@ -166,9 +166,9 @@ include __DIR__ . '/views/_layout.php';
       <div class="dl-label">Vektörel — baskı için önerilir</div>
       <div class="btn-group">
         <a class="btn btn-success dl-link" data-tr="1" href="<?= qrDownloadUrl($slug, 'svg', 0, $logoQs) ?>">SVG</a>
-        <?php foreach (Share::mmOptions($link) as $mm): $isTpl = $tplMm === $mm; ?>
-          <a class="btn btn-primary dl-link<?= $isTpl ? ' btn-tpl' : '' ?>" data-tr="1" href="<?= qrDownloadUrl($slug, 'pdf', $mm, $logoQs) ?>"
-             <?= $isTpl ? 'title="' . e($tpl['name']) . ' şablonunun önerdiği baskı boyutu"' : '' ?>>PDF <?= $mm ?> mm<?= $isTpl ? ' ★' : '' ?></a>
+        <?php foreach (Share::mmOptions($link) as $mm): $isTpl = $tplMm === $mm; $hint = Share::mmHint($mm, $isTpl ? $tpl : null); ?>
+          <a class="btn btn-primary btn-stack dl-link<?= $isTpl ? ' btn-tpl' : '' ?>" data-tr="1" href="<?= qrDownloadUrl($slug, 'pdf', $mm, $logoQs) ?>"
+             <?= $isTpl ? 'title="' . e($tpl['name']) . ' şablonunun önerdiği baskı boyutu"' : '' ?>>PDF <?= $mm ?> mm<?= $isTpl ? ' ★' : '' ?><?php if ($hint !== ''): ?><span class="btn-hint"><?= e($hint) ?></span><?php endif; ?></a>
         <?php endforeach; ?>
       </div>
     </div>

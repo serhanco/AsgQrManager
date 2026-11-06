@@ -74,8 +74,8 @@ $days = max(0, (int)ceil(($exp - time()) / 86400));
     <div class="text-sm" style="margin-bottom:.35rem;font-weight:600">Vektörel — baskı için önerilir</div>
     <div class="btn-group" style="margin-bottom:1rem">
       <a class="btn btn-success dl" href="<?= e($base) ?>&fmt=svg">SVG</a>
-      <?php foreach (Share::mmOptions($link) as $mm): ?>
-        <a class="btn btn-primary dl" href="<?= e($base) ?>&fmt=pdf&size=<?= $mm ?>">PDF <?= $mm ?> mm</a>
+      <?php $tpl = Share::templateOf($link); foreach (Share::mmOptions($link) as $mm): $hint = Share::mmHint($mm, $tpl); ?>
+        <a class="btn btn-primary btn-stack dl" href="<?= e($base) ?>&fmt=pdf&size=<?= $mm ?>">PDF <?= $mm ?> mm<?php if ($hint !== ''): ?><span class="btn-hint"><?= e($hint) ?></span><?php endif; ?></a>
       <?php endforeach; ?>
       <a class="btn btn-primary dl" href="<?= e($base) ?>&fmt=eps&size=100">EPS (CMYK)</a>
       <a class="btn btn-primary dl" href="<?= e($base) ?>&fmt=ai&size=100">AI (Illustrator)</a>
