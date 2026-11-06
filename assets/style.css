@@ -644,6 +644,24 @@ canvas.chart-canvas { width: 100% !important; height: 100% !important; display: 
   .login-card .mobile-mark span { font-size: .85rem; letter-spacing: .34em; font-weight: 600; }
 }
 
+/* ─── Paylaşım (QR indirme) sayfası: tek sütun, yatayda ortalı ───────────── */
+.share-page {
+  min-height: 100vh; display: flex; justify-content: center; align-items: flex-start;
+  padding: 2rem 1rem; background: var(--bg);
+}
+.share-page.is-center { align-items: center; }
+.share-card {
+  width: 100%; max-width: 560px; text-align: center;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 4px); box-shadow: var(--shadow-md); padding: 1.75rem 1.5rem;
+}
+.share-card .btn-group { justify-content: center; }
+.share-card .form-check { justify-content: center; }
+@media (max-width: 480px) {
+  .share-page { padding: 1rem .75rem; }
+  .share-card { padding: 1.4rem 1rem; }
+}
+
 /* ─── Genişletilmiş özellikler: form, indirme/paylaşım, rapor, ayarlar ─────── */
 .mb-3 { margin-bottom: .75rem; }
 .text-success { color: var(--success); }

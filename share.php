@@ -18,7 +18,7 @@ function shareDeny(string $msg): never {
     header('Cache-Control: no-store');
     echo '<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
        . '<title>Bağlantı geçersiz</title><link rel="stylesheet" href="' . e(BASE_URL) . '/assets/style.css"></head><body>'
-       . '<div class="login-page"><div class="login-card"><h1 class="login-title">Bağlantı kullanılamıyor</h1>'
+       . '<div class="share-page is-center"><div class="share-card"><h1 class="login-title">Bağlantı kullanılamıyor</h1>'
        . '<p class="login-sub">' . e($msg) . '</p></div></div></body></html>';
     exit;
 }
@@ -63,8 +63,8 @@ $days = max(0, (int)ceil(($exp - time()) / 86400));
 <link rel="stylesheet" href="<?= BASE_URL ?>/assets/style.css">
 </head>
 <body>
-<div class="login-page" style="align-items:flex-start;padding-top:2rem">
-  <div class="login-card" style="max-width:560px">
+<div class="share-page">
+  <div class="share-card">
     <div class="login-logo"><img src="<?= BASE_URL ?>/assets/icon.svg" alt="" style="height:4.5rem;width:auto;margin:0 auto"></div>
     <h1 class="login-title"><?= e($link['title'] ?: $slug) ?></h1>
     <p class="login-sub">QR dosyalarını indirin · bağlantı <?= $days ?> gün daha geçerli</p>
