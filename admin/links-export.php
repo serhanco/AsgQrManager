@@ -20,14 +20,14 @@ header('Content-Disposition: attachment; filename="qr-linkler-' . date('Ymd-His'
 $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF"); // Excel için UTF-8 BOM
 fputcsv($out, ['slug', 'kisa_url', 'baslik', 'hedef_url', 'durum', 'tur', 'etiketler', 'okutma', 'baslangic', 'bitis',
-               'bitis_sonrasi_url', 'yedek_url', 'utm', 'olusturma', 'guncelleme', 'not'], ';');
+               'bitis_sonrasi_url', 'yedek_url', 'utm', 'olusturma', 'guncelleme', 'not', 'sabit_paylasim_linki'], ';');
 foreach ($st as $l) {
     $label = ['live' => 'aktif', 'inactive' => 'pasif', 'scheduled' => 'zamanlı', 'expired' => 'süresi dolmuş', 'archived' => 'arşiv'];
     fputcsv($out, array_map('csvCell', [
         $l['slug'], BASE_URL . '/r/' . $l['slug'], $l['title'], $l['target_url'],
         $label[Redirector::state($l)['state']] ?? '', $l['category'] ?? '', $l['tags'] ?? '', $l['scan_count'],
         $l['starts_at'] ?? '', $l['ends_at'] ?? '', $l['after_end_url'] ?? '', $l['fallback_url'] ?? '',
-        !empty($l['utm_enabled']) ? 'evet' : '', $l['created_at'], $l['updated_at'], $l['notes'] ?? '',
+        !empty($l['utm_enabled']) ? 'evet' : '', $l['created_at'], $l['updated_at'], $l['notes'] ?? '', Share::permanentUrl($l) ?? '',
     ]), ';');
 }
 fclose($out);

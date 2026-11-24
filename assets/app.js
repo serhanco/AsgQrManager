@@ -508,10 +508,14 @@ window.drawMultiChart = function (canvasId, labels, series) {
   });
   bar.closest('form').addEventListener('submit', e => {
     const f = e.target;
-    // "Kalıcı yap": etiket alanı gerekmez, onay sorulur
+    // "Bitişi kaldır" / "Süresiz paylaşım linki": etiket alanı gerekmez, onay sorulur
+    const n = boxes().filter(b => b.checked).length;
     if (e.submitter && e.submitter.hasAttribute('data-permanent')) {
-      const n = boxes().filter(b => b.checked).length;
-      if (!confirm(n + ' QR kalıcı yapılsın mı? Bitiş tarihleri kaldırılır ve QR\'lar süresiz olarak hedef adrese gider. Süresi dolmuş olanlar yeniden hedefe yönlenmeye başlar.')) e.preventDefault();
+      if (!confirm(n + ' QR\'ın bitiş tarihi kaldırılsın mı? QR\'lar süresiz olarak hedef adrese gider. Süresi dolmuş olanlar yeniden hedefe yönlenmeye başlar.')) e.preventDefault();
+      return;
+    }
+    if (e.submitter && e.submitter.hasAttribute('data-share-permanent')) {
+      if (!confirm(n + ' QR için süresiz (sabit) indirme bağlantısı açılsın mı? Bağlantılar siz iptal edene kadar çalışır.')) e.preventDefault();
       return;
     }
     if (!f.add.value.trim() && !f.remove.value.trim()) { e.preventDefault(); f.add.focus(); }
@@ -519,7 +523,7 @@ window.drawMultiChart = function (canvasId, labels, series) {
   refresh();
 })();
 
-/* ─── Düzenleme formu: "Kalıcı yap" bitiş tarihini temizler ─────────────── */
+/* ─── Düzenleme formu: "Bitişi kaldır" bitiş tarihini temizler ─────────────── */
 (function () {
   const btn = document.querySelector('[data-clear-ends]');
   const input = document.getElementById('ends_at');

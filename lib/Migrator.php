@@ -183,6 +183,9 @@ class Migrator {
             '014_links_frame_text' => ['Şablonlu QR\'da QR\'a özel çerçeve yazısı (boşsa şablonun yazısı)', function (PDO $p) {
                 self::addColumn($p, 'links', 'frame_text', 'VARCHAR(64) NULL DEFAULT NULL');
             }],
+            '015_links_share_key' => ['Seçilen QR\'lar için süresiz (sabit) paylaşım bağlantısı anahtarı (mevcut QR\'larda boş)', function (PDO $p) {
+                self::addColumn($p, 'links', 'share_key', 'VARCHAR(32) NULL DEFAULT NULL');
+            }],
         ];
     }
 

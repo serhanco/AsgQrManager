@@ -238,6 +238,26 @@ try {
             $changed = LinkService::makePermanent($pdo, [(int)$link['id']], $actor) > 0;
             apiOut(200, ['data' => LinkService::present(LinkService::find($pdo, (int)$link['id'])), 'changed' => $changed]);
         }
+        // POST /links/{slug}/share — indirme (paylaşım) bağlantısı.
+        //   {"days": 1|7|14|30|90} → süreli bağlantı · {"permanent": true} → süresiz bağlantı açar · {"permanent": false} → süresizi iptal eder
+        if ($method === 'POST' && $sub === 'share') {
+            if (array_key_exists('permanent', $body)) {
+                needWrite($tok);
+                needEdit($link);
+                if (!Share::permanentAvailable($pdo)) apiError(503, 'not_ready', 'Veritabanı güncellemesi bekleniyor (yönetici girişi).');
+                if (!empty($link['archived_at'])) apiError(409, 'conflict', 'Arşivdeki QR için bağlantı açılamaz.');
+                $on = filter_var($body['permanent'], FILTER_VALIDATE_BOOLEAN);
+                $changed = $on ? Share::enablePermanent($pdo, $link, $actor) : Share::disablePermanent($pdo, $link, $actor);
+                $link = LinkService::find($pdo, (int)$link['id']);
+                apiOut(200, ['data' => ['slug' => $link['slug'], 'permanent' => $on, 'url' => Share::permanentUrl($link), 'expires_at' => null], 'changed' => $changed]);
+            }
+            $days = (int)($body['days'] ?? Settings::get('share_ttl_days'));
+            if (!in_array($days, [1, 7, 14, 30, 90], true)) apiError(422, 'validation_failed', '"days" 1, 7, 14, 30 veya 90 olmalı.');
+            if (!empty($link['archived_at'])) apiError(409, 'conflict', 'Arşivdeki QR için bağlantı açılamaz.');
+            $url = Share::url($link['slug'], $days);
+            LinkEvents::log($pdo, (int)$link['id'], $link['slug'], $actor, 'share', ['gün' => $days]);
+            apiOut(200, ['data' => ['slug' => $link['slug'], 'permanent' => false, 'url' => $url, 'expires_at' => date('c', time() + $days * 86400)]]);
+        }
         if ($method === 'POST' && in_array($sub, ['activate', 'deactivate', 'archive', 'restore'], true)) {
             needWrite($tok);
             needEdit($link);

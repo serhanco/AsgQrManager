@@ -148,10 +148,10 @@ include __DIR__ . '/views/_layout.php';
           <small>Bitiş <?= e(substr($l['ends_at'], 0, 16)) ?> · ardından bitiş sonrası adrese geçer
           <?php if (Access::can('links.edit') && Access::canEditLink($l)): ?>
             <form method="POST" action="<?= BASE_URL ?>/admin/make-permanent" style="display:inline"
-                  data-confirm="<?= e($l['slug']) ?> kalıcı yapılsın mı? Bitiş tarihi kaldırılır ve QR süresiz olarak hedef adrese gider.">
+                  data-confirm="<?= e($l['slug']) ?> için bitiş tarihi kaldırılsın mı? Bitiş tarihi silinir ve QR süresiz olarak hedef adrese gider.">
               <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= (int)$l['id'] ?>">
               <input type="hidden" name="back" value="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>">
-              <button type="submit" class="link-btn" title="Bitiş tarihini kaldır, QR süresiz çalışsın">Kalıcı yap</button>
+              <button type="submit" class="link-btn" title="Bitiş tarihini kaldır, QR süresiz çalışsın">Bitişi kaldır</button>
             </form>
           <?php endif; ?></small></div></li>
       <?php endforeach; ?>

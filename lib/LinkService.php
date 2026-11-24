@@ -665,6 +665,7 @@ class LinkService {
             'style'         => $style,
             'template_id'   => !empty($link['template_id']) ? (int)$link['template_id'] : null,
             'frame_text'    => $link['frame_text'] ?? null,
+            'share_url_permanent' => Share::permanentUrl($link),
             'scan_count'    => (int)$link['scan_count'],
             'created_at'    => $link['created_at'],
             'updated_at'    => $link['updated_at'],
@@ -713,7 +714,8 @@ class LinkEvents {
         return [
             'create' => 'Oluşturuldu', 'update' => 'Güncellendi', 'activate' => 'Aktif edildi',
             'deactivate' => 'Pasife alındı', 'archive' => 'Arşivlendi', 'restore' => 'Arşivden çıkarıldı',
-            'purge' => 'Kalıcı silindi', 'tags' => 'Etiket değişti', 'permanent' => 'Kalıcı yapıldı (bitiş kaldırıldı)',
+            'purge' => 'Kalıcı silindi', 'tags' => 'Etiket değişti', 'permanent' => 'Bitiş tarihi kaldırıldı',
+            'share' => 'Süreli paylaşım bağlantısı', 'share_perm' => 'Sabit paylaşım bağlantısı açıldı', 'share_perm_off' => 'Sabit paylaşım bağlantısı iptal edildi',
             'request' => 'Onay talebi', 'request_ok' => 'Talep onaylandı', 'request_no' => 'Talep reddedildi',
             'request_cancel' => 'Talep geri çekildi', 'vcard' => 'Kartvizit güncellendi',
         ][$a] ?? $a;

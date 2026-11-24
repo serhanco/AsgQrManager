@@ -53,6 +53,8 @@ $qs = fn(array $over = []) => '?' . http_build_query(array_filter(
     fn($v) => $v !== '' && $v !== null
 ));
 
+$permShare = Share::permanentAvailable($pdo);
+
 $stateLabels = ['live' => ['● Aktif', 'badge-success'], 'inactive' => ['○ Pasif', 'badge-danger'],
                 'scheduled' => ['◷ Başlamadı', 'badge-muted'], 'expired' => ['◌ Süresi doldu', 'badge-muted'],
                 'archived' => ['▪ Arşivde', 'badge-muted']];
@@ -167,14 +169,17 @@ include __DIR__ . '/views/_layout.php';
               <?php if (!empty($link['tags'])): foreach (explode(',', $link['tags']) as $t): ?>
                 <a class="tag-chip" href="<?= BASE_URL ?>/admin/links<?= $qs(['tag' => $t, 'page' => null]) ?>" title="Bu etiketli tüm QR'ları göster">#<?= e($t) ?></a>
               <?php endforeach; endif; ?>
+              <?php if (!empty($link['share_key'])): ?>
+                <a class="tag-chip" href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($link['slug']) ?>#sabit-baglanti" title="Süresiz indirme bağlantısı açık"><?= icon('link') ?> Süresiz paylaşım</a>
+              <?php endif; ?>
               <?php if (!empty($link['ends_at'])): ?>
                 <div class="text-xs text-muted ends-line"><?= icon('clock') ?> Bitiş: <?= e(substr($link['ends_at'], 0, 16)) ?>
                   <?php if ($editable && $state !== 'archived'): ?>
                   <form method="POST" action="<?= BASE_URL ?>/admin/make-permanent" style="display:inline"
-                        data-confirm="<?= e($link['slug']) ?> kalıcı yapılsın mı? Bitiş tarihi kaldırılır ve QR süresiz olarak hedef adrese gider<?= $state === 'expired' ? ' (süresi dolmuş olduğu için yeniden hedefe yönlenmeye başlar)' : '' ?>.">
+                        data-confirm="<?= e($link['slug']) ?> için bitiş tarihi kaldırılsın mı? Bitiş tarihi silinir ve QR süresiz olarak hedef adrese gider<?= $state === 'expired' ? ' (süresi dolmuş olduğu için yeniden hedefe yönlenmeye başlar)' : '' ?>.">
                     <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= (int)$link['id'] ?>">
                     <input type="hidden" name="back" value="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>">
-                    <button type="submit" class="link-btn" title="Bitiş tarihini kaldır, QR süresiz çalışsın">Kalıcı yap</button>
+                    <button type="submit" class="link-btn" title="Bitiş tarihini kaldır, QR süresiz çalışsın">Bitişi kaldır</button>
                   </form>
                   <?php endif; ?>
                 </div>
@@ -250,8 +255,13 @@ include __DIR__ . '/views/_layout.php';
     <input class="form-control" type="text" name="remove" list="bulk-tag-list" maxlength="100" placeholder="Çıkarılacak etiket(ler)" aria-label="Çıkarılacak etiketler">
     <datalist id="bulk-tag-list"><?php foreach ($tagCounts as $t): ?><option value="<?= e($t['tag']) ?>"><?php endforeach; ?></datalist>
     <button class="btn btn-primary btn-sm" type="submit">Uygula</button>
+    <?php if ($permShare): ?>
+    <button class="btn btn-ghost btn-sm" type="submit" formaction="<?= BASE_URL ?>/admin/share-permanent" data-share-permanent
+            title="Seçilen QR'lar için süresi dolmayan indirme (paylaşım) bağlantısı açar"><?= icon('link') ?> Süresiz paylaşım linki</button>
+    <input type="hidden" name="mode" value="on">
+    <?php endif; ?>
     <button class="btn btn-ghost btn-sm" type="submit" formaction="<?= BASE_URL ?>/admin/make-permanent" data-permanent
-            title="Seçilen süreli QR'ların bitiş tarihini kaldırır; QR'lar süresiz olarak hedefe gider"><?= icon('clock') ?> Kalıcı yap</button>
+            title="Seçilen süreli QR'ların bitiş tarihini kaldırır; QR'lar süresiz olarak hedefe gider"><?= icon('clock') ?> Bitişi kaldır</button>
     <button class="btn btn-ghost btn-sm" type="button" data-compare title="Seçilen 2-5 QR'ı raporda yan yana gör">Karşılaştır</button>
     <button class="btn btn-ghost btn-sm" type="button" data-clear>Seçimi temizle</button>
   </div>

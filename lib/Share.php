@@ -22,6 +22,51 @@ class Share {
         return hash_equals(self::sign($slug, $expires), $sig);
     }
 
+    // ─── Süresiz (sabit) paylaşım bağlantısı ─────────────────────────────────
+    // Yalnızca seçilen QR'larda açılır. QR'a özel rastgele anahtar (links.share_key) + gizli anahtarla imzalanır:
+    // QR'da iptal edilince (anahtar silinir) ya da Ayarlar'dan "tümünü iptal et" denince (gizli anahtar yenilenir) çalışmaz.
+
+    /** Şema hazır mı (015 migration) */
+    public static function permanentAvailable(PDO $pdo): bool {
+        static $ok = null;
+        if ($ok === null) {
+            try { $pdo->query('SELECT share_key FROM links LIMIT 0'); $ok = true; } catch (\Throwable $e) { $ok = false; }
+        }
+        return $ok;
+    }
+
+    private static function signPermanent(string $slug, string $key): string {
+        return hash_hmac('sha256', $slug . '|perm|' . $key, Settings::shareSecret());
+    }
+
+    /** QR'ın sabit paylaşım bağlantısı (açık değilse null) */
+    public static function permanentUrl(array $link): ?string {
+        $key = (string)($link['share_key'] ?? '');
+        if ($key === '') return null;
+        return BASE_URL . '/share?s=' . rawurlencode($link['slug']) . '&p=' . self::signPermanent($link['slug'], $key);
+    }
+
+    public static function verifyPermanent(array $link, string $sig): bool {
+        $key = (string)($link['share_key'] ?? '');
+        return $key !== '' && $sig !== '' && hash_equals(self::signPermanent($link['slug'], $key), $sig);
+    }
+
+    /** Sabit bağlantıyı açar (zaten açıksa aynı bağlantı kalır). @return bool yeni açıldıysa true */
+    public static function enablePermanent(PDO $pdo, array $link, array $actor): bool {
+        if (!empty($link['share_key'])) return false;
+        $pdo->prepare('UPDATE links SET share_key = ? WHERE id = ? AND share_key IS NULL')->execute([bin2hex(random_bytes(16)), (int)$link['id']]);
+        LinkEvents::log($pdo, (int)$link['id'], $link['slug'], $actor, 'share_perm');
+        return true;
+    }
+
+    /** Sabit bağlantıyı iptal eder (daha önce verilen bağlantı çalışmaz). @return bool kapandıysa true */
+    public static function disablePermanent(PDO $pdo, array $link, array $actor): bool {
+        if (empty($link['share_key'])) return false;
+        $pdo->prepare('UPDATE links SET share_key = NULL WHERE id = ?')->execute([(int)$link['id']]);
+        LinkEvents::log($pdo, (int)$link['id'], $link['slug'], $actor, 'share_perm_off');
+        return true;
+    }
+
     /** Dosya adı için güvenli kısa ad */
     public static function fileBase(array $link): string {
         $t = trim((string)($link['title'] ?? ''));
