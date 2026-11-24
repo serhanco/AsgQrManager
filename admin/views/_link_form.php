@@ -209,6 +209,8 @@ if ($mode === 'create' && $templates) {
       <div class="form-group">
         <label class="form-label" for="ends_at">Bitiş <?= tip('Bu tarihten sonra QR kendiliğinden “bitiş sonrası adrese” (yoksa yedek hedefe) yönlenir.') ?></label>
         <input class="form-control" type="datetime-local" id="ends_at" name="ends_at" value="<?= e($f['ends_at'] ?? '') ?>">
+        <button type="button" class="link-btn text-xs mt-1" data-clear-ends style="padding-left:0<?= empty($f['ends_at']) ? ';display:none' : '' ?>"
+                title="Bitiş tarihini temizler; kaydettiğinizde QR süresiz çalışır">Kalıcı yap (bitişi kaldır)</button>
       </div>
     </div>
     <div class="form-group">

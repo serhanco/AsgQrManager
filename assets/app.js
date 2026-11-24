@@ -508,7 +508,23 @@ window.drawMultiChart = function (canvasId, labels, series) {
   });
   bar.closest('form').addEventListener('submit', e => {
     const f = e.target;
+    // "Kalıcı yap": etiket alanı gerekmez, onay sorulur
+    if (e.submitter && e.submitter.hasAttribute('data-permanent')) {
+      const n = boxes().filter(b => b.checked).length;
+      if (!confirm(n + ' QR kalıcı yapılsın mı? Bitiş tarihleri kaldırılır ve QR\'lar süresiz olarak hedef adrese gider. Süresi dolmuş olanlar yeniden hedefe yönlenmeye başlar.')) e.preventDefault();
+      return;
+    }
     if (!f.add.value.trim() && !f.remove.value.trim()) { e.preventDefault(); f.add.focus(); }
   });
   refresh();
+})();
+
+/* ─── Düzenleme formu: "Kalıcı yap" bitiş tarihini temizler ─────────────── */
+(function () {
+  const btn = document.querySelector('[data-clear-ends]');
+  const input = document.getElementById('ends_at');
+  if (!btn || !input) return;
+  const sync = () => { btn.style.display = input.value ? '' : 'none'; };
+  input.addEventListener('input', sync);
+  btn.addEventListener('click', () => { input.value = ''; sync(); input.focus(); });
 })();

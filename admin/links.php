@@ -168,7 +168,16 @@ include __DIR__ . '/views/_layout.php';
                 <a class="tag-chip" href="<?= BASE_URL ?>/admin/links<?= $qs(['tag' => $t, 'page' => null]) ?>" title="Bu etiketli tüm QR'ları göster">#<?= e($t) ?></a>
               <?php endforeach; endif; ?>
               <?php if (!empty($link['ends_at'])): ?>
-                <div class="text-xs text-muted"><?= icon('clock') ?> Bitiş: <?= e(substr($link['ends_at'], 0, 16)) ?></div>
+                <div class="text-xs text-muted ends-line"><?= icon('clock') ?> Bitiş: <?= e(substr($link['ends_at'], 0, 16)) ?>
+                  <?php if ($editable && $state !== 'archived'): ?>
+                  <form method="POST" action="<?= BASE_URL ?>/admin/make-permanent" style="display:inline"
+                        data-confirm="<?= e($link['slug']) ?> kalıcı yapılsın mı? Bitiş tarihi kaldırılır ve QR süresiz olarak hedef adrese gider<?= $state === 'expired' ? ' (süresi dolmuş olduğu için yeniden hedefe yönlenmeye başlar)' : '' ?>.">
+                    <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= (int)$link['id'] ?>">
+                    <input type="hidden" name="back" value="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>">
+                    <button type="submit" class="link-btn" title="Bitiş tarihini kaldır, QR süresiz çalışsın">Kalıcı yap</button>
+                  </form>
+                  <?php endif; ?>
+                </div>
               <?php endif; ?>
             </td>
             <td class="fw-bold" data-cell="scans"><?= formatCount((int)$link['scan_count']) ?></td>
@@ -241,6 +250,8 @@ include __DIR__ . '/views/_layout.php';
     <input class="form-control" type="text" name="remove" list="bulk-tag-list" maxlength="100" placeholder="Çıkarılacak etiket(ler)" aria-label="Çıkarılacak etiketler">
     <datalist id="bulk-tag-list"><?php foreach ($tagCounts as $t): ?><option value="<?= e($t['tag']) ?>"><?php endforeach; ?></datalist>
     <button class="btn btn-primary btn-sm" type="submit">Uygula</button>
+    <button class="btn btn-ghost btn-sm" type="submit" formaction="<?= BASE_URL ?>/admin/make-permanent" data-permanent
+            title="Seçilen süreli QR'ların bitiş tarihini kaldırır; QR'lar süresiz olarak hedefe gider"><?= icon('clock') ?> Kalıcı yap</button>
     <button class="btn btn-ghost btn-sm" type="button" data-compare title="Seçilen 2-5 QR'ı raporda yan yana gör">Karşılaştır</button>
     <button class="btn btn-ghost btn-sm" type="button" data-clear>Seçimi temizle</button>
   </div>

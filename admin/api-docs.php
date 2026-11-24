@@ -32,11 +32,12 @@ include __DIR__ . '/views/_layout.php';
     <tbody>
       <tr><td>GET</td><td><code>/ping</code></td><td>Anahtarı ve bağlantıyı doğrular</td></tr>
       <tr><td>GET</td><td><code>/tags</code></td><td>Kullanılan etiketler ve QR/okutma sayıları. Benzer yazımlar (İstanbul/istanbul) tek etiket sayılır; yazarken mevcut yazım korunur.</td></tr>
-      <tr><td>GET</td><td><code>/links</code></td><td>Liste. Filtre: <code>q, status, category, tag, page, per_page</code> (<code>tag=__none</code> etiketsiz QR’lar) (status: live, inactive, scheduled, expired, archived)</td></tr>
+      <tr><td>GET</td><td><code>/links</code></td><td>Liste. Filtre: <code>q, status, category, tag, page, per_page</code> (<code>tag=__none</code> etiketsiz QR’lar) (status: live, inactive, scheduled, expired, timed, archived; <code>timed</code> = bitiş tarihli)</td></tr>
       <tr><td>POST</td><td><code>/links</code></td><td>QR oluştur (yazma yetkisi)</td></tr>
       <tr><td>GET</td><td><code>/links/{slug}</code></td><td>Tek QR</td></tr>
       <tr><td>PATCH</td><td><code>/links/{slug}</code></td><td>Gönderilen alanları güncelle (örn. yeni hedef URL)</td></tr>
       <tr><td>POST</td><td><code>/links/{slug}/activate</code> · <code>deactivate</code> · <code>archive</code> · <code>restore</code></td><td>Durum değiştir. Editörün anahtarıyla <code>activate</code>/<code>deactivate</code> doğrudan uygulanmaz, yönetici onayına talep açar (<code>202</code>, isteğe bağlı <code>{"note": "…"}</code>).</td></tr>
+      <tr><td>POST</td><td><code>/links/{slug}/permanent</code></td><td>Süreli QR'ı kalıcı yapar: bitiş tarihini kaldırır, QR süresiz olarak hedefe gider (kısa ad ve geçmiş değişmez). Aynısı <code>PATCH {"ends_at": null}</code> ile de yapılabilir. Yanıttaki <code>changed</code>, QR zaten süresizse <code>false</code>.</td></tr>
       <tr><td>GET</td><td><code>/links/{slug}/qr?format=svg|png|pdf|eps|ai&amp;size=&amp;transparent=1&amp;download=1</code></td><td>QR dosyası. PNG size: 600, 1200, 2000, 3000 px · PDF / EPS / AI size: 30, 50, 100, 200 mm (EPS ve AI CMYK)</td></tr>
       <tr><td>GET</td><td><code>/links/{slug}/stats?from=YYYY-MM-DD&amp;to=YYYY-MM-DD</code></td><td>Okutma istatistikleri (günlük, cihaz, ülke…)</td></tr>
     </tbody>
@@ -77,6 +78,9 @@ curl -X POST <?= e($api) ?>/links \
 curl -X PATCH <?= e($api) ?>/links/arabhealth-2027 \
   -H "Authorization: Bearer $QRM_TOKEN" -H "Content-Type: application/json" \
   -d '{"target_url":"https://acibadem.world/events/arab-health-2027-program"}'
+
+# Etkinlik bitti ama QR kalsın: süresiz yap
+curl -X POST -H "Authorization: Bearer $QRM_TOKEN" <?= e($api) ?>/links/arabhealth-2027/permanent
 
 # Matbaa için PDF (100 mm) indir
 curl -o qr.pdf -H "Authorization: Bearer $QRM_TOKEN" "<?= e($api) ?>/links/arabhealth-2027/qr?format=pdf&amp;size=100"

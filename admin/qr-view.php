@@ -255,7 +255,15 @@ include __DIR__ . '/views/_layout.php';
     <?php endif; ?>
     <?php if (!empty($link['starts_at']) || !empty($link['ends_at'])): ?>
       <div><div class="info-k">Zamanlama</div>
-        <?= e(substr($link['starts_at'] ?? '—', 0, 16)) ?> → <?= e(substr($link['ends_at'] ?? '—', 0, 16)) ?></div>
+        <?= e(substr($link['starts_at'] ?? '—', 0, 16)) ?> → <?= e(substr($link['ends_at'] ?? '—', 0, 16)) ?>
+        <?php if (!empty($link['ends_at']) && $state !== 'archived' && Access::can('links.edit') && Access::canEditLink($link)): ?>
+          <form method="POST" action="<?= BASE_URL ?>/admin/make-permanent" style="display:inline"
+                data-confirm="Bu QR kalıcı yapılsın mı? Bitiş tarihi kaldırılır ve QR süresiz olarak hedef adrese gider.">
+            <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= (int)$link['id'] ?>">
+            <input type="hidden" name="back" value="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>">
+            <button type="submit" class="link-btn text-xs" title="Bitiş tarihini kaldır, QR süresiz çalışsın">Kalıcı yap</button>
+          </form>
+        <?php endif; ?></div>
     <?php endif; ?>
     <div><div class="info-k">Görünüm</div>
       <span class="swatch" style="background:<?= e($style['fg']) ?>"></span><span class="swatch" style="background:<?= e($style['bg']) ?>"></span>

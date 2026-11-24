@@ -231,6 +231,13 @@ try {
                 'total_scans_all_time' => (int)$link['scan_count'],
             ]]);
         }
+        // POST /links/{slug}/permanent — bitiş tarihini kaldırır (QR süresiz/kalıcı olur)
+        if ($method === 'POST' && $sub === 'permanent') {
+            needWrite($tok);
+            needEdit($link);
+            $changed = LinkService::makePermanent($pdo, [(int)$link['id']], $actor) > 0;
+            apiOut(200, ['data' => LinkService::present(LinkService::find($pdo, (int)$link['id'])), 'changed' => $changed]);
+        }
         if ($method === 'POST' && in_array($sub, ['activate', 'deactivate', 'archive', 'restore'], true)) {
             needWrite($tok);
             needEdit($link);
