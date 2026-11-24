@@ -206,6 +206,23 @@ class LinkService {
     }
 
     /**
+     * Seçili QR'ların bitiş tarihini kaldırır: QR süresiz (kalıcı) olarak hedef adrese gitmeye devam eder.
+     * Yalnızca ends_at boşaltılır; kısa ad, hedef, okutma geçmişi ve "bitiş sonrası adres" korunur
+     * (adres yalnızca yeniden bir bitiş tarihi verilirse kullanılır). Süresi dolmuş QR yeniden hedefe gider.
+     * @param int[] $ids
+     * @return int kalıcı yapılan QR sayısı (zaten süresiz olanlar sayılmaz)
+     */
+    public static function makePermanent(PDO $pdo, array $ids, array $actor): int {
+        $n = 0;
+        foreach (array_unique(array_map('intval', $ids)) as $id) {
+            $link = self::find($pdo, $id);
+            if (!$link || empty($link['ends_at'])) continue;
+            if (self::update($pdo, $link, ['ends_at' => null], $actor, 'permanent')) $n++;
+        }
+        return $n;
+    }
+
+    /**
      * Bir etiketi tüm QR'larda yeniden adlandırır; $to zaten varsa birleştirir. $to boşsa etiketi kaldırır.
      * QR'ların kendisine (kısa ad, hedef, okutma) dokunulmaz.
      * @return int değişen QR sayısı
@@ -546,7 +563,8 @@ class LinkService {
     // ─── Listeleme filtresi ──────────────────────────────────────────────────
 
     public const STATUSES = ['' => 'Tümü (arşiv hariç)', 'live' => 'Aktif', 'inactive' => 'Pasif',
-                             'scheduled' => 'Zamanlı (başlamadı)', 'expired' => 'Süresi dolmuş', 'archived' => 'Arşiv'];
+                             'scheduled' => 'Zamanlı (başlamadı)', 'expired' => 'Süresi dolmuş',
+                             'timed' => 'Süreli (bitiş tarihli)', 'archived' => 'Arşiv'];
 
     /**
      * Liste / dışa aktarım / API için ortak WHERE üretir.
@@ -573,6 +591,7 @@ class LinkService {
             case 'expired':
                 $where[] = 'archived_at IS NULL AND is_active = 1 AND ends_at <= ? AND (starts_at IS NULL OR starts_at <= ?)';
                 array_push($params, $now, $now); break;
+            case 'timed': $where[] = 'archived_at IS NULL AND ends_at IS NOT NULL'; break;
             default: $where[] = 'archived_at IS NULL';
         }
         if ($category !== '' && isset(self::CATEGORIES[$category])) { $where[] = 'category = ?'; $params[] = $category; }
@@ -646,6 +665,7 @@ class LinkService {
             'style'         => $style,
             'template_id'   => !empty($link['template_id']) ? (int)$link['template_id'] : null,
             'frame_text'    => $link['frame_text'] ?? null,
+            'share_url_permanent' => Share::permanentUrl($link),
             'scan_count'    => (int)$link['scan_count'],
             'created_at'    => $link['created_at'],
             'updated_at'    => $link['updated_at'],
@@ -694,7 +714,8 @@ class LinkEvents {
         return [
             'create' => 'Oluşturuldu', 'update' => 'Güncellendi', 'activate' => 'Aktif edildi',
             'deactivate' => 'Pasife alındı', 'archive' => 'Arşivlendi', 'restore' => 'Arşivden çıkarıldı',
-            'purge' => 'Kalıcı silindi', 'tags' => 'Etiket değişti',
+            'purge' => 'Kalıcı silindi', 'tags' => 'Etiket değişti', 'permanent' => 'Bitiş tarihi kaldırıldı',
+            'share' => 'Süreli paylaşım bağlantısı', 'share_perm' => 'Sabit paylaşım bağlantısı açıldı', 'share_perm_off' => 'Sabit paylaşım bağlantısı iptal edildi',
             'request' => 'Onay talebi', 'request_ok' => 'Talep onaylandı', 'request_no' => 'Talep reddedildi',
             'request_cancel' => 'Talep geri çekildi', 'vcard' => 'Kartvizit güncellendi',
         ][$a] ?? $a;

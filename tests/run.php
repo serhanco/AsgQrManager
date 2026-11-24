@@ -146,6 +146,56 @@ ok(str_contains($w, "tags IS NULL") && $p === [], 'etiketsiz filtresi');
 $tpdo->exec("DELETE FROM link_events WHERE slug LIKE 'tagtest%'");
 $tpdo->exec("DELETE FROM links WHERE slug LIKE 'tagtest%'");
 
+// ─── Kalıcı yapma (süreli QR'ın bitişini kaldırma) ───────────────────────────
+section('Kalıcı yapma');
+$tpdo->exec("DELETE FROM links WHERE slug LIKE 'permtest%'");
+$past = (new DateTimeImmutable('-1 day'))->format('Y-m-d H:i:s');
+$fut  = (new DateTimeImmutable('+10 days'))->format('Y-m-d H:i:s');
+$p1 = LinkService::create($tpdo, ['target_url' => 'https://acibadem.world/a', 'ends_at' => $past, 'after_end_url' => 'https://acibadem.world/office'], 'permtest1', $actor);
+$p2 = LinkService::create($tpdo, ['target_url' => 'https://acibadem.world/b', 'ends_at' => $fut], 'permtest2', $actor);
+$p3 = LinkService::create($tpdo, ['target_url' => 'https://acibadem.world/c'], 'permtest3', $actor);
+ok(Redirector::state(LinkService::find($tpdo, $p1['id']))['state'] === 'expired', 'süresi dolmuş QR başlangıçta expired');
+[$w, $pp] = LinkService::buildFilter(['status' => 'timed', 'q' => 'permtest']);
+$st = $tpdo->prepare("SELECT slug FROM links {$w} ORDER BY slug"); $st->execute($pp);
+ok($st->fetchAll(PDO::FETCH_COLUMN) === ['permtest1', 'permtest2'], '"Süreli" filtresi yalnızca bitiş tarihli QR\'ları listeler');
+$before = LinkService::find($tpdo, $p1['id']);
+ok(LinkService::makePermanent($tpdo, [$p1['id'], $p2['id'], $p3['id']], $actor) === 2, 'toplu kalıcı yapma yalnızca süreli QR\'ları sayar');
+$a1 = LinkService::find($tpdo, $p1['id']);
+ok($a1['ends_at'] === null && LinkService::find($tpdo, $p2['id'])['ends_at'] === null, 'bitiş tarihleri kaldırıldı');
+ok($a1['slug'] === $before['slug'] && $a1['target_url'] === $before['target_url'] && (int)$a1['scan_count'] === (int)$before['scan_count']
+   && $a1['after_end_url'] === 'https://acibadem.world/office', 'kısa ad, hedef, okutma sayısı ve bitiş sonrası adres korunur');
+ok(Redirector::state($a1)['state'] === 'live' && Redirector::resolve($a1)['url'] === 'https://acibadem.world/a', 'süresi dolmuş QR yeniden hedefe gider');
+ok(LinkService::makePermanent($tpdo, [$p3['id']], $actor) === 0, 'süresiz QR\'da değişiklik yok');
+ok((int)$tpdo->query("SELECT COUNT(*) FROM link_events WHERE action='permanent' AND slug LIKE 'permtest%'")->fetchColumn() === 2, 'kalıcı yapma geçmişe yazıldı');
+$tpdo->exec("DELETE FROM link_events WHERE slug LIKE 'permtest%'");
+$tpdo->exec("DELETE FROM links WHERE slug LIKE 'permtest%'");
+
+// ─── Süresiz (sabit) paylaşım bağlantısı ──────────────────────────────────────
+section('Süresiz paylaşım bağlantısı');
+$tpdo->exec("DELETE FROM links WHERE slug LIKE 'sharetest%'");
+$s1 = LinkService::create($tpdo, ['target_url' => 'https://acibadem.world/s1'], 'sharetest1', $actor);
+$s2 = LinkService::create($tpdo, ['target_url' => 'https://acibadem.world/s2'], 'sharetest2', $actor);
+ok(Share::permanentAvailable($tpdo), 'şema hazır (share_key sütunu)');
+ok(Share::permanentUrl($s1) === null && !Share::verifyPermanent($s1, 'x'), 'varsayılan: sabit bağlantı kapalı (mevcut QR\'lar etkilenmez)');
+ok(Share::enablePermanent($tpdo, $s1, $actor) === true, 'sabit bağlantı açılır');
+$s1 = LinkService::find($tpdo, $s1['id']);
+$u1 = Share::permanentUrl($s1);
+parse_str((string)parse_url($u1, PHP_URL_QUERY), $q1);
+ok(isset($q1['p']) && !isset($q1['e']) && Share::verifyPermanent($s1, $q1['p']), 'bağlantıda süre yok ve imza doğrulanır');
+ok(!Share::verifyPermanent(LinkService::find($tpdo, $s2['id']), $q1['p']), 'başka QR\'ın imzası geçmez');
+ok(Share::enablePermanent($tpdo, $s1, $actor) === false && Share::permanentUrl(LinkService::find($tpdo, $s1['id'])) === $u1, 'tekrar açmak bağlantıyı değiştirmez');
+ok($s1['slug'] === 'sharetest1' && $s1['target_url'] === 'https://acibadem.world/s1', 'QR kısa adı ve hedefi değişmez');
+$oldSecret = Settings::get('share_secret');
+Settings::set('share_secret', bin2hex(random_bytes(32)));
+ok(!Share::verifyPermanent($s1, $q1['p']) && Share::permanentUrl($s1) !== $u1, 'Ayarlar\'dan "tümünü iptal et" eski sabit bağlantıyı da kapatır');
+Settings::set('share_secret', (string)$oldSecret);
+ok(Share::disablePermanent($tpdo, $s1, $actor) === true, 'sabit bağlantı iptal edilir');
+$s1 = LinkService::find($tpdo, $s1['id']);
+ok(Share::permanentUrl($s1) === null && !Share::verifyPermanent($s1, $q1['p']), 'iptal sonrası eski bağlantı çalışmaz');
+ok((int)$tpdo->query("SELECT COUNT(*) FROM link_events WHERE action IN ('share_perm','share_perm_off') AND slug = 'sharetest1'")->fetchColumn() === 2, 'açma ve iptal geçmişe yazıldı');
+$tpdo->exec("DELETE FROM link_events WHERE slug LIKE 'sharetest%'");
+$tpdo->exec("DELETE FROM links WHERE slug LIKE 'sharetest%'");
+
 // ─── Roller ve kapsam ─────────────────────────────────────────────────────────
 section('Roller ve kapsam');
 $apdo = getPdo();

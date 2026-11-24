@@ -31,7 +31,7 @@ $trend = $prev30 > 0 ? (int)round(($last30 - $prev30) / $prev30 * 100) : null;
 
 // Dikkat isteyenler
 $now  = (new DateTimeImmutable('now'))->setTimezone(Settings::timezone());
-$soon = $one("SELECT id, slug, title, ends_at FROM links WHERE archived_at IS NULL AND is_active = 1 AND ends_at > ? AND ends_at <= ?{$scopeAnd} ORDER BY ends_at LIMIT 5",
+$soon = $one("SELECT * FROM links WHERE archived_at IS NULL AND is_active = 1 AND ends_at > ? AND ends_at <= ?{$scopeAnd} ORDER BY ends_at LIMIT 5",
              array_merge([$now->format('Y-m-d H:i:s'), $now->modify('+7 days')->format('Y-m-d H:i:s')], $scopeArgs))->fetchAll();
 $silent = $one("SELECT l.id, l.slug, l.title FROM links l WHERE l.archived_at IS NULL AND l.is_active = 1
                 AND l.created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
@@ -145,7 +145,15 @@ include __DIR__ . '/views/_layout.php';
       <?php foreach ($soon as $l): ?>
         <li><span class="dot warn"><?= icon('clock') ?></span>
           <div><a href="<?= BASE_URL ?>/admin/qr-view?slug=<?= urlencode($l['slug']) ?>" class="fw-bold"><?= e($l['title'] ?: $l['slug']) ?></a>
-          <small>Bitiş <?= e(substr($l['ends_at'], 0, 16)) ?> · ardından bitiş sonrası adrese geçer</small></div></li>
+          <small>Bitiş <?= e(substr($l['ends_at'], 0, 16)) ?> · ardından bitiş sonrası adrese geçer
+          <?php if (Access::can('links.edit') && Access::canEditLink($l)): ?>
+            <form method="POST" action="<?= BASE_URL ?>/admin/make-permanent" style="display:inline"
+                  data-confirm="<?= e($l['slug']) ?> için bitiş tarihi kaldırılsın mı? Bitiş tarihi silinir ve QR süresiz olarak hedef adrese gider.">
+              <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= (int)$l['id'] ?>">
+              <input type="hidden" name="back" value="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>">
+              <button type="submit" class="link-btn" title="Bitiş tarihini kaldır, QR süresiz çalışsın">Bitişi kaldır</button>
+            </form>
+          <?php endif; ?></small></div></li>
       <?php endforeach; ?>
       <?php if ($stats['inactive_links'] > 0): ?>
         <li><span class="dot off"><?= icon('power') ?></span>

@@ -508,7 +508,27 @@ window.drawMultiChart = function (canvasId, labels, series) {
   });
   bar.closest('form').addEventListener('submit', e => {
     const f = e.target;
+    // "Bitişi kaldır" / "Süresiz paylaşım linki": etiket alanı gerekmez, onay sorulur
+    const n = boxes().filter(b => b.checked).length;
+    if (e.submitter && e.submitter.hasAttribute('data-permanent')) {
+      if (!confirm(n + ' QR\'ın bitiş tarihi kaldırılsın mı? QR\'lar süresiz olarak hedef adrese gider. Süresi dolmuş olanlar yeniden hedefe yönlenmeye başlar.')) e.preventDefault();
+      return;
+    }
+    if (e.submitter && e.submitter.hasAttribute('data-share-permanent')) {
+      if (!confirm(n + ' QR için süresiz (sabit) indirme bağlantısı açılsın mı? Bağlantılar siz iptal edene kadar çalışır.')) e.preventDefault();
+      return;
+    }
     if (!f.add.value.trim() && !f.remove.value.trim()) { e.preventDefault(); f.add.focus(); }
   });
   refresh();
+})();
+
+/* ─── Düzenleme formu: "Bitişi kaldır" bitiş tarihini temizler ─────────────── */
+(function () {
+  const btn = document.querySelector('[data-clear-ends]');
+  const input = document.getElementById('ends_at');
+  if (!btn || !input) return;
+  const sync = () => { btn.style.display = input.value ? '' : 'none'; };
+  input.addEventListener('input', sync);
+  btn.addEventListener('click', () => { input.value = ''; sync(); input.focus(); });
 })();

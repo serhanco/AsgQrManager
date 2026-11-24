@@ -235,6 +235,38 @@ include __DIR__ . '/views/_layout.php';
           Tüm paylaşım bağlantılarını <a href="<?= BASE_URL ?>/admin/settings">Ayarlar</a>'dan iptal edebilirsiniz.</p>
       <?php endif; ?>
     </div>
+
+    <?php if (Share::permanentAvailable($pdo)):
+      $permUrl  = Share::permanentUrl($link);
+      $canPerm  = Access::can('links.edit') && Access::canEditLink($link) && empty($link['archived_at']); ?>
+    <div class="mt-4" id="sabit-baglanti">
+      <div class="dl-label">Süresiz (sabit) indirme bağlantısı</div>
+      <p class="text-xs text-muted mb-2">Süresi dolmayan bağlantı: matbaa, ajans veya ofisle kalıcı paylaşmak istediğiniz QR'lar için.
+        Siz iptal edene kadar çalışır; QR'ın tasarımı değişirse bağlantıdan hep güncel dosyalar iner.</p>
+      <?php if ($permUrl): ?>
+        <div class="share-box">
+          <input class="form-control font-mono text-xs" type="text" readonly value="<?= e($permUrl) ?>" onclick="this.select()">
+          <button class="copy-btn" data-copy="<?= e($permUrl) ?>" title="Kopyala"><?= icon('copy') ?></button>
+        </div>
+        <?php if ($canPerm): ?>
+        <form method="POST" action="<?= BASE_URL ?>/admin/share-permanent" class="mt-2"
+              data-confirm="Süresiz bağlantı iptal edilsin mi? Bu bağlantıyı gönderdiğiniz kişiler artık dosya indiremez.">
+          <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= (int)$link['id'] ?>"><input type="hidden" name="mode" value="off">
+          <input type="hidden" name="back" value="<?= e(($_SERVER['REQUEST_URI'] ?? '') . '#sabit-baglanti') ?>">
+          <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--danger)">Süresiz bağlantıyı iptal et</button>
+        </form>
+        <?php endif; ?>
+      <?php elseif ($canPerm): ?>
+        <form method="POST" action="<?= BASE_URL ?>/admin/share-permanent">
+          <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= (int)$link['id'] ?>"><input type="hidden" name="mode" value="on">
+          <input type="hidden" name="back" value="<?= e(($_SERVER['REQUEST_URI'] ?? '') . '#sabit-baglanti') ?>">
+          <button class="btn btn-primary" type="submit"><?= icon('link') ?> Süresiz bağlantı oluştur</button>
+        </form>
+      <?php else: ?>
+        <p class="text-xs text-muted">Bu QR için süresiz bağlantı açık değil.</p>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -255,7 +287,15 @@ include __DIR__ . '/views/_layout.php';
     <?php endif; ?>
     <?php if (!empty($link['starts_at']) || !empty($link['ends_at'])): ?>
       <div><div class="info-k">Zamanlama</div>
-        <?= e(substr($link['starts_at'] ?? '—', 0, 16)) ?> → <?= e(substr($link['ends_at'] ?? '—', 0, 16)) ?></div>
+        <?= e(substr($link['starts_at'] ?? '—', 0, 16)) ?> → <?= e(substr($link['ends_at'] ?? '—', 0, 16)) ?>
+        <?php if (!empty($link['ends_at']) && $state !== 'archived' && Access::can('links.edit') && Access::canEditLink($link)): ?>
+          <form method="POST" action="<?= BASE_URL ?>/admin/make-permanent" style="display:inline"
+                data-confirm="Bu QR için bitiş tarihi kaldırılsın mı? Bitiş tarihi silinir ve QR süresiz olarak hedef adrese gider.">
+            <?= Auth::csrfField() ?><input type="hidden" name="id" value="<?= (int)$link['id'] ?>">
+            <input type="hidden" name="back" value="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>">
+            <button type="submit" class="link-btn text-xs" title="Bitiş tarihini kaldır, QR süresiz çalışsın">Bitişi kaldır</button>
+          </form>
+        <?php endif; ?></div>
     <?php endif; ?>
     <div><div class="info-k">Görünüm</div>
       <span class="swatch" style="background:<?= e($style['fg']) ?>"></span><span class="swatch" style="background:<?= e($style['bg']) ?>"></span>

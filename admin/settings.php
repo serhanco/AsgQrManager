@@ -279,7 +279,7 @@ include __DIR__ . '/views/_layout.php';
       </select></div>
     <button class="btn btn-primary" type="submit">Kaydet</button>
   </form>
-  <form method="POST" class="mt-3" data-confirm="Daha önce oluşturulan TÜM indirme bağlantıları çalışmaz hale gelecek. Devam edilsin mi?">
+  <form method="POST" class="mt-3" data-confirm="Daha önce oluşturulan TÜM indirme bağlantıları (süresiz olanlar dahil) çalışmaz hale gelecek. Süresiz bağlantılar yeni adresle açık kalır; yeni adresi QR sayfasından tekrar paylaşmanız gerekir. Devam edilsin mi?">
     <?= Auth::csrfField() ?><input type="hidden" name="action" value="revoke_share">
     <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--danger)">Tüm paylaşım bağlantılarını iptal et</button>
   </form>

@@ -12,6 +12,7 @@ header('Referrer-Policy: no-referrer');
 $slug = preg_replace('/[^A-Za-z0-9_-]/', '', $_GET['s'] ?? '');
 $exp  = (int)($_GET['e'] ?? 0);
 $sig  = (string)($_GET['sig'] ?? '');
+$perm = (string)($_GET['p'] ?? ''); // süresiz (sabit) bağlantı imzası
 
 function shareDeny(string $msg): never {
     http_response_code(403);
@@ -23,11 +24,19 @@ function shareDeny(string $msg): never {
     exit;
 }
 
-if ($slug === '' || !Share::verify($slug, $exp, $sig)) {
-    shareDeny('Bu indirme bağlantısının süresi dolmuş ya da bağlantı geçersiz. Lütfen yeni bir bağlantı isteyin.');
+if ($slug === '') shareDeny('Bu indirme bağlantısı geçersiz.');
+if ($perm !== '') {
+    // Sabit bağlantı: QR'da açık olduğu sürece geçerli
+    $link = LinkService::findBySlug(getPdo(), $slug);
+    if (!$link || !Share::verifyPermanent($link, $perm)) {
+        shareDeny('Bu indirme bağlantısı iptal edilmiş ya da geçersiz. Lütfen yeni bir bağlantı isteyin.');
+    }
+} else {
+    if (!Share::verify($slug, $exp, $sig)) {
+        shareDeny('Bu indirme bağlantısının süresi dolmuş ya da bağlantı geçersiz. Lütfen yeni bir bağlantı isteyin.');
+    }
+    $link = LinkService::findBySlug(getPdo(), $slug);
 }
-
-$link = LinkService::findBySlug(getPdo(), $slug);
 if (!$link || !empty($link['archived_at'])) shareDeny('Bu QR artık mevcut değil.');
 
 // ─── İndirme ──────────────────────────────────────────────────────────────────
@@ -48,7 +57,8 @@ if (!empty($_GET['fmt'])) {
 }
 
 // ─── Sayfa ────────────────────────────────────────────────────────────────────
-$base = BASE_URL . '/share?s=' . rawurlencode($slug) . '&e=' . $exp . '&sig=' . $sig;
+$base = $perm !== '' ? BASE_URL . '/share?s=' . rawurlencode($slug) . '&p=' . $perm
+                     : BASE_URL . '/share?s=' . rawurlencode($slug) . '&e=' . $exp . '&sig=' . $sig;
 $svg  = Share::render($link, 'svg')['data'];
 $days = max(0, (int)ceil(($exp - time()) / 86400));
 ?>
@@ -67,7 +77,7 @@ $days = max(0, (int)ceil(($exp - time()) / 86400));
   <div class="share-card">
     <div class="login-logo"><img src="<?= BASE_URL ?>/assets/icon.svg" alt="" style="height:4.5rem;width:auto;margin:0 auto"></div>
     <h1 class="login-title"><?= e($link['title'] ?: $slug) ?></h1>
-    <p class="login-sub">QR dosyalarını indirin · bağlantı <?= $days ?> gün daha geçerli</p>
+    <p class="login-sub">QR dosyalarını indirin · <?= $perm !== '' ? 'süresiz bağlantı' : 'bağlantı ' . $days . ' gün daha geçerli' ?></p>
 
     <div class="qr-preview-box" style="margin-bottom:1rem"><?= $svg ?></div>
 
